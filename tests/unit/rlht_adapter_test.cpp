@@ -259,6 +259,16 @@ TEST_F(RlhtAdapterTest, ReadSignals_SessionReadFails_ReturnsUnavailable) {
               anolis::deviceprovider::v1::Status::CODE_UNAVAILABLE);
 }
 
+TEST_F(RlhtAdapterTest, ReadSignals_SessionTimesOut_ReturnsDeadlineExceeded) {
+    transport.read_error = crumbs::SessionErrorCode::Timeout;
+
+    const auto result = read_signals(session, device, {});
+
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code,
+              anolis::deviceprovider::v1::Status::CODE_DEADLINE_EXCEEDED);
+}
+
 TEST_F(RlhtAdapterTest, ReadSignals_TruncatedPayload_ReturnsInternal) {
     // Only 5 bytes — far too short for a valid RLHT state frame
     transport.read_replies[RLHT_OP_GET_STATE] =
@@ -459,6 +469,17 @@ TEST_F(RlhtAdapterTest, Call_SendFails_ReturnsUnavailable) {
     EXPECT_FALSE(result.ok);
     EXPECT_EQ(result.error_code,
               anolis::deviceprovider::v1::Status::CODE_UNAVAILABLE);
+}
+
+TEST_F(RlhtAdapterTest, Call_SendTimesOut_ReturnsDeadlineExceeded) {
+    transport.send_error = crumbs::SessionErrorCode::Timeout;
+
+    const auto args = make_args({{"mode", make_string_val("closed_loop")}});
+    const auto result = call(session, device, 1u, args);
+
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code,
+              anolis::deviceprovider::v1::Status::CODE_DEADLINE_EXCEEDED);
 }
 
 } // namespace

@@ -293,6 +293,16 @@ TEST_F(DcmtAdapterTest, ReadSignals_SessionFails_ReturnsUnavailable) {
               anolis::deviceprovider::v1::Status::CODE_UNAVAILABLE);
 }
 
+TEST_F(DcmtAdapterTest, ReadSignals_SessionTimesOut_ReturnsDeadlineExceeded) {
+    transport.read_error = crumbs::SessionErrorCode::Timeout;
+
+    const auto result = read_signals(session, device, {});
+
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code,
+              anolis::deviceprovider::v1::Status::CODE_DEADLINE_EXCEEDED);
+}
+
 // ---------------------------------------------------------------------------
 // call tests
 // ---------------------------------------------------------------------------
@@ -428,6 +438,18 @@ TEST_F(DcmtAdapterTest, Call_MissingRequiredArg_ReturnsInvalidArgument) {
     EXPECT_FALSE(result.ok);
     EXPECT_EQ(result.error_code,
               anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT);
+}
+
+TEST_F(DcmtAdapterTest, Call_SendTimesOut_ReturnsDeadlineExceeded) {
+    transport.send_error = crumbs::SessionErrorCode::Timeout;
+
+    const auto args = make_args({{"motor1_pwm", make_int64_val(100)},
+                                  {"motor2_pwm", make_int64_val(-50)}});
+    const auto result = call(session, device, 1u, args);
+
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code,
+              anolis::deviceprovider::v1::Status::CODE_DEADLINE_EXCEEDED);
 }
 
 } // namespace

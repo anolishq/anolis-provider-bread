@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include "crumbs/session.hpp"
 #include "protocol.pb.h"
 #include <google/protobuf/util/time_util.h>
 
@@ -173,6 +174,39 @@ inline anolis::deviceprovider::v1::SignalValue make_signal_value(
     *sv.mutable_timestamp() = (google::protobuf::util::TimeUtil::GetCurrentTime)();
     sv.set_quality(anolis::deviceprovider::v1::SignalValue::QUALITY_OK);
     return sv;
+}
+
+// ---------------------------------------------------------------------------
+// Session error → ADPP error code mapping
+//
+// Translates transport-layer failures into appropriate ADPP Status codes:
+//   Timeout      → CODE_DEADLINE_EXCEEDED  (device not responding in time)
+//   DecodeFailed → CODE_INTERNAL           (unexpected response structure)
+//   all others   → CODE_UNAVAILABLE        (transport or I/O failure)
+// ---------------------------------------------------------------------------
+
+inline AdapterReadResult read_error_from_session(
+    const crumbs::SessionStatus &status, const std::string &op) {
+    using S = anolis::deviceprovider::v1::Status;
+    if (status.code == crumbs::SessionErrorCode::Timeout) {
+        return {false, S::CODE_DEADLINE_EXCEEDED, op + " timed out: " + status.message};
+    }
+    if (status.code == crumbs::SessionErrorCode::DecodeFailed) {
+        return {false, S::CODE_INTERNAL, op + " decode error: " + status.message};
+    }
+    return {false, S::CODE_UNAVAILABLE, op + " failed: " + status.message};
+}
+
+inline AdapterCallResult call_error_from_session(
+    const crumbs::SessionStatus &status, const std::string &op) {
+    using S = anolis::deviceprovider::v1::Status;
+    if (status.code == crumbs::SessionErrorCode::Timeout) {
+        return {false, S::CODE_DEADLINE_EXCEEDED, op + " timed out: " + status.message};
+    }
+    if (status.code == crumbs::SessionErrorCode::DecodeFailed) {
+        return {false, S::CODE_INTERNAL, op + " decode error: " + status.message};
+    }
+    return {false, S::CODE_UNAVAILABLE, op + " failed: " + status.message};
 }
 
 } // namespace anolis_provider_bread

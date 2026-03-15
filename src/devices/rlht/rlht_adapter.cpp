@@ -82,9 +82,7 @@ AdapterReadResult read_signals(crumbs::Session &session,
                            frame);
 
     if (!status.ok()) {
-        return {false,
-                anolis::deviceprovider::v1::Status::CODE_UNAVAILABLE,
-                "RLHT GET_STATE failed: " + status.message};
+        return read_error_from_session(status, "RLHT GET_STATE");
     }
 
     if (frame.type_id != RLHT_TYPE_ID || frame.opcode != RLHT_OP_GET_STATE) {
@@ -254,9 +252,7 @@ AdapterCallResult call(crumbs::Session &session,
 
     const crumbs::SessionStatus send_status = session.send(addr, frame);
     if (!send_status.ok()) {
-        return {false,
-                anolis::deviceprovider::v1::Status::CODE_UNAVAILABLE,
-                "RLHT SET command failed: " + send_status.message};
+        return call_error_from_session(send_status, "RLHT SET command");
     }
 
     return {true, anolis::deviceprovider::v1::Status::CODE_OK, "ok"};
