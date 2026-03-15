@@ -69,6 +69,20 @@ target_compile_definitions(anolis_provider_bread_support PUBLIC
 )
 anolis_provider_bread_apply_warnings(anolis_provider_bread_support)
 
+add_library(anolis_provider_bread_crumbs STATIC
+    src/crumbs/session.cpp
+)
+
+target_include_directories(anolis_provider_bread_crumbs PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(anolis_provider_bread_crumbs
+    PUBLIC
+        anolis_provider_bread_support
+)
+target_compile_definitions(anolis_provider_bread_crumbs PUBLIC
+    ANOLIS_PROVIDER_BREAD_VERSION="${PROJECT_VERSION}"
+)
+anolis_provider_bread_apply_warnings(anolis_provider_bread_crumbs)
+
 add_library(anolis_provider_bread_core STATIC
     src/core/handlers.cpp
     src/core/health.cpp
@@ -144,6 +158,14 @@ if(ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE)
     add_subdirectory("${CRUMBS_DIR_ABS}" "${CMAKE_BINARY_DIR}/crumbs_subbuild")
     add_subdirectory("${BREAD_CONTRACTS_DIR_ABS}" "${CMAKE_BINARY_DIR}/bread_contracts_subbuild")
 
+    target_sources(anolis_provider_bread_crumbs PRIVATE
+        src/crumbs/linux_transport.cpp
+    )
+    target_link_libraries(anolis_provider_bread_crumbs PUBLIC crumbs)
+    target_compile_definitions(anolis_provider_bread_crumbs PUBLIC
+        ANOLIS_PROVIDER_BREAD_HAS_CRUMBS=1
+    )
+
     add_library(anolis_provider_bread_bread_contracts INTERFACE)
     target_link_libraries(anolis_provider_bread_bread_contracts
         INTERFACE
@@ -162,6 +184,7 @@ anolis_provider_bread_apply_warnings(anolis-provider-bread)
 
 if(WIN32)
     target_compile_definitions(anolis_provider_bread_support PUBLIC _CRT_SECURE_NO_WARNINGS)
+    target_compile_definitions(anolis_provider_bread_crumbs PUBLIC _CRT_SECURE_NO_WARNINGS)
     target_compile_definitions(anolis_provider_bread_core PUBLIC _CRT_SECURE_NO_WARNINGS)
     target_compile_definitions(anolis-provider-bread PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()

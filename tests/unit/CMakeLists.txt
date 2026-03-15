@@ -1,4 +1,5 @@
 add_executable(provider_unit_tests
+    crumbs_session_test.cpp
     provider_config_test.cpp
     proto_smoke_test.cpp
     stub_inventory_test.cpp
@@ -9,6 +10,7 @@ target_include_directories(provider_unit_tests PRIVATE
 )
 
 target_link_libraries(provider_unit_tests PRIVATE
+    anolis_provider_bread_crumbs
     anolis_provider_bread_core
     GTest::gtest_main
 )
@@ -59,4 +61,3 @@ gtest_discover_tests(provider_phase1_shell_tests
         LABELS "phase1"
         TIMEOUT 60
 )
-

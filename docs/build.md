@@ -1,6 +1,7 @@
 # Build Notes
 
 Phase 1 establishes the ADPP provider shell for `anolis-provider-bread`.
+Phase 2 adds the provider-owned CRUMBS session layer that later phases will build on.
 
 ## Workspace Layout
 
@@ -56,6 +57,7 @@ ctest --preset dev-linux-debug
 ```
 
 This preset expects sibling repos for `CRUMBS`, `bread-crumbs-contracts`, and `linux-wire`.
+It also compiles the Linux-backed CRUMBS transport adapter used by the Phase 2 session layer.
 
 ## Running The Shell Manually
 
@@ -80,4 +82,6 @@ The committed stub config seeds one RLHT and one DCMT device so `Hello`, `WaitRe
 - Hardware integration is intentionally gated behind `ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE`.
 - When hardware integration is enabled, the parent build should add `linux-wire` before `CRUMBS`.
 - Current BREAD headers include CRUMBS headers directly, so future device adapter targets should link through the local `anolis_provider_bread_bread_contracts` interface target.
+- Phase 2 adds a provider-owned CRUMBS session layer. Foundation builds exercise it through fake-transport unit tests; Linux hardware builds compile the real `linux_transport` adapter.
+- `LinuxTransport::bind_device(...)` exists specifically so later phases use `bread-crumbs-contracts` for RLHT/DCMT operations instead of rebuilding those contracts on raw CRUMBS frames.
 - In Phase 1, `ReadSignals` and `Call` are intentionally present but return `CODE_UNIMPLEMENTED` after validating device and identifier existence.
