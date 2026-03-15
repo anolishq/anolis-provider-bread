@@ -1,11 +1,14 @@
 #include "core/handlers.hpp"
 
 #include <string>
+#include <vector>
 
 #include "core/health.hpp"
 #include "core/runtime_state.hpp"
 #include "core/transport/framed_stdio.hpp"
 #include "devices/common/inventory.hpp"
+#include "devices/dcmt/dcmt_adapter.hpp"
+#include "devices/rlht/rlht_adapter.hpp"
 
 namespace anolis_provider_bread::handlers {
 namespace {
@@ -115,8 +118,37 @@ void handle_read_signals(const ReadSignalsRequest &request, Response &response) 
         }
     }
 
-    set_status(response, Status::CODE_UNAVAILABLE,
-               "ReadSignals: hardware adapter not yet wired (Phase 4)");
+    crumbs::Session *session_ptr = runtime::session();
+    if(!session_ptr) {
+        set_status(response, Status::CODE_UNAVAILABLE,
+                   "no hardware session (provider not built with hardware support)");
+        return;
+    }
+
+    const std::vector<std::string> signal_ids(
+        request.signal_ids().begin(), request.signal_ids().end());
+
+    AdapterReadResult adapter_result;
+    if(device->type == DeviceType::Rlht) {
+        adapter_result = rlht::read_signals(*session_ptr, *device, signal_ids);
+    } else if(device->type == DeviceType::Dcmt) {
+        adapter_result = dcmt::read_signals(*session_ptr, *device, signal_ids);
+    } else {
+        set_status(response, Status::CODE_UNIMPLEMENTED, "unsupported device type");
+        return;
+    }
+
+    if(!adapter_result.ok) {
+        set_status(response, adapter_result.error_code, adapter_result.error_message);
+        return;
+    }
+
+    auto *out = response.mutable_read_signals();
+    out->set_device_id(request.device_id());
+    for(const auto &v : adapter_result.values) {
+        *out->add_values() = v;
+    }
+    set_status_ok(response);
 }
 
 void handle_call(const CallRequest &request, Response &response) {
@@ -135,8 +167,42 @@ void handle_call(const CallRequest &request, Response &response) {
         return;
     }
 
-    set_status(response, Status::CODE_UNAVAILABLE,
-               "Call: hardware adapter not yet wired (Phase 4)");
+    crumbs::Session *session_ptr = runtime::session();
+    if(!session_ptr) {
+        set_status(response, Status::CODE_UNAVAILABLE,
+                   "no hardware session (provider not built with hardware support)");
+        return;
+    }
+
+    // Resolve function_id from name if caller only provided function_name.
+    uint32_t fid = request.function_id();
+    if(fid == 0) {
+        for(const auto &fn : device->capabilities.functions()) {
+            if(fn.name() == request.function_name()) {
+                fid = fn.function_id();
+                break;
+            }
+        }
+    }
+
+    AdapterCallResult adapter_result;
+    if(device->type == DeviceType::Rlht) {
+        adapter_result = rlht::call(*session_ptr, *device, fid, request.args());
+    } else if(device->type == DeviceType::Dcmt) {
+        adapter_result = dcmt::call(*session_ptr, *device, fid, request.args());
+    } else {
+        set_status(response, Status::CODE_UNIMPLEMENTED, "unsupported device type");
+        return;
+    }
+
+    if(!adapter_result.ok) {
+        set_status(response, adapter_result.error_code, adapter_result.error_message);
+        return;
+    }
+
+    auto *out = response.mutable_call();
+    out->set_device_id(request.device_id());
+    set_status_ok(response);
 }
 
 void handle_get_health(const GetHealthRequest &, Response &response) {

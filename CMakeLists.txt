@@ -162,6 +162,8 @@ add_library(anolis_provider_bread_core STATIC
     src/core/transport/framed_stdio.cpp
     src/devices/common/bread_compatibility.cpp
     src/devices/common/inventory.cpp
+    src/devices/rlht/rlht_adapter.cpp
+    src/devices/dcmt/dcmt_adapter.cpp
 )
 target_include_directories(anolis_provider_bread_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(anolis_provider_bread_core

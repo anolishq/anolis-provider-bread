@@ -1,10 +1,12 @@
 add_executable(provider_unit_tests
     bread_inventory_test.cpp
     crumbs_session_test.cpp
+    dcmt_adapter_test.cpp
+    inventory_test.cpp
     provider_config_test.cpp
     proto_smoke_test.cpp
+    rlht_adapter_test.cpp
     startup_discovery_test.cpp
-    inventory_test.cpp
 )
 
 target_include_directories(provider_unit_tests PRIVATE
