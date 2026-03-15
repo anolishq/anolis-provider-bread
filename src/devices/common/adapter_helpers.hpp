@@ -189,12 +189,12 @@ inline AdapterReadResult read_error_from_session(
     const crumbs::SessionStatus &status, const std::string &op) {
     using S = anolis::deviceprovider::v1::Status;
     if (status.code == crumbs::SessionErrorCode::Timeout) {
-        return {false, S::CODE_DEADLINE_EXCEEDED, op + " timed out: " + status.message};
+        return {false, S::CODE_DEADLINE_EXCEEDED, op + " timed out: " + status.message, {}};
     }
     if (status.code == crumbs::SessionErrorCode::DecodeFailed) {
-        return {false, S::CODE_INTERNAL, op + " decode error: " + status.message};
+        return {false, S::CODE_INTERNAL, op + " decode error: " + status.message, {}};
     }
-    return {false, S::CODE_UNAVAILABLE, op + " failed: " + status.message};
+    return {false, S::CODE_UNAVAILABLE, op + " failed: " + status.message, {}};
 }
 
 inline AdapterCallResult call_error_from_session(

@@ -24,6 +24,7 @@ RuntimeState g_state;
 std::unique_ptr<crumbs::Transport> g_transport;
 std::unique_ptr<crumbs::Session>   g_session;
 
+#if defined(ANOLIS_PROVIDER_BREAD_HAS_CRUMBS)
 std::string build_startup_message(int device_count,
                                    int unsupported_count,
                                    const std::vector<std::string> &missing_ids,
@@ -39,6 +40,7 @@ std::string build_startup_message(int device_count,
     }
     return msg.str();
 }
+#endif // ANOLIS_PROVIDER_BREAD_HAS_CRUMBS
 
 } // namespace
 

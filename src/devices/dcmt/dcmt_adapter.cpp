@@ -110,14 +110,16 @@ AdapterReadResult read_signals(crumbs::Session &session,
     if (frame.type_id != DCMT_TYPE_ID || frame.opcode != DCMT_OP_GET_STATE) {
         return {false,
                 anolis::deviceprovider::v1::Status::CODE_INTERNAL,
-                "unexpected DCMT GET_STATE frame header"};
+                "unexpected DCMT GET_STATE frame header",
+                {}};
     }
 
     DcmtState s;
     if (!parse_state(frame.payload, s)) {
         return {false,
                 anolis::deviceprovider::v1::Status::CODE_INTERNAL,
-                "DCMT GET_STATE payload too short or malformed"};
+                "DCMT GET_STATE payload too short or malformed",
+                {}};
     }
 
     AdapterReadResult result;

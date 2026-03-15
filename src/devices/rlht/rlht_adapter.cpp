@@ -88,14 +88,16 @@ AdapterReadResult read_signals(crumbs::Session &session,
     if (frame.type_id != RLHT_TYPE_ID || frame.opcode != RLHT_OP_GET_STATE) {
         return {false,
                 anolis::deviceprovider::v1::Status::CODE_INTERNAL,
-                "unexpected RLHT GET_STATE frame header"};
+                "unexpected RLHT GET_STATE frame header",
+                {}};
     }
 
     RlhtState s;
     if (!parse_state(frame.payload, s)) {
         return {false,
                 anolis::deviceprovider::v1::Status::CODE_INTERNAL,
-                "RLHT GET_STATE payload too short or malformed"};
+                "RLHT GET_STATE payload too short or malformed",
+                {}};
     }
 
     const std::string mode_str =

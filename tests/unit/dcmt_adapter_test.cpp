@@ -237,12 +237,13 @@ TEST_F(DcmtAdapterTest, ReadSignals_Estop_DecodedCorrectly) {
     ASSERT_TRUE(result.ok);
 
     for (const auto &sv : result.values) {
-        if (sv.signal_id() == "estop")
+        if (sv.signal_id() == "estop") {
             EXPECT_TRUE(sv.value().bool_value());
-        if (sv.signal_id() == "motor1_brake")
+        } else if (sv.signal_id() == "motor1_brake") {
             EXPECT_TRUE(sv.value().bool_value());
-        if (sv.signal_id() == "motor2_brake")
+        } else if (sv.signal_id() == "motor2_brake") {
             EXPECT_TRUE(sv.value().bool_value());
+        }
     }
 }
 
