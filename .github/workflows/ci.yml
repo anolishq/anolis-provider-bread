@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    name: Foundation Build and Test (Linux, no hardware)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout anolis-provider-bread
+        uses: actions/checkout@v4
+        with:
+          path: anolis-provider-bread
+          submodules: recursive
+
+      - name: Checkout CRUMBS
+        uses: actions/checkout@v4
+        with:
+          repository: FEASTorg/CRUMBS
+          path: CRUMBS
+
+      - name: Checkout bread-crumbs-contracts
+        uses: actions/checkout@v4
+        with:
+          repository: FEASTorg/bread-crumbs-contracts
+          path: bread-crumbs-contracts
+
+      - name: Install build tools
+        run: sudo apt-get install -y cmake ninja-build
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: ${{ github.workspace }}/vcpkg
+          vcpkgJsonGlob: anolis-provider-bread/vcpkg.json
+
+      - name: Configure
+        working-directory: anolis-provider-bread
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+        run: cmake --preset ci-foundation-release
+
+      - name: Build
+        working-directory: anolis-provider-bread
+        run: cmake --build --preset ci-foundation-release
+
+      - name: Test
+        working-directory: anolis-provider-bread
+        run: ctest --preset ci-foundation-release

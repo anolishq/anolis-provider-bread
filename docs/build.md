@@ -1,8 +1,10 @@
 # Build Notes
 
 Phase 1 establishes the ADPP provider shell for `anolis-provider-bread`.
-Phase 2 adds the provider-owned CRUMBS session layer that later phases will build on.
+Phase 2 adds the provider-owned CRUMBS session layer.
 Phase 3 adds BREAD inventory and compatibility logic on top of the BREAD contract headers.
+Phase 4 adds the RLHT and DCMT hardware adapters with full signal and call translation.
+Phase 5 adds session error mapping, degraded-state health reporting, and timeout coverage.
 
 ## Workspace Layout
 
@@ -78,6 +80,52 @@ Start the provider shell for ADPP clients:
 ```
 
 The committed sample config seeds one RLHT and one DCMT device so `Hello`, `WaitReady`, `ListDevices`, `DescribeDevice`, and `GetHealth` are testable before real hardware work begins.
+
+## Test Taxonomy
+
+Two test executables are produced by every build:
+
+| Executable | Label | Coverage | Hardware required |
+|---|---|---|---|
+| `provider_unit_tests` | `unit` | Config, CRUMBS session, inventory, health, RLHT/DCMT adapters | No |
+| `provider_phase1_shell_tests` | `phase1` | ADPP framing and handler dispatch via provider subprocess | No |
+
+Both executables run under the foundation presets without hardware. Hardware-backed validation
+(real I2C bus, real RLHT/DCMT devices) is performed manually using the `dev-linux-*` presets
+and is not automated in the foundation CI lane.
+
+To run only unit tests locally:
+
+```bash
+ctest --preset dev-foundation-debug -L unit
+```
+
+To run all non-hardware tests:
+
+```bash
+ctest --preset dev-foundation-debug
+```
+
+## CI Lanes
+
+Two CI presets are defined:
+
+| Preset | Hardware | Warnings as errors | Purpose |
+|---|---|---|---|
+| `ci-foundation-release` | No | Yes | Automated CI on every push and PR |
+| `ci-linux-release` | Yes | Yes | Manual validation on real hardware host |
+
+The foundation lane runs automatically via GitHub Actions (`.github/workflows/ci.yml`).
+It checks out `CRUMBS` and `bread-crumbs-contracts` as sibling directories and configures
+with `ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF`.
+
+The hardware lane is not automated. Run it manually on the Linux host with the real CRUMBS bus:
+
+```bash
+cmake --preset ci-linux-release
+cmake --build --preset ci-linux-release
+ctest --preset ci-linux-release
+```
 
 ## Notes
 

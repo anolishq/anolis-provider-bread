@@ -94,6 +94,13 @@
       "cacheVariables": {
         "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON"
       }
+    },
+    {
+      "name": "ci-foundation-release",
+      "inherits": "dev-foundation-release",
+      "cacheVariables": {
+        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -126,6 +133,10 @@
     {
       "name": "ci-linux-release",
       "configurePreset": "ci-linux-release"
+    },
+    {
+      "name": "ci-foundation-release",
+      "configurePreset": "ci-foundation-release"
     }
   ],
   "testPresets": [
@@ -176,6 +187,13 @@
     {
       "name": "ci-linux-release",
       "configurePreset": "ci-linux-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-foundation-release",
+      "configurePreset": "ci-foundation-release",
       "output": {
         "outputOnFailure": true
       }
