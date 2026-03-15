@@ -1,0 +1,184 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "OFF",
+        "ANOLIS_PROTOCOL_DIR": "${sourceDir}/external/anolis-protocol"
+      }
+    },
+    {
+      "name": "base-windows-msvc",
+      "hidden": true,
+      "inherits": "base",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "VCPKG_HOST_TRIPLET": "x64-windows"
+      }
+    },
+    {
+      "name": "linux-hardware-base",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CRUMBS_DIR": "${sourceDir}/../CRUMBS",
+        "BREAD_CONTRACTS_DIR": "${sourceDir}/../bread-crumbs-contracts",
+        "LINUX_WIRE_DIR": "${sourceDir}/../linux-wire"
+      }
+    },
+    {
+      "name": "dev-foundation-debug",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "OFF"
+      }
+    },
+    {
+      "name": "dev-foundation-release",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "OFF"
+      }
+    },
+    {
+      "name": "dev-windows-foundation-debug",
+      "inherits": "base-windows-msvc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "OFF"
+      }
+    },
+    {
+      "name": "dev-windows-foundation-release",
+      "inherits": "base-windows-msvc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "OFF"
+      }
+    },
+    {
+      "name": "dev-linux-debug",
+      "inherits": "linux-hardware-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "ON",
+        "VCPKG_TARGET_TRIPLET": "x64-linux"
+      }
+    },
+    {
+      "name": "dev-linux-release",
+      "inherits": "linux-hardware-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "ON",
+        "VCPKG_TARGET_TRIPLET": "x64-linux"
+      }
+    },
+    {
+      "name": "ci-linux-release",
+      "inherits": "dev-linux-release",
+      "cacheVariables": {
+        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev-foundation-debug",
+      "configurePreset": "dev-foundation-debug"
+    },
+    {
+      "name": "dev-foundation-release",
+      "configurePreset": "dev-foundation-release"
+    },
+    {
+      "name": "dev-windows-foundation-debug",
+      "configurePreset": "dev-windows-foundation-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "dev-windows-foundation-release",
+      "configurePreset": "dev-windows-foundation-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "dev-linux-debug",
+      "configurePreset": "dev-linux-debug"
+    },
+    {
+      "name": "dev-linux-release",
+      "configurePreset": "dev-linux-release"
+    },
+    {
+      "name": "ci-linux-release",
+      "configurePreset": "ci-linux-release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "dev-foundation-debug",
+      "configurePreset": "dev-foundation-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "dev-foundation-release",
+      "configurePreset": "dev-foundation-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "dev-windows-foundation-debug",
+      "configurePreset": "dev-windows-foundation-debug",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "dev-windows-foundation-release",
+      "configurePreset": "dev-windows-foundation-release",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "dev-linux-debug",
+      "configurePreset": "dev-linux-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "dev-linux-release",
+      "configurePreset": "dev-linux-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-linux-release",
+      "configurePreset": "ci-linux-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

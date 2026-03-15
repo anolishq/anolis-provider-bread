@@ -1,0 +1,10 @@
+{
+  "name": "anolis-provider-bread",
+  "version": "0.1.0",
+  "description": "BREAD-over-CRUMBS hardware provider for the Anolis runtime",
+  "dependencies": [
+    "gtest",
+    "protobuf",
+    "yaml-cpp"
+  ]
+}
