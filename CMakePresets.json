@@ -101,6 +101,15 @@
       "cacheVariables": {
         "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON"
       }
+    },
+    {
+      "name": "ci-windows-foundation-release",
+      "inherits": "base-windows-msvc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "OFF",
+        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -137,6 +146,11 @@
     {
       "name": "ci-foundation-release",
       "configurePreset": "ci-foundation-release"
+    },
+    {
+      "name": "ci-windows-foundation-release",
+      "configurePreset": "ci-windows-foundation-release",
+      "configuration": "Release"
     }
   ],
   "testPresets": [
@@ -194,6 +208,14 @@
     {
       "name": "ci-foundation-release",
       "configurePreset": "ci-foundation-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-windows-foundation-release",
+      "configurePreset": "ci-windows-foundation-release",
+      "configuration": "Release",
       "output": {
         "outputOnFailure": true
       }

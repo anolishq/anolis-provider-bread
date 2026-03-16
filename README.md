@@ -1,10 +1,17 @@
 # anolis-provider-bread
 
+[![CI](https://github.com/FEASTorg/anolis-provider-bread/actions/workflows/ci.yml/badge.svg)](https://github.com/FEASTorg/anolis-provider-bread/actions/workflows/ci.yml)
+
 BREAD hardware provider for the Anolis runtime.
 
-This repository is intentionally scoped to **BREAD-over-CRUMBS** for the first real hardware provider. It will be implemented with clean internal boundaries so reusable CRUMBS session and bus-management pieces can be extracted later if a broader multi-family use case becomes real.
+Implements the Anolis Device Provider Protocol (ADPP) v1 over BREAD-over-CRUMBS, exposing RLHT
+and DCMT devices to the Anolis runtime via framed stdio. Supports Linux hardware integration and a
+hardware-free foundation build for development and CI.
 
 Repository documentation:
 
-- [docs/README.md](docs/README.md) - committed overview of scope and design decisions
-- [docs/build.md](docs/build.md) - current build and dependency workflow
+- [docs/README.md](docs/README.md) — scope, design decisions, key rules
+- [docs/build.md](docs/build.md) — configure, build, and test workflow
+- [docs/troubleshooting.md](docs/troubleshooting.md) — common failure modes and log signatures
+- [docs/versioning.md](docs/versioning.md) — provider and dependency version expectations
+- [CONTRIBUTING.md](CONTRIBUTING.md) — workspace setup, adding device types, cross-repo workflow

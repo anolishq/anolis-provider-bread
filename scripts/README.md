@@ -1,5 +1,17 @@
 # Scripts
 
-`scripts/` is reserved for repo-local helper scripts once Phase 1 and Phase 2 introduce repeated build or test workflows.
+Helper scripts for common build and test workflows.
 
-Phase 0 keeps this directory only to establish the intended layout.
+| Script | Purpose |
+|--------|---------|
+| `build.sh` | Configure and build via CMake preset (Linux/macOS) |
+| `build.ps1` | Configure and build via CMake preset (Windows/cross-platform) |
+| `test.sh` | Run CTest suite via preset (Linux/macOS) |
+| `test.ps1` | Run CTest suite via preset (Windows/cross-platform) |
+
+Each script supports `--help` for usage details.
+
+Default preset on Linux/macOS: `dev-foundation-debug`.
+Default preset on Windows: `dev-windows-foundation-debug`.
+
+Test suites: `all` (default), `unit`, `phase1`.
