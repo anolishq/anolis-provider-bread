@@ -52,6 +52,14 @@ Current implementation constraints include:
 
 See [build.md](build.md) for the current configure, build, and test flow.
 
+## Troubleshooting
+
+See [troubleshooting.md](troubleshooting.md) for common failure modes, log signatures, and fixes.
+
+## Versioning
+
+See [versioning.md](versioning.md) for provider and dependency version expectations.
+
 ## Working Notes
 
 Committed documentation in `docs/` should stay short and stable.
