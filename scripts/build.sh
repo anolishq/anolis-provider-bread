@@ -5,7 +5,7 @@
 #   ./scripts/build.sh [options] [-- <extra-cmake-configure-args>]
 #
 # Options:
-#   --preset <name>   Configure/build preset (default: dev-foundation-debug)
+#   --preset <name>   Configure/build preset (default: dev-debug)
 #   --clean           Remove preset build directory before configure
 #   -j, --jobs <N>    Parallel build jobs
 #   -h, --help        Show help
@@ -15,7 +15,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
-PRESET="dev-foundation-debug"
+PRESET="dev-debug"
 CLEAN=false
 JOBS=""
 EXTRA_CONFIG_ARGS=()

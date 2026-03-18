@@ -6,7 +6,7 @@ BREAD hardware provider for the Anolis runtime.
 
 Implements the Anolis Device Provider Protocol (ADPP) v1 over BREAD-over-CRUMBS, exposing RLHT
 and DCMT devices to the Anolis runtime via framed stdio. Supports Linux hardware integration and a
-hardware-free foundation build for development and CI.
+hardware-free no-hardware build for development and CI.
 
 Repository documentation:
 

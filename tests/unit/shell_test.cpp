@@ -303,7 +303,7 @@ private:
 #endif
 };
 
-TEST(Phase1ShellTest, SupportsHelloInventoryAndHealth) {
+TEST(ShellTest, SupportsHelloInventoryAndHealth) {
     ProviderSession session(ANOLIS_PROVIDER_BREAD_TEST_EXE, ANOLIS_PROVIDER_BREAD_TEST_CONFIG);
 
     {
@@ -311,7 +311,7 @@ TEST(Phase1ShellTest, SupportsHelloInventoryAndHealth) {
         anolis::deviceprovider::v1::Request hello;
         hello.set_request_id(1);
         hello.mutable_hello()->set_protocol_version("v1");
-        hello.mutable_hello()->set_client_name("phase1-shell-test");
+        hello.mutable_hello()->set_client_name("shell-test");
         hello.mutable_hello()->set_client_version("0.1.0");
         const auto response = session.send(hello);
         ASSERT_EQ(response.status().code(), anolis::deviceprovider::v1::Status::CODE_OK);
@@ -398,7 +398,7 @@ TEST(Phase1ShellTest, SupportsHelloInventoryAndHealth) {
         anolis::deviceprovider::v1::Request unsupported_hello;
         unsupported_hello.set_request_id(9);
         unsupported_hello.mutable_hello()->set_protocol_version("v999");
-        unsupported_hello.mutable_hello()->set_client_name("phase1-shell-test");
+        unsupported_hello.mutable_hello()->set_client_name("shell-test");
         unsupported_hello.mutable_hello()->set_client_version("0.1.0");
         const auto response = session.send(unsupported_hello);
         EXPECT_EQ(response.status().code(), anolis::deviceprovider::v1::Status::CODE_FAILED_PRECONDITION);

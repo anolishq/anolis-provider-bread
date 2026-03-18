@@ -4,8 +4,8 @@ Items here are explicitly deferred and intentional. They are not omissions or ac
 
 ## Hardware CI
 
-- [ ] Add self-hosted CI runner for the Linux hardware path (`ci-linux-release`) against real BREAD devices.
-      The foundation CI lane (Linux + Windows, no hardware) covers all unit and shell tests.
+- [ ] Add self-hosted CI runner for the Linux hardware path (`ci-linux-hardware-release`) against real BREAD devices.
+      The no-hardware CI lane (Linux + Windows, no hardware) covers all unit and shell tests.
       Hardware-in-the-loop validation requires a dedicated runner; deferred until hardware lab is available.
 
 ## ARM64 Support

@@ -39,7 +39,7 @@
       }
     },
     {
-      "name": "dev-foundation-debug",
+      "name": "dev-debug",
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -47,7 +47,7 @@
       }
     },
     {
-      "name": "dev-foundation-release",
+      "name": "dev-release",
       "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
@@ -55,7 +55,7 @@
       }
     },
     {
-      "name": "dev-windows-foundation-debug",
+      "name": "dev-windows-debug",
       "inherits": "base-windows-msvc",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -63,7 +63,7 @@
       }
     },
     {
-      "name": "dev-windows-foundation-release",
+      "name": "dev-windows-release",
       "inherits": "base-windows-msvc",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
@@ -71,7 +71,7 @@
       }
     },
     {
-      "name": "dev-linux-debug",
+      "name": "dev-linux-hardware-debug",
       "inherits": "linux-hardware-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -80,30 +80,30 @@
       }
     },
     {
-      "name": "dev-linux-release",
+      "name": "dev-linux-hardware-release",
       "inherits": "linux-hardware-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "ON",
         "VCPKG_TARGET_TRIPLET": "x64-linux"
+      }
+    },
+    {
+      "name": "ci-linux-hardware-release",
+      "inherits": "dev-linux-hardware-release",
+      "cacheVariables": {
+        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON"
       }
     },
     {
       "name": "ci-linux-release",
-      "inherits": "dev-linux-release",
+      "inherits": "dev-release",
       "cacheVariables": {
         "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON"
       }
     },
     {
-      "name": "ci-foundation-release",
-      "inherits": "dev-foundation-release",
-      "cacheVariables": {
-        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON"
-      }
-    },
-    {
-      "name": "ci-windows-foundation-release",
+      "name": "ci-windows-release",
       "inherits": "base-windows-msvc",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
@@ -114,86 +114,93 @@
   ],
   "buildPresets": [
     {
-      "name": "dev-foundation-debug",
-      "configurePreset": "dev-foundation-debug"
+      "name": "dev-debug",
+      "configurePreset": "dev-debug"
     },
     {
-      "name": "dev-foundation-release",
-      "configurePreset": "dev-foundation-release"
+      "name": "dev-release",
+      "configurePreset": "dev-release"
     },
     {
-      "name": "dev-windows-foundation-debug",
-      "configurePreset": "dev-windows-foundation-debug",
+      "name": "dev-windows-debug",
+      "configurePreset": "dev-windows-debug",
       "configuration": "Debug"
     },
     {
-      "name": "dev-windows-foundation-release",
-      "configurePreset": "dev-windows-foundation-release",
+      "name": "dev-windows-release",
+      "configurePreset": "dev-windows-release",
       "configuration": "Release"
     },
     {
-      "name": "dev-linux-debug",
-      "configurePreset": "dev-linux-debug"
+      "name": "dev-linux-hardware-debug",
+      "configurePreset": "dev-linux-hardware-debug"
     },
     {
-      "name": "dev-linux-release",
-      "configurePreset": "dev-linux-release"
+      "name": "dev-linux-hardware-release",
+      "configurePreset": "dev-linux-hardware-release"
+    },
+    {
+      "name": "ci-linux-hardware-release",
+      "configurePreset": "ci-linux-hardware-release"
     },
     {
       "name": "ci-linux-release",
       "configurePreset": "ci-linux-release"
     },
     {
-      "name": "ci-foundation-release",
-      "configurePreset": "ci-foundation-release"
-    },
-    {
-      "name": "ci-windows-foundation-release",
-      "configurePreset": "ci-windows-foundation-release",
+      "name": "ci-windows-release",
+      "configurePreset": "ci-windows-release",
       "configuration": "Release"
     }
   ],
   "testPresets": [
     {
-      "name": "dev-foundation-debug",
-      "configurePreset": "dev-foundation-debug",
+      "name": "dev-debug",
+      "configurePreset": "dev-debug",
       "output": {
         "outputOnFailure": true
       }
     },
     {
-      "name": "dev-foundation-release",
-      "configurePreset": "dev-foundation-release",
+      "name": "dev-release",
+      "configurePreset": "dev-release",
       "output": {
         "outputOnFailure": true
       }
     },
     {
-      "name": "dev-windows-foundation-debug",
-      "configurePreset": "dev-windows-foundation-debug",
+      "name": "dev-windows-debug",
+      "configurePreset": "dev-windows-debug",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       }
     },
     {
-      "name": "dev-windows-foundation-release",
-      "configurePreset": "dev-windows-foundation-release",
+      "name": "dev-windows-release",
+      "configurePreset": "dev-windows-release",
       "configuration": "Release",
       "output": {
         "outputOnFailure": true
       }
     },
     {
-      "name": "dev-linux-debug",
-      "configurePreset": "dev-linux-debug",
+      "name": "dev-linux-hardware-debug",
+      "configurePreset": "dev-linux-hardware-debug",
       "output": {
         "outputOnFailure": true
       }
     },
     {
-      "name": "dev-linux-release",
-      "configurePreset": "dev-linux-release",
+      "name": "dev-linux-hardware-release",
+      "configurePreset": "dev-linux-hardware-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-linux-hardware-release",
+      "configurePreset": "ci-linux-hardware-release",
       "output": {
         "outputOnFailure": true
       }
@@ -206,15 +213,8 @@
       }
     },
     {
-      "name": "ci-foundation-release",
-      "configurePreset": "ci-foundation-release",
-      "output": {
-        "outputOnFailure": true
-      }
-    },
-    {
-      "name": "ci-windows-foundation-release",
-      "configurePreset": "ci-windows-foundation-release",
+      "name": "ci-windows-release",
+      "configurePreset": "ci-windows-release",
       "configuration": "Release",
       "output": {
         "outputOnFailure": true

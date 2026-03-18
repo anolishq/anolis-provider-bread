@@ -35,34 +35,34 @@ gtest_discover_tests(provider_unit_tests
         TIMEOUT 30
 )
 
-add_executable(provider_phase1_shell_tests
-    phase1_shell_test.cpp
+add_executable(provider_shell_tests
+    shell_test.cpp
 )
 
-target_include_directories(provider_phase1_shell_tests PRIVATE
+target_include_directories(provider_shell_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
 
-target_link_libraries(provider_phase1_shell_tests PRIVATE
+target_link_libraries(provider_shell_tests PRIVATE
     anolis_provider_bread_core
     GTest::gtest_main
 )
 
-target_compile_definitions(provider_phase1_shell_tests PRIVATE
+target_compile_definitions(provider_shell_tests PRIVATE
     ANOLIS_PROVIDER_BREAD_TEST_EXE="$<TARGET_FILE:anolis-provider-bread>"
     ANOLIS_PROVIDER_BREAD_TEST_CONFIG="${CMAKE_SOURCE_DIR}/config/example.local.yaml"
 )
 
-anolis_provider_bread_apply_warnings(provider_phase1_shell_tests)
+anolis_provider_bread_apply_warnings(provider_shell_tests)
 
 if(WIN32)
-    target_compile_definitions(provider_phase1_shell_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_compile_definitions(provider_shell_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif()
 
-gtest_discover_tests(provider_phase1_shell_tests
-    TEST_PREFIX provider.phase1.
+gtest_discover_tests(provider_shell_tests
+    TEST_PREFIX provider.shell.
     DISCOVERY_TIMEOUT 30
     PROPERTIES
-        LABELS "phase1"
+        LABELS "shell"
         TIMEOUT 60
 )

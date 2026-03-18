@@ -40,28 +40,28 @@ See [docs/build.md](docs/build.md) for the full prerequisites list.
 
 All standard workflows use CMake presets.
 
-### Foundation (no hardware required, runs everywhere)
+### No Hardware (runs everywhere)
 
 ```bash
-cmake --preset dev-foundation-debug
-cmake --build --preset dev-foundation-debug
-ctest --preset dev-foundation-debug
+cmake --preset dev-debug
+cmake --build --preset dev-debug
+ctest --preset dev-debug
 ```
 
 On Windows with MSVC, use the `-windows-` variants:
 
 ```powershell
-cmake --preset dev-windows-foundation-debug
-cmake --build --preset dev-windows-foundation-debug
-ctest --preset dev-windows-foundation-debug
+cmake --preset dev-windows-debug
+cmake --build --preset dev-windows-debug
+ctest --preset dev-windows-debug
 ```
 
 ### Linux hardware path
 
 ```bash
-cmake --preset dev-linux-debug
-cmake --build --preset dev-linux-debug
-ctest --preset dev-linux-debug
+cmake --preset dev-linux-hardware-debug
+cmake --build --preset dev-linux-hardware-debug
+ctest --preset dev-linux-hardware-debug
 ```
 
 This requires the sibling `linux-wire` repo and a real I2C bus.
@@ -69,7 +69,7 @@ This requires the sibling `linux-wire` repo and a real I2C bus.
 ### Validating a config without running the provider
 
 ```bash
-./build/dev-foundation-debug/anolis-provider-bread --check-config config/example.local.yaml
+./build/dev-debug/anolis-provider-bread --check-config config/example.local.yaml
 ```
 
 ---
@@ -158,5 +158,5 @@ To watch logs while piping the provider into a runtime or test harness:
 
 For hardware path issues, match the `[WARN]` / `[ERROR]` probe lines against [docs/troubleshooting.md](docs/troubleshooting.md).
 
-The foundation build (`ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF`) runs without I2C hardware.
-If a hardware-path behavior is hard to reproduce, first verify the same path through the foundation build with a config-seeded inventory before debugging hardware specifically.
+The no-hardware build (`ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF`) runs without I2C hardware.
+If a hardware-path behavior is hard to reproduce, first verify the same path through the no-hardware build with a config-seeded inventory before debugging hardware specifically.

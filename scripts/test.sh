@@ -5,14 +5,14 @@
 #   ./scripts/test.sh [options] [-- <extra-ctest-args>]
 #
 # Options:
-#   --preset <name>   Test preset (default: dev-foundation-debug)
-#   --suite <name>    all|unit|phase1 (default: all)
+#   --preset <name>   Test preset (default: dev-debug)
+#   --suite <name>    all|unit|shell (default: all)
 #   -v, --verbose     Run ctest with -VV
 #   -h, --help        Show help
 
 set -euo pipefail
 
-PRESET="dev-foundation-debug"
+PRESET="dev-debug"
 SUITE="all"
 VERBOSE=false
 EXTRA_CTEST_ARGS=()
@@ -63,16 +63,16 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$SUITE" in
-all | unit | phase1) ;;
+all | unit | shell) ;;
 *)
-    echo "[ERROR] Invalid suite: $SUITE. Valid values: all, unit, phase1"
+    echo "[ERROR] Invalid suite: $SUITE. Valid values: all, unit, shell"
     exit 2
     ;;
 esac
 
 CTEST_ARGS=(--preset "$PRESET")
 if [[ "$SUITE" == "all" ]]; then
-    CTEST_ARGS+=(-L "unit|phase1")
+    CTEST_ARGS+=(-L "unit|shell")
 else
     CTEST_ARGS+=(-L "$SUITE")
 fi

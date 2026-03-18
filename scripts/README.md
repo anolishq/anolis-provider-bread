@@ -11,7 +11,7 @@ Helper scripts for common build and test workflows.
 
 Each script supports `--help` for usage details.
 
-Default preset on Linux/macOS: `dev-foundation-debug`.
-Default preset on Windows: `dev-windows-foundation-debug`.
+Default preset on Linux/macOS: `dev-debug`.
+Default preset on Windows: `dev-windows-debug`.
 
-Test suites: `all` (default), `unit`, `phase1`.
+Test suites: `all` (default), `unit`, `shell`.

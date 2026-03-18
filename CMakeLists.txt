@@ -20,7 +20,7 @@ if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
                 "Unsupported Windows toolchain/triplet combination:\n"
                 "  compiler: ${CMAKE_CXX_COMPILER_ID}\n"
                 "  VCPKG_TARGET_TRIPLET: '${_provider_triplet}'\n"
-                "Use MSVC presets (`dev-windows-foundation-debug`, `dev-windows-foundation-release`),\n"
+                "Use MSVC presets (`dev-windows-debug`, `dev-windows-release`),\n"
                 "or select an explicit MinGW triplet (e.g. x64-mingw-dynamic)."
             )
         endif()
@@ -78,8 +78,8 @@ if(ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE)
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
         message(FATAL_ERROR
             "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE requires a Linux host build.\n"
-            "Use a Linux configure preset for real hardware work, or disable hardware integration\n"
-            "for foundation-only configuration on other platforms."
+            "Use a Linux hardware preset (dev-linux-hardware-debug, dev-linux-hardware-release)\n"
+            "or configure with ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF on other platforms."
         )
     endif()
 

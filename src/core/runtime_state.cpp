@@ -103,7 +103,7 @@ void initialize(const ProviderConfig &config) {
     // Old session/transport destroyed here, outside the lock.
 
 #else
-    // Foundation / no-hardware path: seed inventory from config.
+    // No-hardware path: seed inventory from config.
     state.devices         = inventory::build_seed_inventory(config);
     state.inventory_mode  = inventory::to_string(inventory::InventorySource::ConfigSeeded);
     state.unsupported_probe_count = 0;

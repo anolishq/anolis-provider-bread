@@ -5,8 +5,8 @@
 #   .\scripts\build.ps1 [options] [-- <extra-cmake-configure-args>]
 #
 # Options:
-#   -Preset <name>     Configure/build preset (default: dev-windows-foundation-debug on Windows,
-#                      dev-foundation-debug otherwise)
+#   -Preset <name>     Configure/build preset (default: dev-windows-debug on Windows,
+#                      dev-debug otherwise)
 #   -Clean             Remove preset build directory before configure
 #   -Jobs <N>          Parallel build jobs
 #   -Help              Show help
@@ -61,14 +61,14 @@ if ($Help) {
 
 if (-not $Preset) {
     if ($env:OS -eq "Windows_NT") {
-        $Preset = "dev-windows-foundation-debug"
+        $Preset = "dev-windows-debug"
     } else {
-        $Preset = "dev-foundation-debug"
+        $Preset = "dev-debug"
     }
 }
 
-if (($env:OS -eq "Windows_NT") -and $Preset -in @("dev-foundation-debug", "dev-foundation-release", "ci-foundation-release")) {
-    throw "Preset '$Preset' uses Ninja and may not work with MSVC on Windows. Use 'dev-windows-foundation-debug', 'dev-windows-foundation-release', or 'ci-windows-foundation-release'."
+if (($env:OS -eq "Windows_NT") -and $Preset -in @("dev-debug", "dev-release", "ci-linux-release")) {
+    throw "Preset '$Preset' uses Ninja and may not work with MSVC on Windows. Use 'dev-windows-debug', 'dev-windows-release', or 'ci-windows-release'."
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path

@@ -5,16 +5,16 @@
 #   .\scripts\test.ps1 [options] [-- <extra-ctest-args>]
 #
 # Options:
-#   -Preset <name>      Test preset (default: dev-windows-foundation-debug on Windows,
-#                       dev-foundation-debug otherwise)
-#   -Suite <name>       all|unit|phase1 (default: all)
+#   -Preset <name>      Test preset (default: dev-windows-debug on Windows,
+#                       dev-debug otherwise)
+#   -Suite <name>       all|unit|shell (default: all)
 #   -VerboseOutput      Run ctest with -VV
 #   -Help               Show help
 
 [CmdletBinding(PositionalBinding = $false)]
 param(
     [string]$Preset = "",
-    [ValidateSet("all", "unit", "phase1")]
+    [ValidateSet("all", "unit", "shell")]
     [string]$Suite = "all",
     [switch]$VerboseOutput,
     [switch]$Help,
@@ -65,19 +65,19 @@ if ($Help) {
 
 if (-not $Preset) {
     if ($env:OS -eq "Windows_NT") {
-        $Preset = "dev-windows-foundation-debug"
+        $Preset = "dev-windows-debug"
     } else {
-        $Preset = "dev-foundation-debug"
+        $Preset = "dev-debug"
     }
 }
 
-if (($env:OS -eq "Windows_NT") -and $Preset -in @("dev-foundation-debug", "dev-foundation-release", "ci-foundation-release")) {
-    throw "Preset '$Preset' uses Ninja and may not work with MSVC on Windows. Use 'dev-windows-foundation-debug', 'dev-windows-foundation-release', or 'ci-windows-foundation-release'."
+if (($env:OS -eq "Windows_NT") -and $Preset -in @("dev-debug", "dev-release", "ci-linux-release")) {
+    throw "Preset '$Preset' uses Ninja and may not work with MSVC on Windows. Use 'dev-windows-debug', 'dev-windows-release', or 'ci-windows-release'."
 }
 
 $ctestArgs = @("--preset", $Preset)
 if ($Suite -eq "all") {
-    $ctestArgs += @("-L", "unit|phase1")
+    $ctestArgs += @("-L", "unit|shell")
 } else {
     $ctestArgs += @("-L", $Suite)
 }

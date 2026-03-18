@@ -30,10 +30,10 @@ anolis_provider_bread::ProviderConfig make_stub_config() {
 TEST(ProtoSmokeTest, CanConstructHelloRequest) {
     anolis::deviceprovider::v1::HelloRequest request;
     request.set_protocol_version("v1");
-    request.set_client_name("phase1-test");
+    request.set_client_name("proto-smoke-test");
 
     EXPECT_EQ(request.protocol_version(), "v1");
-    EXPECT_EQ(request.client_name(), "phase1-test");
+    EXPECT_EQ(request.client_name(), "proto-smoke-test");
 }
 
 TEST(ProtoSmokeTest, CanPopulateAndSerializeHelloResponseManually) {
@@ -60,7 +60,7 @@ TEST(ProtoSmokeTest, HelloHandlerProducesSerializableResponse) {
 
     anolis::deviceprovider::v1::HelloRequest request;
     request.set_protocol_version("v1");
-    request.set_client_name("phase1-test");
+    request.set_client_name("proto-smoke-test");
     request.set_client_version("0.1.0");
 
     anolis::deviceprovider::v1::Response response;
@@ -83,7 +83,7 @@ TEST(ProtoSmokeTest, HelloHandlerStillSerializesAfterRuntimeInitialization) {
 
     anolis::deviceprovider::v1::HelloRequest request;
     request.set_protocol_version("v1");
-    request.set_client_name("phase1-test");
+    request.set_client_name("proto-smoke-test");
     request.set_client_version("0.1.0");
 
     anolis::deviceprovider::v1::Response response;
@@ -128,7 +128,7 @@ TEST(ProtoSmokeTest, InMemoryProviderLoopCanRoundTripHello) {
     anolis::deviceprovider::v1::Request request;
     request.set_request_id(42);
     request.mutable_hello()->set_protocol_version("v1");
-    request.mutable_hello()->set_client_name("phase1-test");
+    request.mutable_hello()->set_client_name("proto-smoke-test");
     request.mutable_hello()->set_client_version("0.1.0");
 
     std::string request_payload;

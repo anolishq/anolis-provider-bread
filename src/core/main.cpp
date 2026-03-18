@@ -32,7 +32,7 @@ void print_usage(const char *program_name) {
         << "  " << program_name << " --version\n"
         << "  " << program_name << " --check-config <path>\n"
         << "  " << program_name << " --config <path>\n\n"
-        << "Phase 1 provides framed-stdio ADPP shell behavior with config-seeded inventory.\n";
+        << "Implements ADPP v1 over BREAD-over-CRUMBS with config-seeded or hardware-backed inventory.\n";
 }
 
 } // namespace

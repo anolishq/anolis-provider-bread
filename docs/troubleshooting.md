@@ -228,4 +228,4 @@ provider.metrics["unsupported_probe_count"] — probes excluded at startup
 provider.metrics["inventory_mode"]         — "hardware" or "config-seeded"
 ```
 
-In foundation builds (`ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF`), `inventory_mode` will be `config-seeded` and no I2C activity occurs. All probe-related warnings and errors are hardware-path only.
+In no-hardware builds (`ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF`), `inventory_mode` will be `config-seeded` and no I2C activity occurs. All probe-related warnings and errors are hardware-path only.
