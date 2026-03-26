@@ -259,7 +259,7 @@ TEST(StartupDiscoveryTest, IncompatibleCrumbsVersionIsUnsupported) {
     scan_entry.type_id     = RLHT_TYPE_ID;
     transport.scan_results = {scan_entry};
 
-    // Use a CRUMBS version below BREAD_MIN_CRUMBS_VERSION (1100).
+    // Use a CRUMBS version below BREAD_MIN_CRUMBS_VERSION (1200).
     transport.add_reply(0x0A, 0x00, RLHT_TYPE_ID,
                         make_version_payload(1000u, 1, 0, 0));
 

@@ -44,7 +44,7 @@ CRUMBS is the I2C transport layer used on the hardware path.
 
 | Field | Value |
 |-------|-------|
-| Minimum CRUMBS version (firmware) | `1100` (from `BREAD_MIN_CRUMBS_VERSION` in `bread-crumbs-contracts`) |
+| Minimum CRUMBS version (firmware) | `1200` (from `BREAD_MIN_CRUMBS_VERSION` in `bread-crumbs-contracts`) |
 | CRUMBS host library | sibling repo `CRUMBS/` at the pinned vcpkg or workspace revision |
 
 A device whose firmware reports a CRUMBS version below the minimum is rejected at probe time with `IncompatibleCrumbsVersion`.
@@ -97,5 +97,5 @@ The full version string is embedded in the binary as `ANOLIS_PROVIDER_BREAD_VERS
 Device firmware versions are logged per-device during probe:
 
 ```
-[INFO] probe 0x08 type=0x01 crumbs=1100 module=1.0.0 caps_source=Queried
+[INFO] probe 0x08 type=0x01 crumbs=1200 module=1.0.0 caps_source=Queried
 ```
