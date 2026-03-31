@@ -114,6 +114,9 @@ Start the provider for ADPP clients:
 The committed sample config seeds one RLHT and one DCMT device so `Hello`, `WaitReady`,
 `ListDevices`, `DescribeDevice`, and `GetHealth` are testable without real hardware.
 
+If a config sets `hardware.require_live_session: true`, no-hardware builds fail fast at startup.
+Use this for Linux hardware validation profiles to avoid silent config-seeded fallback.
+
 ## Test Taxonomy
 
 Two test executables are produced by every build:

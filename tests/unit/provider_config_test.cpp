@@ -76,6 +76,7 @@ discovery:
     const ProviderConfig parsed = load_config(config.path().string());
     EXPECT_EQ(parsed.provider_name, "bread-lab");
     EXPECT_EQ(parsed.bus_path, "/dev/i2c-1");
+    EXPECT_FALSE(parsed.require_live_session);
     EXPECT_EQ(parsed.query_delay_us, 10000);
     EXPECT_EQ(parsed.timeout_ms, 100);
     EXPECT_EQ(parsed.retry_count, 2);
@@ -114,6 +115,19 @@ devices:
     EXPECT_EQ(parsed.devices[1].address, 0x09);
 }
 
+TEST(ProviderConfigTest, ParsesRequireLiveSession) {
+    const TempConfigFile config(R"(
+hardware:
+  bus_path: /dev/i2c-1
+  require_live_session: true
+discovery:
+  mode: scan
+)");
+
+    const ProviderConfig parsed = load_config(config.path().string());
+    EXPECT_TRUE(parsed.require_live_session);
+}
+
 TEST(ProviderConfigTest, RejectsMissingHardwareBusPath) {
     expect_config_error(R"(
 hardware:
@@ -150,6 +164,16 @@ discovery:
   mode: scan
 unexpected: true
 )", "Unknown root key");
+}
+
+TEST(ProviderConfigTest, RejectsInvalidRequireLiveSessionValue) {
+    expect_config_error(R"(
+hardware:
+  bus_path: /dev/i2c-1
+  require_live_session: maybe
+discovery:
+  mode: scan
+)", "hardware.require_live_session");
 }
 
 TEST(ProviderConfigTest, RejectsUnknownDeviceType) {

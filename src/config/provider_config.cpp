@@ -69,6 +69,17 @@ int parse_int_value(const YAML::Node &node,
     }
 }
 
+bool parse_bool_value(const YAML::Node &node, const std::string &field_name) {
+    const std::string text = require_scalar(node, field_name);
+    if(text == "true") {
+        return true;
+    }
+    if(text == "false") {
+        return false;
+    }
+    throw std::runtime_error(field_name + " must be true or false");
+}
+
 int parse_address_text(const std::string &text, const std::string &field_name) {
     const int base = (text.size() > 2 && text[0] == '0' &&
                       (text[1] == 'x' || text[1] == 'X'))
@@ -173,9 +184,16 @@ ProviderConfig load_config(const std::string &path) {
         throw std::runtime_error("Missing required section: hardware");
     }
     ensure_map(hardware_node, "hardware");
-    reject_unknown_keys(hardware_node, "hardware", {"bus_path", "query_delay_us", "timeout_ms", "retry_count"});
+    reject_unknown_keys(
+        hardware_node,
+        "hardware",
+        {"bus_path", "require_live_session", "query_delay_us", "timeout_ms", "retry_count"});
 
     config.bus_path = require_scalar(hardware_node["bus_path"], "hardware.bus_path");
+    if(hardware_node["require_live_session"]) {
+        config.require_live_session =
+            parse_bool_value(hardware_node["require_live_session"], "hardware.require_live_session");
+    }
     if(hardware_node["query_delay_us"]) {
         config.query_delay_us = parse_int_value(hardware_node["query_delay_us"], "hardware.query_delay_us", false);
     }
@@ -267,6 +285,7 @@ std::string summarize_config(const ProviderConfig &config) {
     std::ostringstream out;
     out << "provider.name=" << config.provider_name
         << ", hardware.bus_path=" << config.bus_path
+        << ", hardware.require_live_session=" << (config.require_live_session ? "true" : "false")
         << ", hardware.query_delay_us=" << config.query_delay_us
         << ", hardware.timeout_ms=" << config.timeout_ms
         << ", hardware.retry_count=" << config.retry_count

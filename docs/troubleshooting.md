@@ -51,6 +51,22 @@ sudo setfacl -m u:$USER:rw /dev/i2c-1  # or run as root temporarily during dev
 
 Confirm `hardware.bus_path` in your config matches the actual device node.
 
+### Required live session on no-hardware build
+
+If config sets `hardware.require_live_session: true` but the provider binary was built with
+`ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF`, startup fails immediately:
+
+```
+[ERROR] hardware.require_live_session=true but provider was built without hardware support ...
+```
+
+Fix by rebuilding with a Linux hardware preset:
+
+```bash
+cmake --preset dev-linux-hardware-release
+cmake --build --preset dev-linux-hardware-release
+```
+
 ---
 
 ## Device Not Responding During Startup

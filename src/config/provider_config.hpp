@@ -26,6 +26,7 @@ struct ProviderConfig {
     std::string config_file_path;
     std::string provider_name = "anolis-provider-bread";
     std::string bus_path;
+    bool require_live_session = false;
     int query_delay_us = 10000;
     int timeout_ms = 100;
     int retry_count = 2;

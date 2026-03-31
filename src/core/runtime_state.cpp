@@ -104,6 +104,12 @@ void initialize(const ProviderConfig &config) {
 
 #else
     // No-hardware path: seed inventory from config.
+    if(config.require_live_session) {
+        throw std::runtime_error(
+            "hardware.require_live_session=true but provider was built without hardware support "
+            "(ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF). Rebuild with dev-linux-hardware-release.");
+    }
+
     state.devices         = inventory::build_seed_inventory(config);
     state.inventory_mode  = inventory::to_string(inventory::InventorySource::ConfigSeeded);
     state.unsupported_probe_count = 0;

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -166,4 +167,17 @@ TEST(ProtoSmokeTest, InMemoryProviderLoopCanRoundTripHello) {
         response_payload.size(),
         io_error)) << io_error;
     EXPECT_FALSE(framed_response.str().empty());
+}
+
+TEST(ProtoSmokeTest, RequireLiveSessionConfigBehaviorMatchesBuildMode) {
+    auto config = make_stub_config();
+    config.require_live_session = true;
+
+    anolis_provider_bread::runtime::reset();
+
+#if !defined(ANOLIS_PROVIDER_BREAD_HAS_CRUMBS)
+    EXPECT_THROW(anolis_provider_bread::runtime::initialize(config), std::runtime_error);
+#else
+    GTEST_SKIP() << "no-hardware guard is only applicable when hardware integration is disabled";
+#endif
 }
