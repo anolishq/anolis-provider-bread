@@ -22,6 +22,44 @@ repos_feast/
 - vcpkg manifest dependencies available for `protobuf`, `yaml-cpp`, and `gtest`
 - sibling source repos for `CRUMBS` and `bread-crumbs-contracts`
 
+### Install Dependencies (Linux)
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential cmake ninja-build git curl zip unzip tar pkg-config python3 python3-pip
+```
+
+Install vcpkg:
+
+```bash
+git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
+"$HOME/vcpkg/bootstrap-vcpkg.sh"
+echo 'export VCPKG_ROOT="$HOME/vcpkg"' >> ~/.bashrc
+export VCPKG_ROOT="$HOME/vcpkg"
+test -f "$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+```
+
+### Install Dependencies (Windows)
+
+```powershell
+winget install Kitware.CMake
+winget install Ninja-build.Ninja
+winget install Git.Git
+winget install Python.Python.3.12
+```
+
+Install Visual Studio 2022 (or Build Tools) with the `Desktop development with C++` workload.
+
+Install vcpkg:
+
+```powershell
+git clone https://github.com/microsoft/vcpkg.git $env:USERPROFILE\vcpkg
+& "$env:USERPROFILE\vcpkg\bootstrap-vcpkg.bat"
+[Environment]::SetEnvironmentVariable("VCPKG_ROOT", "$env:USERPROFILE\\vcpkg", "User")
+$env:VCPKG_ROOT = [Environment]::GetEnvironmentVariable("VCPKG_ROOT", "User")
+Test-Path "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
+```
+
 ## No-Hardware Configure
 
 Use this when you want to build and test without real hardware. Works on all platforms,

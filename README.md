@@ -11,7 +11,7 @@ no-hardware build for development and CI.
 Repository documentation:
 
 - [docs/README.md](docs/README.md) — scope, design decisions, key rules
-- [docs/build.md](docs/build.md) — configure, build, and test workflow
+- [docs/build.md](docs/build.md) — dependency install, configure, build, and test workflow
 - [docs/troubleshooting.md](docs/troubleshooting.md) — common failure modes and log signatures
 - [docs/versioning.md](docs/versioning.md) — provider and dependency version expectations
 - [CONTRIBUTING.md](CONTRIBUTING.md) — workspace setup, adding device types, cross-repo workflow
