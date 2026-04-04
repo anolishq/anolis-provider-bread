@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file adapter_helpers.hpp
+ * @brief Shared adapter result, payload, and argument helpers for BREAD device adapters.
+ */
+
 // Windows macro protection
 #ifdef _WIN32
 #  ifndef NOMINMAX
@@ -20,10 +25,13 @@
 
 namespace anolis_provider_bread {
 
-// ---------------------------------------------------------------------------
-// Adapter result types (shared by all BREAD hardware adapters)
-// ---------------------------------------------------------------------------
-
+/**
+ * @brief Normalized result of one adapter read operation.
+ *
+ * `ok=false` means the adapter could not produce a coherent signal set for the
+ * request. In that case `error_code` and `error_message` are already mapped
+ * into ADPP semantics for the caller.
+ */
 struct AdapterReadResult {
     bool ok = false;
     anolis::deviceprovider::v1::Status::Code error_code =
@@ -32,6 +40,9 @@ struct AdapterReadResult {
     std::vector<anolis::deviceprovider::v1::SignalValue> values;
 };
 
+/**
+ * @brief Normalized result of one adapter function call.
+ */
 struct AdapterCallResult {
     bool ok = false;
     anolis::deviceprovider::v1::Status::Code error_code =
@@ -81,9 +92,7 @@ inline bool read_i16_le(const std::vector<uint8_t> &p, std::size_t off, int16_t 
 }
 
 // ---------------------------------------------------------------------------
-// Arg extraction from protobuf args map
-// ---------------------------------------------------------------------------
-
+/** @brief Protobuf argument map type used by device function calls. */
 using ValueMap = google::protobuf::Map<std::string, anolis::deviceprovider::v1::Value>;
 
 inline bool get_arg_bool(const ValueMap &args, const std::string &key, bool &out) {
@@ -176,15 +185,13 @@ inline anolis::deviceprovider::v1::SignalValue make_signal_value(
     return sv;
 }
 
-// ---------------------------------------------------------------------------
-// Session error → ADPP error code mapping
-//
-// Translates transport-layer failures into appropriate ADPP Status codes:
-//   Timeout      → CODE_DEADLINE_EXCEEDED  (device not responding in time)
-//   DecodeFailed → CODE_INTERNAL           (unexpected response structure)
-//   all others   → CODE_UNAVAILABLE        (transport or I/O failure)
-// ---------------------------------------------------------------------------
-
+/**
+ * @brief Map one session-layer read failure into the ADPP error surface used by handlers.
+ *
+ * Timeouts become `CODE_DEADLINE_EXCEEDED`, decode failures become
+ * `CODE_INTERNAL`, and all other transport failures become
+ * `CODE_UNAVAILABLE`.
+ */
 inline AdapterReadResult read_error_from_session(
     const crumbs::SessionStatus &status, const std::string &op) {
     using S = anolis::deviceprovider::v1::Status;
@@ -197,6 +204,9 @@ inline AdapterReadResult read_error_from_session(
     return {false, S::CODE_UNAVAILABLE, op + " failed: " + status.message, {}};
 }
 
+/**
+ * @brief Map one session-layer call failure into the ADPP error surface used by handlers.
+ */
 inline AdapterCallResult call_error_from_session(
     const crumbs::SessionStatus &status, const std::string &op) {
     using S = anolis::deviceprovider::v1::Status;

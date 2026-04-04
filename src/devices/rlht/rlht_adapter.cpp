@@ -1,5 +1,10 @@
 #include "devices/rlht/rlht_adapter.hpp"
 
+/**
+ * @file rlht_adapter.cpp
+ * @brief RLHT payload decoding and control-call encoding for the BREAD provider.
+ */
+
 #include <string>
 
 extern "C" {
@@ -76,6 +81,8 @@ AdapterReadResult read_signals(crumbs::Session &session,
                                const inventory::InventoryDevice &device,
                                const std::vector<std::string> &signal_ids) {
     crumbs::RawFrame frame;
+    // RLHT exposes its readable state through one aggregate frame, so the
+    // adapter always fetches the full payload and filters after decoding.
     const crumbs::SessionStatus status =
         session.query_read(static_cast<uint8_t>(device.address),
                            RLHT_OP_GET_STATE,
@@ -143,6 +150,8 @@ AdapterCallResult call(crumbs::Session &session,
     frame.type_id = RLHT_TYPE_ID;
 
     switch (function_id) {
+    // Function IDs must stay aligned with the capability definitions published
+    // by the inventory layer for RLHT devices.
     case 1: { // set_mode
         std::string mode;
         if (!get_arg_string(args, "mode", mode)) {
@@ -257,6 +266,8 @@ AdapterCallResult call(crumbs::Session &session,
         return call_error_from_session(send_status, "RLHT SET command");
     }
 
+    // RLHT setters are fire-and-forget at this layer; confirmation is observed
+    // on the next state read rather than through a dedicated ACK payload.
     return {true, anolis::deviceprovider::v1::Status::CODE_OK, "ok"};
 }
 

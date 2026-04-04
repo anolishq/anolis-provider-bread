@@ -1,5 +1,10 @@
 #include "core/health.hpp"
 
+/**
+ * @file health.cpp
+ * @brief Health helpers that project BREAD startup and inventory state into ADPP responses.
+ */
+
 #include <chrono>
 #include <string>
 
@@ -24,6 +29,8 @@ google::protobuf::Timestamp to_timestamp(const std::chrono::system_clock::time_p
 ProviderHealth make_provider_health(const runtime::RuntimeState &state) {
     const bool degraded = state.ready && !state.missing_expected_ids.empty();
     ProviderHealth provider;
+    // The provider is considered degraded when startup succeeded but the
+    // configured expected roster could not be fully satisfied.
     provider.set_state(!state.ready || degraded
                            ? ProviderHealth::STATE_DEGRADED
                            : ProviderHealth::STATE_OK);
@@ -54,6 +61,8 @@ std::vector<DeviceHealth> make_device_health(const runtime::RuntimeState &state)
     for(const auto &device : state.devices) {
         DeviceHealth health;
         health.set_device_id(device.descriptor.device_id());
+        // Published inventory devices are treated as reachable only when the
+        // provider completed startup with a live or seeded runtime state.
         health.set_state(state.ready ? DeviceHealth::STATE_OK : DeviceHealth::STATE_UNREACHABLE);
         health.set_message(state.ready ? "ok" : "Provider not ready");
         *health.mutable_last_seen() = to_timestamp(state.started_at);
@@ -66,6 +75,8 @@ std::vector<DeviceHealth> make_device_health(const runtime::RuntimeState &state)
     for (const auto &id : state.missing_expected_ids) {
         DeviceHealth health;
         health.set_device_id(id);
+        // Missing expected devices remain visible in health output so operators
+        // can distinguish a degraded startup from a smaller intentional roster.
         health.set_state(DeviceHealth::STATE_UNREACHABLE);
         health.set_message("expected device not found during startup");
         *health.mutable_last_seen() = to_timestamp(state.started_at);
@@ -79,6 +90,8 @@ std::vector<DeviceHealth> make_device_health(const runtime::RuntimeState &state)
 
 void populate_wait_ready(const runtime::RuntimeState &state, WaitReadyResponse &response) {
     const bool degraded = state.ready && !state.missing_expected_ids.empty();
+    // WaitReady reports the same startup-era diagnostics that drive provider
+    // health so callers can make readiness decisions without a second API.
     response.mutable_diagnostics()->insert({"provider_version", ANOLIS_PROVIDER_BREAD_VERSION});
     response.mutable_diagnostics()->insert({"device_count", std::to_string(state.devices.size())});
     response.mutable_diagnostics()->insert({"ready", state.ready ? "true" : "false"});

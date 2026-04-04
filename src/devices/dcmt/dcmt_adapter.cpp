@@ -1,5 +1,10 @@
 #include "devices/dcmt/dcmt_adapter.hpp"
 
+/**
+ * @file dcmt_adapter.cpp
+ * @brief DCMT payload decoding and control-call encoding for the BREAD provider.
+ */
+
 #include <string>
 
 extern "C" {
@@ -98,6 +103,8 @@ AdapterReadResult read_signals(crumbs::Session &session,
                                const inventory::InventoryDevice &device,
                                const std::vector<std::string> &signal_ids) {
     crumbs::RawFrame frame;
+    // DCMT also uses one aggregate state frame; the adapter decodes the full
+    // payload first and then filters signals to match the caller's request.
     const crumbs::SessionStatus status =
         session.query_read(static_cast<uint8_t>(device.address),
                            DCMT_OP_GET_STATE,
@@ -155,6 +162,8 @@ AdapterCallResult call(crumbs::Session &session,
     frame.type_id = DCMT_TYPE_ID;
 
     switch (function_id) {
+    // Function IDs must stay aligned with the capability definitions published
+    // by the inventory layer for DCMT devices.
     case 1: { // set_open_loop
         int64_t m1 = 0, m2 = 0;
         if (!get_arg_int64(args, "motor1_pwm", m1)) {
@@ -264,6 +273,8 @@ AdapterCallResult call(crumbs::Session &session,
         return call_error_from_session(send_status, "DCMT SET command");
     }
 
+    // DCMT setters are treated as accepted once the frame is written
+    // successfully; callers observe the resulting state on a later read.
     return {true, anolis::deviceprovider::v1::Status::CODE_OK, "ok"};
 }
 

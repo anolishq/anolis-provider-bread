@@ -1,5 +1,10 @@
 #include "crumbs/linux_transport.hpp"
 
+/**
+ * @file linux_transport.cpp
+ * @brief Linux I2C transport implementation for the generic CRUMBS session layer.
+ */
+
 #if defined(ANOLIS_PROVIDER_BREAD_HAS_CRUMBS)
 
 #include <cerrno>
@@ -72,6 +77,8 @@ SessionStatus LinuxTransport::open(const SessionOptions &options) {
     }
 
     errno = 0;
+    // The transport stores the bus-level timeout once at open time so later
+    // scan/send/read operations share the same controller configuration.
     const uint32_t timeout_us = timeout_ms_to_us(options.timeout_ms);
     const int rc = crumbs_linux_init_controller(&ctx_, &i2c_, options.bus_path.c_str(), timeout_us);
     const int saved_errno = errno;
@@ -113,6 +120,8 @@ SessionStatus LinuxTransport::scan(const ScanOptions &options, std::vector<ScanR
     std::vector<uint8_t> types(options.max_results, 0u);
 
     errno = 0;
+    // Scanning remains a transport responsibility; higher layers interpret the
+    // resulting type IDs and compatibility details when building inventory.
     const int rc = crumbs_linux_scan_for_crumbs_with_types(
         &ctx_,
         &i2c_,
@@ -213,6 +222,8 @@ SessionStatus LinuxTransport::read(uint8_t address, RawFrame &frame, uint32_t ti
     }
 
     crumbs_message_t message{};
+    // Decode failures are surfaced distinctly because adapter code assumes a
+    // valid BREAD payload shape once a frame reaches it.
     const int rc = crumbs_decode_message(buffer, static_cast<std::size_t>(bytes_read), &message, &ctx_);
     if(rc != 0) {
         const SessionErrorCode code = rc == -2 ? SessionErrorCode::DecodeFailed
@@ -233,6 +244,8 @@ void LinuxTransport::delay_us(uint32_t delay_us) {
 
 crumbs_device_t LinuxTransport::bind_device(uint8_t address) {
     crumbs_device_t device{};
+    // This handle is intentionally non-owning: the surrounding Session keeps
+    // the controller and transport alive for as long as BREAD helper calls run.
     device.ctx = &ctx_;
     device.addr = address;
     device.write_fn = crumbs_linux_i2c_write;

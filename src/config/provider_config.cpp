@@ -1,5 +1,10 @@
 #include "config/provider_config.hpp"
 
+/**
+ * @file provider_config.cpp
+ * @brief YAML parsing and semantic validation for anolis-provider-bread configuration.
+ */
+
 #include <filesystem>
 #include <iomanip>
 #include <regex>
@@ -164,6 +169,8 @@ ProviderConfig load_config(const std::string &path) {
     }
 
     ensure_map(root, "root");
+    // Keep the accepted schema narrow so config drift shows up immediately
+    // instead of silently carrying unused keys into runtime behavior.
     reject_unknown_keys(root, "root", {"provider", "hardware", "discovery", "devices"});
 
     ProviderConfig config;
@@ -215,6 +222,8 @@ ProviderConfig load_config(const std::string &path) {
 
     const YAML::Node addresses_node = discovery_node["addresses"];
     if(config.discovery_mode == DiscoveryMode::Manual) {
+        // Manual discovery turns the address list into part of the contract:
+        // duplicates and empty lists are rejected before any bus traffic occurs.
         if(!addresses_node || !addresses_node.IsSequence() || addresses_node.size() == 0) {
             throw std::runtime_error("discovery.addresses must be a non-empty sequence when discovery.mode=manual");
         }
@@ -267,6 +276,8 @@ ProviderConfig load_config(const std::string &path) {
                              : spec.id;
             spec.address = parse_address_value(device_node["address"], "devices[" + std::to_string(i) + "].address");
 
+            // IDs and addresses are unique within one provider config because
+            // startup diagnostics and health output key off those identities.
             if(!seen_ids.insert(spec.id).second) {
                 throw std::runtime_error("Duplicate devices[].id: '" + spec.id + "'");
             }
@@ -283,6 +294,8 @@ ProviderConfig load_config(const std::string &path) {
 
 std::string summarize_config(const ProviderConfig &config) {
     std::ostringstream out;
+    // The summary is intentionally compact and stable so startup logs can show
+    // the effective config without dumping the full YAML file.
     out << "provider.name=" << config.provider_name
         << ", hardware.bus_path=" << config.bus_path
         << ", hardware.require_live_session=" << (config.require_live_session ? "true" : "false")

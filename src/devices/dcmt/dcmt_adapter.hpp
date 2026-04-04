@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file dcmt_adapter.hpp
+ * @brief DCMT-specific signal and function adapters on top of the generic CRUMBS session API.
+ */
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -10,21 +15,24 @@
 
 namespace anolis_provider_bread::dcmt {
 
-// Read DCMT signals from the device.
-//
-// Performs a single DCMT_OP_GET_STATE query. Handles both open-loop (7-byte)
-// and closed-loop (11-byte) frame layouts transparently. If signal_ids is
-// empty all signals are returned; otherwise only the requested subset is
-// returned. The caller is responsible for ensuring all requested signal_ids
-// are valid (use signal_exists before calling this).
+/**
+ * @brief Read one coherent DCMT state snapshot and project it into ADPP signals.
+ *
+ * Performs a single `DCMT_OP_GET_STATE` query and handles both the open-loop
+ * and closed-loop payload layouts transparently. If `signal_ids` is empty all
+ * supported signals are returned; otherwise only the requested subset is
+ * emitted.
+ */
 AdapterReadResult read_signals(crumbs::Session &session,
                                const inventory::InventoryDevice &device,
                                const std::vector<std::string> &signal_ids);
 
-// Execute a DCMT function call.
-//
-// function_id must be non-zero. The caller is responsible for resolving
-// function_name to function_id before calling.
+/**
+ * @brief Encode and send one DCMT control function call.
+ *
+ * Preconditions:
+ * `function_id` must already be resolved from the device capability metadata.
+ */
 AdapterCallResult call(crumbs::Session &session,
                        const inventory::InventoryDevice &device,
                        uint32_t function_id,

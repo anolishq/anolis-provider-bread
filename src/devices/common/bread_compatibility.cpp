@@ -1,5 +1,10 @@
 #include "devices/common/bread_compatibility.hpp"
 
+/**
+ * @file bread_compatibility.cpp
+ * @brief Version and type compatibility checks for the supported BREAD families.
+ */
+
 #include <sstream>
 #include <utility>
 
@@ -86,6 +91,8 @@ ProbeStatus evaluate_version_compatibility(uint8_t type_id,
         return ProbeStatus::UnsupportedType;
     }
 
+    // CRUMBS compatibility is checked before the module ABI because an old bus
+    // protocol version makes the module-specific expectations meaningless.
     if(bread_check_crumbs_compat(version.crumbs_version) != 0) {
         if(detail) {
             std::ostringstream out;
@@ -95,6 +102,8 @@ ProbeStatus evaluate_version_compatibility(uint8_t type_id,
         return ProbeStatus::IncompatibleCrumbsVersion;
     }
 
+    // Module major/minor compatibility is strict because the adapter layer
+    // assumes the payload layouts defined by the matching BREAD contract.
     const int module_rc = bread_check_module_compat(
         version.module_major,
         version.module_minor,
