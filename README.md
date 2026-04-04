@@ -15,3 +15,6 @@ Repository documentation:
 - [docs/troubleshooting.md](docs/troubleshooting.md) — common failure modes and log signatures
 - [docs/versioning.md](docs/versioning.md) — provider and dependency version expectations
 - [CONTRIBUTING.md](CONTRIBUTING.md) — workspace setup, adding device types, cross-repo workflow
+
+Local API docs: run `doxygen docs/Doxyfile` from the repo root.
+Generated output goes to `build/docs/doxygen/html/` and remains untracked.

@@ -1,3 +1,12 @@
+/**
+ * @file inventory.cpp
+ * @brief Capability and inventory assembly logic for discovered or seeded BREAD devices.
+ *
+ * This layer converts raw probe results into stable ADPP device descriptors and
+ * capability sets, including fallback behavior when capability discovery is not
+ * available.
+ */
+
 #include "devices/common/inventory.hpp"
 
 #include <algorithm>
@@ -404,6 +413,10 @@ InventoryBuildResult build_inventory_from_probes(const ProviderConfig &config,
             continue;
         }
 
+        // Matching is address-first: a configured entry at the same address
+        // provides the stable device ID/label and marks the device as expected.
+        // Unmatched supported probes still become inventory entries with
+        // generated IDs so scan mode can surface extra hardware.
         const auto match_index = find_config_match_by_address(config, probe.address);
         bool expected = false;
         std::string device_id;
@@ -446,6 +459,8 @@ InventoryBuildResult build_inventory_from_probes(const ProviderConfig &config,
 }
 
 std::vector<InventoryDevice> build_seed_inventory(const ProviderConfig &config) {
+    // No-hardware builds intentionally reuse the same probe-to-inventory path
+    // so seeded and live inventory behave as similarly as possible.
     return build_inventory_from_probes(config, build_seed_probes(config), InventorySource::ConfigSeeded).supported_devices;
 }
 

@@ -1,3 +1,11 @@
+/**
+ * @file session.cpp
+ * @brief Serialized CRUMBS session logic layered on top of the transport backend.
+ *
+ * `Session` centralizes validation, retry policy, and request serialization so
+ * higher layers can treat CRUMBS bus access as one synchronized resource.
+ */
+
 #include "crumbs/session.hpp"
 
 #include <algorithm>
@@ -51,6 +59,8 @@ SessionStatus execute_with_retry(const SessionOptions &options,
             return last;
         }
 
+        // Retries are limited to transport-style failures; argument and state
+        // validation errors return immediately without reissuing bus traffic.
         if(!is_retryable(last.code) || attempt == max_attempts) {
             logging::error(describe_failure(operation, last, address));
             return last;
@@ -191,6 +201,8 @@ SessionStatus Session::query_read(uint8_t address, uint8_t reply_opcode, RawFram
     const uint32_t timeout_us =
         options_.timeout_ms > (UINT32_MAX / 1000u) ? UINT32_MAX : options_.timeout_ms * 1000u;
 
+    // Hold the session lock across send → delay → read so the SET_REPLY query
+    // sequence cannot interleave with another caller on the shared bus.
     return execute_with_retry(options_, "query_read", address, [&]() {
         SessionStatus status = transport_.send(address, query);
         if(!status) {

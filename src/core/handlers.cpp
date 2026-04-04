@@ -1,3 +1,11 @@
+/**
+ * @file handlers.cpp
+ * @brief Implementation of the BREAD provider's ADPP request handlers.
+ *
+ * Handlers validate selector shape against the runtime inventory and then
+ * delegate live reads/calls to the appropriate BREAD device adapter.
+ */
+
 #include "core/handlers.hpp"
 
 #include <string>
@@ -126,6 +134,8 @@ void handle_read_signals(const ReadSignalsRequest &request, Response &response) 
         return;
     }
 
+    // Inventory validation happens before adapter dispatch so the adapter layer
+    // only sees signal IDs that are declared in the device capability surface.
     const std::vector<std::string> signal_ids(
         request.signal_ids().begin(), request.signal_ids().end());
 
@@ -177,7 +187,8 @@ void handle_call(const CallRequest &request, Response &response) {
         return;
     }
 
-    // Resolve function_id from name if caller only provided function_name.
+    // Name-based selectors resolve against the published capability surface so
+    // handlers and external callers share the same function ID mapping.
     uint32_t fid = request.function_id();
     if(fid == 0) {
         for(const auto &fn : device->capabilities.functions()) {

@@ -53,4 +53,8 @@ See [troubleshooting.md](troubleshooting.md) for common failure modes, log signa
 
 See [versioning.md](versioning.md) for provider and dependency version expectations.
 
+## Local API docs
+
+Run `doxygen docs/Doxyfile` from the repo root.
+Generated HTML goes to `build/docs/doxygen/html/` and should not be committed.
 

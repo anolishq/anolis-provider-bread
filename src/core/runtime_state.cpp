@@ -1,3 +1,12 @@
+/**
+ * @file runtime_state.cpp
+ * @brief Process-wide runtime state ownership for the BREAD provider.
+ *
+ * This module owns the startup snapshot plus the optional live CRUMBS session.
+ * Successful reinitialization swaps the new session and snapshot in together so
+ * handlers never observe a mismatched inventory/session pair.
+ */
+
 #include "core/runtime_state.hpp"
 
 #include <memory>
@@ -45,7 +54,8 @@ std::string build_startup_message(int device_count,
 } // namespace
 
 void reset() {
-    // Destroy session before transport (correct order, outside the lock).
+    // Destroy session before transport, and do it outside the lock so teardown
+    // does not block unrelated snapshot readers longer than necessary.
     std::unique_ptr<crumbs::Session>   old_session;
     std::unique_ptr<crumbs::Transport> old_transport;
     {
@@ -63,7 +73,8 @@ void initialize(const ProviderConfig &config) {
     state.started_at = std::chrono::system_clock::now();
 
 #if defined(ANOLIS_PROVIDER_BREAD_HAS_CRUMBS)
-    // Real hardware path: open the CRUMBS bus and run discovery.
+    // Hardware builds open one live CRUMBS session and then derive the runtime
+    // inventory from an immediate discovery pass on that bus.
     auto transport = std::make_unique<crumbs::LinuxTransport>();
     auto sess      = std::make_unique<crumbs::Session>(
         *transport, crumbs::make_session_options(config));
@@ -93,6 +104,8 @@ void initialize(const ProviderConfig &config) {
     std::unique_ptr<crumbs::Session>   old_session;
     std::unique_ptr<crumbs::Transport> old_transport;
     {
+        // Publish the new runtime snapshot and its session together so callers
+        // do not see a new inventory with an old session, or vice versa.
         std::lock_guard<std::mutex> lock(g_mutex);
         g_state       = std::move(state);
         old_session   = std::move(g_session);
@@ -103,7 +116,8 @@ void initialize(const ProviderConfig &config) {
     // Old session/transport destroyed here, outside the lock.
 
 #else
-    // No-hardware path: seed inventory from config.
+    // No-hardware builds reuse config-seeded inventory unless the config
+    // explicitly requires a live session.
     if(config.require_live_session) {
         throw std::runtime_error(
             "hardware.require_live_session=true but provider was built without hardware support "
@@ -118,7 +132,6 @@ void initialize(const ProviderConfig &config) {
 
     std::lock_guard<std::mutex> lock(g_mutex);
     g_state = std::move(state);
-    // g_transport and g_session remain null on non-hardware builds.
 #endif
 }
 

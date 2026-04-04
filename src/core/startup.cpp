@@ -1,3 +1,12 @@
+/**
+ * @file startup.cpp
+ * @brief Discovery flow for probing BREAD devices and assembling runtime inventory.
+ *
+ * Startup probes each candidate address independently. Unsupported,
+ * incompatible, or missing devices are recorded as diagnostics rather than
+ * aborting the whole inventory build unless the bus-wide scan itself fails.
+ */
+
 #include "core/startup.hpp"
 
 #include <iomanip>
@@ -28,7 +37,10 @@ inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address) {
     inventory::ProbeRecord probe;
     probe.address = static_cast<int>(address);
 
-    // Step 1: version query (opcode 0x00) via SET_REPLY → delay → read
+    // The probe sequence is intentionally staged: version read establishes the
+    // family and module version, compatibility gating rejects unsupported
+    // modules early, and the caps query refines the capability surface when it
+    // succeeds.
     crumbs::RawFrame version_frame;
     const crumbs::SessionStatus version_status =
         session.query_read(address, 0x00, version_frame);
@@ -53,7 +65,7 @@ inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address) {
 
     probe.type_id = version_frame.type_id;
 
-    // Reject unknown BREAD type IDs early
+    // Unknown BREAD families are excluded before any compatibility or caps work.
     DeviceType device_type{};
     if (!inventory::try_parse_bread_type(version_frame.type_id, device_type)) {
         probe.status = inventory::ProbeStatus::UnsupportedType;
@@ -63,7 +75,6 @@ inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address) {
         return probe;
     }
 
-    // Parse version payload: [crumbs_ver:u16_le][mod_major:u8][mod_minor:u8][mod_patch:u8]
     if (version_frame.payload.size() < 5u) {
         probe.status = inventory::ProbeStatus::VersionReadFailed;
         probe.detail = "version payload too short (" +
@@ -95,7 +106,6 @@ inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address) {
     version.module_patch   = mod_patch;
     probe.version = version;
 
-    // Step 2: compatibility check
     std::string compat_detail;
     const inventory::ProbeStatus compat = inventory::evaluate_version_compatibility(
         version_frame.type_id, version, &compat_detail);
@@ -107,7 +117,8 @@ inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address) {
         return probe;
     }
 
-    // Step 3: caps query (BREAD_OP_GET_CAPS = 0x7F) — baseline fallback on any failure
+    // Capability discovery is best-effort. A failed caps read does not remove a
+    // supported module from inventory; it falls back to the type baseline.
     crumbs::RawFrame caps_frame;
     const crumbs::SessionStatus caps_status =
         session.query_read(address, BREAD_OP_GET_CAPS, caps_frame);
@@ -164,6 +175,8 @@ DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &co
     inventory::InventorySource source = inventory::InventorySource::Discovered;
 
     if (config.discovery_mode == DiscoveryMode::Scan) {
+        // Scan mode treats bus-wide scan failure as a startup blocker because
+        // the provider cannot know which addresses should be probed.
         crumbs::ScanOptions scan_opts{};
         std::vector<crumbs::ScanResult> scan_results;
         const crumbs::SessionStatus scan_status = session.scan(scan_opts, scan_results);
@@ -179,6 +192,8 @@ DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &co
         }
         source = inventory::InventorySource::Discovered;
     } else {
+        // Manual mode limits probing to the configured address set and still
+        // records per-address failures as unsupported or missing results.
         probes.reserve(config.manual_addresses.size());
         for (const int addr : config.manual_addresses) {
             probes.push_back(probe_device(session, static_cast<uint8_t>(addr)));

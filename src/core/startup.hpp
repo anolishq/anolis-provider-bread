@@ -1,5 +1,10 @@
 #pragma once
 
+/**
+ * @file startup.hpp
+ * @brief Discovery helpers that probe BREAD devices and assemble runtime inventory.
+ */
+
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -10,6 +15,9 @@
 
 namespace anolis_provider_bread::startup {
 
+/**
+ * @brief Inventory result returned from one startup discovery pass.
+ */
 struct DiscoveryResult {
     std::vector<inventory::InventoryDevice> devices;
     std::vector<inventory::ProbeRecord> unsupported_probes;
@@ -17,14 +25,22 @@ struct DiscoveryResult {
     std::string inventory_mode;
 };
 
-// Probe a single I2C address: version query → compat check → caps query.
-// Returns a ProbeRecord whose status indicates whether the device is usable.
-// On any I/O failure the record carries a VersionReadFailed status; it never
-// throws.
+/**
+ * @brief Probe one I2C address through the BREAD discovery sequence.
+ *
+ * Error handling:
+ * Returns a `ProbeRecord` with a non-supported status on probe failure or
+ * incompatibility. This function does not throw for per-address I/O failures.
+ */
 inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address);
 
-// Run the full discovery sequence (scan or manual) and build inventory.
-// Throws std::runtime_error if the bus scan itself fails (scan mode only).
+/**
+ * @brief Run the configured discovery flow and build the supported inventory.
+ *
+ * Error handling:
+ * Throws `std::runtime_error` only when the bus-wide scan operation fails in
+ * scan mode. Unsupported or missing devices are reported in the result.
+ */
 DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &config);
 
 } // namespace anolis_provider_bread::startup
