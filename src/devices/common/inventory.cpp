@@ -11,6 +11,7 @@
 #include "devices/common/inventory.hpp"
 
 #include <algorithm>
+#include <climits>
 #include <iomanip>
 #include <optional>
 #include <sstream>
@@ -63,10 +64,10 @@ std::string format_crumbs_version(uint16_t value) {
   return out.str();
 }
 
-void add_arg(FunctionSpec &function, const std::string &name,
-             anolis::deviceprovider::v1::ValueType type,
-             const std::string &description, bool required,
-             const std::string &unit = "") {
+ArgSpec *add_arg(FunctionSpec &function, const std::string &name,
+                 anolis::deviceprovider::v1::ValueType type,
+                 const std::string &description, bool required,
+                 const std::string &unit = "") {
   ArgSpec *arg = function.add_args();
   arg->set_name(name);
   arg->set_type(type);
@@ -75,6 +76,7 @@ void add_arg(FunctionSpec &function, const std::string &name,
   if (!unit.empty()) {
     arg->set_unit(unit);
   }
+  return arg;
 }
 
 FunctionSpec *
@@ -120,56 +122,84 @@ CapabilitySet build_rlht_capabilities(uint32_t flags) {
     auto *set_setpoints =
         add_function(caps, 2, "set_setpoints",
                      "Set RLHT channel temperature setpoints.", CAT_CONFIG);
-    add_arg(*set_setpoints, "setpoint1_c", VT_DOUBLE,
-            "Channel 1 target temperature.", true, "C");
-    add_arg(*set_setpoints, "setpoint2_c", VT_DOUBLE,
-            "Channel 2 target temperature.", true, "C");
+    auto *sp1_arg = add_arg(*set_setpoints, "setpoint1_c", VT_DOUBLE,
+                            "Channel 1 target temperature.", true, "C");
+    sp1_arg->set_min_double(-3276.8);
+    sp1_arg->set_max_double(3276.7);
+    auto *sp2_arg = add_arg(*set_setpoints, "setpoint2_c", VT_DOUBLE,
+                            "Channel 2 target temperature.", true, "C");
+    sp2_arg->set_min_double(-3276.8);
+    sp2_arg->set_max_double(3276.7);
   }
 
   if ((flags & RLHT_CAP_PID_TUNING) != 0u) {
     auto *set_pid = add_function(caps, 3, "set_pid_x10",
                                  "Set RLHT PID gains encoded x10.", CAT_CONFIG);
-    add_arg(*set_pid, "kp1_x10", VT_UINT64, "Channel 1 proportional gain x10.",
-            true);
-    add_arg(*set_pid, "ki1_x10", VT_UINT64, "Channel 1 integral gain x10.",
-            true);
-    add_arg(*set_pid, "kd1_x10", VT_UINT64, "Channel 1 derivative gain x10.",
-            true);
-    add_arg(*set_pid, "kp2_x10", VT_UINT64, "Channel 2 proportional gain x10.",
-            true);
-    add_arg(*set_pid, "ki2_x10", VT_UINT64, "Channel 2 integral gain x10.",
-            true);
-    add_arg(*set_pid, "kd2_x10", VT_UINT64, "Channel 2 derivative gain x10.",
-            true);
+    auto *kp1_arg = add_arg(*set_pid, "kp1_x10", VT_UINT64,
+                            "Channel 1 proportional gain x10.", true);
+    kp1_arg->set_min_uint64(0);
+    kp1_arg->set_max_uint64(255);
+    auto *ki1_arg = add_arg(*set_pid, "ki1_x10", VT_UINT64,
+                            "Channel 1 integral gain x10.", true);
+    ki1_arg->set_min_uint64(0);
+    ki1_arg->set_max_uint64(255);
+    auto *kd1_arg = add_arg(*set_pid, "kd1_x10", VT_UINT64,
+                            "Channel 1 derivative gain x10.", true);
+    kd1_arg->set_min_uint64(0);
+    kd1_arg->set_max_uint64(255);
+    auto *kp2_arg = add_arg(*set_pid, "kp2_x10", VT_UINT64,
+                            "Channel 2 proportional gain x10.", true);
+    kp2_arg->set_min_uint64(0);
+    kp2_arg->set_max_uint64(255);
+    auto *ki2_arg = add_arg(*set_pid, "ki2_x10", VT_UINT64,
+                            "Channel 2 integral gain x10.", true);
+    ki2_arg->set_min_uint64(0);
+    ki2_arg->set_max_uint64(255);
+    auto *kd2_arg = add_arg(*set_pid, "kd2_x10", VT_UINT64,
+                            "Channel 2 derivative gain x10.", true);
+    kd2_arg->set_min_uint64(0);
+    kd2_arg->set_max_uint64(255);
   }
 
   if ((flags & RLHT_CAP_PERIOD_CONTROL) != 0u) {
     auto *set_periods = add_function(caps, 4, "set_periods_ms",
                                      "Set RLHT relay periods.", CAT_CONFIG);
-    add_arg(*set_periods, "period1_ms", VT_UINT64, "Relay 1 period.", true,
-            "ms");
-    add_arg(*set_periods, "period2_ms", VT_UINT64, "Relay 2 period.", true,
-            "ms");
+    auto *p1_arg = add_arg(*set_periods, "period1_ms", VT_UINT64,
+                           "Relay 1 period.", true, "ms");
+    p1_arg->set_min_uint64(0);
+    p1_arg->set_max_uint64(65535);
+    auto *p2_arg = add_arg(*set_periods, "period2_ms", VT_UINT64,
+                           "Relay 2 period.", true, "ms");
+    p2_arg->set_min_uint64(0);
+    p2_arg->set_max_uint64(65535);
   }
 
   if ((flags & RLHT_CAP_TC_SELECT) != 0u) {
     auto *set_tc_select =
         add_function(caps, 5, "set_tc_select",
                      "Select RLHT thermocouple inputs.", CAT_CONFIG);
-    add_arg(*set_tc_select, "tc1_index", VT_UINT64,
-            "Channel 1 thermocouple index.", true);
-    add_arg(*set_tc_select, "tc2_index", VT_UINT64,
-            "Channel 2 thermocouple index.", true);
+    auto *tc1_arg = add_arg(*set_tc_select, "tc1_index", VT_UINT64,
+                            "Channel 1 thermocouple index.", true);
+    tc1_arg->set_min_uint64(0);
+    tc1_arg->set_max_uint64(255);
+    auto *tc2_arg = add_arg(*set_tc_select, "tc2_index", VT_UINT64,
+                            "Channel 2 thermocouple index.", true);
+    tc2_arg->set_min_uint64(0);
+    tc2_arg->set_max_uint64(255);
   }
 
   if ((flags & RLHT_CAP_OPEN_DUTY_CONTROL) != 0u) {
     auto *set_open_duty =
         add_function(caps, 6, "set_open_duty_pct",
                      "Set RLHT open-loop duty percentages.", CAT_ACTUATE);
-    add_arg(*set_open_duty, "duty1_pct", VT_UINT64,
-            "Channel 1 duty cycle percentage.", true, "%");
-    add_arg(*set_open_duty, "duty2_pct", VT_UINT64,
-            "Channel 2 duty cycle percentage.", true, "%");
+    auto *d1_arg = add_arg(*set_open_duty, "duty1_pct", VT_UINT64,
+                           "Channel 1 duty cycle percentage.", true, "%");
+    d1_arg->set_min_uint64(0);
+    d1_arg->set_max_uint64(100);
+    auto *d2_arg = add_arg(*set_open_duty, "duty2_pct", VT_UINT64,
+                           "Channel 2 duty cycle percentage.", true, "%");
+    d2_arg->set_min_uint64(0);
+    d2_arg->set_max_uint64(100);
   }
 
   add_signal(caps, "mode", "Current RLHT control mode.", VT_STRING);
@@ -198,10 +228,14 @@ CapabilitySet build_dcmt_capabilities(uint32_t flags) {
     auto *set_open_loop =
         add_function(caps, 1, "set_open_loop", "Set DCMT open-loop PWM values.",
                      CAT_ACTUATE);
-    add_arg(*set_open_loop, "motor1_pwm", VT_INT64, "Motor 1 PWM command.",
-            true);
-    add_arg(*set_open_loop, "motor2_pwm", VT_INT64, "Motor 2 PWM command.",
-            true);
+    auto *m1_arg = add_arg(*set_open_loop, "motor1_pwm", VT_INT64,
+                           "Motor 1 PWM command.", true);
+    m1_arg->set_min_int64(-255);
+    m1_arg->set_max_int64(255);
+    auto *m2_arg = add_arg(*set_open_loop, "motor2_pwm", VT_INT64,
+                           "Motor 2 PWM command.", true);
+    m2_arg->set_min_int64(-255);
+    m2_arg->set_max_int64(255);
   }
 
   if ((flags & DCMT_CAP_BRAKE_CONTROL) != 0u) {
@@ -223,25 +257,43 @@ CapabilitySet build_dcmt_capabilities(uint32_t flags) {
       0u) {
     auto *set_setpoint = add_function(caps, 4, "set_setpoint",
                                       "Set DCMT control targets.", CAT_CONFIG);
-    add_arg(*set_setpoint, "motor1_target", VT_INT64, "Motor 1 target value.",
-            true);
-    add_arg(*set_setpoint, "motor2_target", VT_INT64, "Motor 2 target value.",
-            true);
+    auto *t1_arg = add_arg(*set_setpoint, "motor1_target", VT_INT64,
+                           "Motor 1 target value.", true);
+    t1_arg->set_min_int64(INT16_MIN);
+    t1_arg->set_max_int64(INT16_MAX);
+    auto *t2_arg = add_arg(*set_setpoint, "motor2_target", VT_INT64,
+                           "Motor 2 target value.", true);
+    t2_arg->set_min_int64(INT16_MIN);
+    t2_arg->set_max_int64(INT16_MAX);
   }
 
   if ((flags & DCMT_CAP_PID_TUNING) != 0u) {
     auto *set_pid = add_function(caps, 5, "set_pid_x10",
                                  "Set DCMT PID gains encoded x10.", CAT_CONFIG);
-    add_arg(*set_pid, "kp1_x10", VT_UINT64, "Motor 1 proportional gain x10.",
-            true);
-    add_arg(*set_pid, "ki1_x10", VT_UINT64, "Motor 1 integral gain x10.", true);
-    add_arg(*set_pid, "kd1_x10", VT_UINT64, "Motor 1 derivative gain x10.",
-            true);
-    add_arg(*set_pid, "kp2_x10", VT_UINT64, "Motor 2 proportional gain x10.",
-            true);
-    add_arg(*set_pid, "ki2_x10", VT_UINT64, "Motor 2 integral gain x10.", true);
-    add_arg(*set_pid, "kd2_x10", VT_UINT64, "Motor 2 derivative gain x10.",
-            true);
+    auto *kp1_arg = add_arg(*set_pid, "kp1_x10", VT_UINT64,
+                            "Motor 1 proportional gain x10.", true);
+    kp1_arg->set_min_uint64(0);
+    kp1_arg->set_max_uint64(255);
+    auto *ki1_arg = add_arg(*set_pid, "ki1_x10", VT_UINT64,
+                            "Motor 1 integral gain x10.", true);
+    ki1_arg->set_min_uint64(0);
+    ki1_arg->set_max_uint64(255);
+    auto *kd1_arg = add_arg(*set_pid, "kd1_x10", VT_UINT64,
+                            "Motor 1 derivative gain x10.", true);
+    kd1_arg->set_min_uint64(0);
+    kd1_arg->set_max_uint64(255);
+    auto *kp2_arg = add_arg(*set_pid, "kp2_x10", VT_UINT64,
+                            "Motor 2 proportional gain x10.", true);
+    kp2_arg->set_min_uint64(0);
+    kp2_arg->set_max_uint64(255);
+    auto *ki2_arg = add_arg(*set_pid, "ki2_x10", VT_UINT64,
+                            "Motor 2 integral gain x10.", true);
+    ki2_arg->set_min_uint64(0);
+    ki2_arg->set_max_uint64(255);
+    auto *kd2_arg = add_arg(*set_pid, "kd2_x10", VT_UINT64,
+                            "Motor 2 derivative gain x10.", true);
+    kd2_arg->set_min_uint64(0);
+    kd2_arg->set_max_uint64(255);
   }
 
   add_signal(caps, "mode", "Current DCMT control mode.", VT_STRING);

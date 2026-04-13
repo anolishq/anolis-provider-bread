@@ -195,9 +195,9 @@ AdapterCallResult call(crumbs::Session &session,
       return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
               "missing or invalid arg: motor2_pwm (int64)"};
     }
-    if (m1 < INT16_MIN || m1 > INT16_MAX || m2 < INT16_MIN || m2 > INT16_MAX) {
+    if (m1 < -255 || m1 > 255 || m2 < -255 || m2 > 255) {
       return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
-              "motor PWM values must be in [-32768, 32767]"};
+              "motor PWM values must be in [-255, 255]"};
     }
     frame.opcode = DCMT_OP_SET_OPEN_LOOP;
     append_i16_le(frame.payload, static_cast<int16_t>(m1));

@@ -354,6 +354,21 @@ TEST_F(RlhtAdapterTest, Call_SetSetpoints_SendsCorrectPayload) {
   EXPECT_EQ(sp2, 1900);
 }
 
+TEST_F(RlhtAdapterTest, Call_SetSetpoints_OutOfRange_ReturnsInvalidArgument) {
+  const auto args = make_args({
+      {"setpoint1_c", make_double_val(4000.0)},
+      {"setpoint2_c", make_double_val(25.0)},
+  });
+
+  const auto result = call(session, device, 2u, args);
+
+  EXPECT_FALSE(result.ok);
+  EXPECT_EQ(result.error_code,
+            anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT);
+  EXPECT_EQ(result.error_message,
+            "setpoint values must be in [-3276.8, 3276.7] C");
+}
+
 TEST_F(RlhtAdapterTest, Call_SetPidX10_ValidArgs_SendsSixBytes) {
   const auto args = make_args({
       {"kp1_x10", make_uint64_val(10u)},

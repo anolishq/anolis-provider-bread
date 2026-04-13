@@ -7,6 +7,8 @@
  */
 
 #include <string>
+#include <cmath>
+#include <climits>
 
 extern "C" {
 #include <bread/rlht_ops.h>
@@ -189,9 +191,23 @@ AdapterCallResult call(crumbs::Session &session,
       return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
               "missing or invalid arg: setpoint2_c (double)"};
     }
+    constexpr double kMinSetpointC = static_cast<double>(INT16_MIN) / 10.0;
+    constexpr double kMaxSetpointC = static_cast<double>(INT16_MAX) / 10.0;
+    if (sp1 < kMinSetpointC || sp1 > kMaxSetpointC || sp2 < kMinSetpointC ||
+        sp2 > kMaxSetpointC) {
+      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+              "setpoint values must be in [-3276.8, 3276.7] C"};
+    }
+    const auto sp1_deci = std::llround(sp1 * 10.0);
+    const auto sp2_deci = std::llround(sp2 * 10.0);
+    if (sp1_deci < INT16_MIN || sp1_deci > INT16_MAX || sp2_deci < INT16_MIN ||
+        sp2_deci > INT16_MAX) {
+      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+              "setpoint conversion out of int16 range"};
+    }
     frame.opcode = RLHT_OP_SET_SETPOINTS;
-    append_i16_le(frame.payload, static_cast<int16_t>(sp1 * 10.0));
-    append_i16_le(frame.payload, static_cast<int16_t>(sp2 * 10.0));
+    append_i16_le(frame.payload, static_cast<int16_t>(sp1_deci));
+    append_i16_le(frame.payload, static_cast<int16_t>(sp2_deci));
     break;
   }
   case 3: { // set_pid_x10
