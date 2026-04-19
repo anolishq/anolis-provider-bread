@@ -49,7 +49,7 @@ jobs:
       - name: Checkout bread-crumbs-contracts
         uses: actions/checkout@v4
         with:
-          repository: anolishq/bread-crumbs-contracts
+          repository: FEASTorg/bread-crumbs-contracts
           path: bread-crumbs-contracts
 
       - name: Install build tools
@@ -96,7 +96,7 @@ jobs:
       - name: Checkout bread-crumbs-contracts
         uses: actions/checkout@v4
         with:
-          repository: anolishq/bread-crumbs-contracts
+          repository: FEASTorg/bread-crumbs-contracts
           path: bread-crumbs-contracts
 
       - name: Setup vcpkg

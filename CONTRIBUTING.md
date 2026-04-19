@@ -9,7 +9,7 @@ Clone them all before configuring:
 cd repos_feast  # or wherever you keep repos
 git clone https://github.com/anolishq/anolis-provider-bread
 git clone https://github.com/anolishq/CRUMBS
-git clone https://github.com/anolishq/bread-crumbs-contracts
+git clone https://github.com/FEASTorg/bread-crumbs-contracts
 git clone https://github.com/anolishq/linux-wire
 ```
 
