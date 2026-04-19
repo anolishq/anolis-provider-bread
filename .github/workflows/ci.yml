@@ -43,13 +43,13 @@ jobs:
       - name: Checkout CRUMBS
         uses: actions/checkout@v4
         with:
-          repository: FEASTorg/CRUMBS
+          repository: anolishq/CRUMBS
           path: CRUMBS
 
       - name: Checkout bread-crumbs-contracts
         uses: actions/checkout@v4
         with:
-          repository: FEASTorg/bread-crumbs-contracts
+          repository: anolishq/bread-crumbs-contracts
           path: bread-crumbs-contracts
 
       - name: Install build tools
@@ -90,13 +90,13 @@ jobs:
       - name: Checkout CRUMBS
         uses: actions/checkout@v4
         with:
-          repository: FEASTorg/CRUMBS
+          repository: anolishq/CRUMBS
           path: CRUMBS
 
       - name: Checkout bread-crumbs-contracts
         uses: actions/checkout@v4
         with:
-          repository: FEASTorg/bread-crumbs-contracts
+          repository: anolishq/bread-crumbs-contracts
           path: bread-crumbs-contracts
 
       - name: Setup vcpkg

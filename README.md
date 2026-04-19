@@ -1,6 +1,6 @@
 # anolis-provider-bread
 
-[![CI](https://github.com/FEASTorg/anolis-provider-bread/actions/workflows/ci.yml/badge.svg)](https://github.com/FEASTorg/anolis-provider-bread/actions/workflows/ci.yml)
+[![CI](https://github.com/anolishq/anolis-provider-bread/actions/workflows/ci.yml/badge.svg)](https://github.com/anolishq/anolis-provider-bread/actions/workflows/ci.yml)
 
 BREAD hardware provider for the Anolis runtime.
 
