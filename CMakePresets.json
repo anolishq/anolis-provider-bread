@@ -13,8 +13,7 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "OFF",
-        "ANOLIS_PROTOCOL_DIR": "${sourceDir}/external/anolis-protocol"
+        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "OFF"
       }
     },
     {
