@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: feastorg/bread-crumbs-contracts
-          ref: v0.4.1
+          ref: v0.4.2
           path: bread-crumbs-contracts
 
       - name: Install system dependencies
