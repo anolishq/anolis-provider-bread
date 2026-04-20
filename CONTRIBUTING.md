@@ -106,6 +106,7 @@ This change must land in `bread-crumbs-contracts` before the provider can refere
 Create a new subdirectory with `<newtype>_adapter.hpp` and `<newtype>_adapter.cpp`.
 
 The adapter must implement:
+
 - `describe_device(const inventory::DeviceRecord &)` → `anolis::deviceprovider::v1::Device`
 - `read_signals(crumbs::Session &, const inventory::DeviceRecord &, ...)` → signal values
 - `call(crumbs::Session &, const inventory::DeviceRecord &, ...)` → call result
@@ -119,6 +120,7 @@ Wire the new adapter into `handle_list_devices`, `handle_describe_device`, `hand
 ### 5. Tests
 
 Add a `tests/unit/<newtype>_adapter_test.cpp` covering at minimum:
+
 - Signal read with all capability variants
 - Function call for each supported function
 - Call/read failure path (adapter error propagation)

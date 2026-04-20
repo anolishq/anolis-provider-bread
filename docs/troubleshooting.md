@@ -21,7 +21,7 @@ The ADPP framed-stdio transport uses stdout exclusively, so logs are always safe
 
 The provider exits with code 1 before opening the bus.
 
-```
+```text
 [ERROR] <yaml exception or "required field missing: ..." message>
 ```
 
@@ -38,7 +38,7 @@ A valid config prints `[INFO] Config valid: ...` and exits with code 0.
 Hardware builds only (`ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=ON`).
 The provider exits with code 1 after loading config.
 
-```
+```text
 [ERROR] open failed code=TransportError attempts=1 message="failed to open Linux I2C bus '/dev/i2c-1'"
 ```
 
@@ -56,7 +56,7 @@ Confirm `hardware.bus_path` in your config matches the actual device node.
 If config sets `hardware.require_live_session: true` but the provider binary was built with
 `ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF`, startup fails immediately:
 
-```
+```text
 [ERROR] hardware.require_live_session=true but provider was built without hardware support ...
 ```
 
@@ -76,7 +76,7 @@ A device that fails any probe step is excluded from the inventory.
 
 ### Version query fails (timeout or transport error)
 
-```
+```text
 [ERROR] query_read failed addr=0x08 code=TransportError attempts=3 native_code=-5 message="..."
 [WARN]  probe 0x08 version failed: <message>
 [WARN]  1 unsupported or incompatible probe(s) excluded from inventory
@@ -86,6 +86,7 @@ A device that fails any probe step is excluded from the inventory.
 The `[ERROR]` line is the raw CRUMBS session failure. The `[WARN]` lines are the higher-level probe summary.
 
 Common causes:
+
 - Wrong I2C address in `discovery.addresses`
 - Device not powered or not wired
 - `hardware.query_delay_us` too low for the device to prepare its reply
@@ -94,7 +95,7 @@ Try increasing `query_delay_us` (default 10 000 µs). On a working device this p
 
 ### Unexpected version reply opcode
 
-```
+```text
 [WARN] probe 0x08 unexpected version reply opcode 0xNN
 ```
 
@@ -102,7 +103,7 @@ The device responded but returned an unexpected opcode. Most likely cause is a b
 
 ### Unknown BREAD type ID
 
-```
+```text
 [INFO] probe 0x08 unsupported type_id 0x05
 [WARN]  excluded 0x08 status=UnsupportedType detail=unknown BREAD type_id: 0x05
 ```
@@ -118,7 +119,7 @@ Either update the provider to support the new type or remove the address from th
 Version compatibility is checked after a successful version query.
 A mismatch excludes the device from the inventory.
 
-```
+```text
 [WARN] probe 0x08 compat failed: <detail>
 [WARN]  excluded 0x08 status=IncompatibleCrumbsVersion detail=...
 ```
@@ -139,13 +140,13 @@ The exact minimum versions expected are defined in `bread-crumbs-contracts`. See
 
 If the capability query (opcode `0x7F`) fails or returns a parse error, the provider falls back to the baseline capability profile for that device type.
 
-```
+```text
 [WARN] probe 0x08 caps query failed (timeout), using baseline fallback
 ```
 
 or after a successful caps response that cannot be parsed:
 
-```
+```text
 [WARN] probe 0x08 caps parse failed, using baseline fallback
 ```
 
@@ -166,21 +167,21 @@ If caps queries fail intermittently, check for I2C bus contention or try increas
 
 When a config `devices:` entry specifies an `id` and `address` but the device is not found or excluded during startup, the provider enters a degraded state.
 
-```
+```text
 [WARN] 1 expected device(s) not found in inventory
 [WARN]   missing expected device id=dcmt0
 ```
 
 `GetHealth` returns:
 
-```
+```text
 provider.state  = STATE_DEGRADED
 provider.message = "provider ready but 1 expected device(s) not found"
 ```
 
 Per missing device:
 
-```
+```text
 device_health.device_id = "dcmt0"
 device_health.state     = STATE_UNREACHABLE
 device_health.message   = "expected device not found during startup"
@@ -189,6 +190,7 @@ device_health.message   = "expected device not found during startup"
 `WaitReady` still completes — the provider is technically ready — but `GetHealth` reflects the reduced inventory.
 
 Common causes:
+
 - Hardware not plugged in or not powered
 - Mismatch between `address` in config and actual I2C address on the bus
 - Device excluded due to a probe failure (check for earlier `[WARN]` or `[ERROR]` lines at the same address)
@@ -203,7 +205,7 @@ Hardware faults during normal operation are now surfaced on stderr.
 
 ### `read_signals` failure
 
-```
+```text
 [ERROR] query_read failed addr=0x08 code=Timeout attempts=3 native_code=-110 message="..."
 [WARN]  read_signals device='rlht0' failed: <message>
 ```
@@ -212,7 +214,7 @@ The ADPP client receives an error status on the `ReadSignals` RPC. The provider 
 
 ### `call` failure
 
-```
+```text
 [ERROR] query_write failed addr=0x09 code=TransportError attempts=3 native_code=-5 message="..."
 [WARN]  call device='dcmt0' fn='set_speed_open_loop' failed: <message>
 ```
@@ -237,7 +239,7 @@ Isolated errors that self-resolve are consistent with I2C bus transients; tuning
 
 The `GetHealth` RPC returns a snapshot. Key fields:
 
-```
+```text
 provider.metrics["device_count"]           — number of devices in inventory
 provider.metrics["degraded"]               — "true" if any expected device missing
 provider.metrics["unsupported_probe_count"] — probes excluded at startup

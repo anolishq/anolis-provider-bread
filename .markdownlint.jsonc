@@ -1,0 +1,5 @@
+{
+  "default": true,
+  "MD013": false,
+  "MD060": false // docs/build.md, docs/troubleshooting.md, and docs/versioning.md use mixed/legacy table pipe spacing that remains to be normalized.
+}
