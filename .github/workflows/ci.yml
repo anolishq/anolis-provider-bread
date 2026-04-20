@@ -43,7 +43,7 @@ jobs:
       - name: Checkout CRUMBS
         uses: actions/checkout@v4
         with:
-          repository: anolishq/CRUMBS
+          repository: FEASTorg/CRUMBS
           path: CRUMBS
 
       - name: Checkout bread-crumbs-contracts
@@ -90,7 +90,7 @@ jobs:
       - name: Checkout CRUMBS
         uses: actions/checkout@v4
         with:
-          repository: anolishq/CRUMBS
+          repository: FEASTorg/CRUMBS
           path: CRUMBS
 
       - name: Checkout bread-crumbs-contracts
