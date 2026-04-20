@@ -132,7 +132,7 @@ The `status` field indicates what was incompatible:
 | `IncompatibleModuleMajor` | Module major version mismatch (breaking change) | Update firmware to match the contracts version expected by this provider |
 | `IncompatibleModuleMinor` | Module minor version below required minimum | Update firmware |
 
-The exact minimum versions expected are defined in `bread-crumbs-contracts`. See [feast-stack docs/devices.md](../../feast-stack/docs/devices.md) for the version compatibility table.
+The exact minimum versions expected are defined in `bread-crumbs-contracts`.
 
 ---
 
