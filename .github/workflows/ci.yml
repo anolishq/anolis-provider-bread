@@ -38,7 +38,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: anolis-provider-bread
-          submodules: recursive
 
       - name: Checkout CRUMBS
         uses: actions/checkout@v4
@@ -87,7 +86,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: anolis-provider-bread
-          submodules: recursive
 
       - name: Checkout CRUMBS
         uses: actions/checkout@v4
