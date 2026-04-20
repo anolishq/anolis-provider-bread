@@ -87,15 +87,16 @@ When `bread-crumbs-contracts` releases a new version:
 
 ## Checking Versions At Runtime
 
-The `GetHealth` RPC metrics include the provider inventory mode and device count but not the version string directly. The version is printed to stderr at startup:
+The `GetHealth` RPC metrics include the provider inventory mode and device count
+but not the version string directly. The version is printed to stderr at startup:
 
-```
+```text
 [INFO] starting with config: ...
 ```
 
-The full version string is embedded in the binary as `ANOLIS_PROVIDER_BREAD_VERSION` (`0.1.0` in the current build).
-Device firmware versions are logged per-device during probe:
+The full version string is embedded in the binary as `ANOLIS_PROVIDER_BREAD_VERSION`
+(`0.1.0` in the current build). Device firmware versions are logged per-device during probe:
 
-```
+```text
 [INFO] probe 0x08 type=0x01 crumbs=1200 module=1.0.0 caps_source=Queried
 ```
