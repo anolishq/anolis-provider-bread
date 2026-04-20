@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  VCPKG_COMMIT: "66c0373dc7fca549e5803087b9487edfe3aca0a1"
+
+jobs:
+  release-linux-x86_64:
+    name: Release (linux-x86_64)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout anolis-provider-bread
+        uses: actions/checkout@v4
+        with:
+          path: anolis-provider-bread
+          submodules: recursive
+
+      - name: Checkout CRUMBS
+        uses: actions/checkout@v4
+        with:
+          repository: feastorg/CRUMBS
+          ref: v0.12.1
+          path: CRUMBS
+
+      - name: Checkout bread-crumbs-contracts
+        uses: actions/checkout@v4
+        with:
+          repository: feastorg/bread-crumbs-contracts
+          ref: v0.4.1
+          path: bread-crumbs-contracts
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++ jq
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
+          doNotCache: false
+
+      - name: Configure
+        working-directory: anolis-provider-bread
+        run: cmake --preset ci-linux-release
+
+      - name: Build
+        working-directory: anolis-provider-bread
+        run: cmake --build --preset ci-linux-release --parallel
+
+      - name: Test
+        working-directory: anolis-provider-bread
+        run: ctest --preset ci-linux-release
+
+      - name: Package binary artifact
+        id: package
+        working-directory: anolis-provider-bread
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARTIFACT="anolis-provider-bread-${VERSION}-linux-x86_64.tar.gz"
+          BINARY="build/ci-linux-release/anolis-provider-bread"
+          if [ ! -f "${BINARY}" ]; then
+            echo "ERROR: binary not found at ${BINARY}" >&2
+            exit 1
+          fi
+          mkdir -p staging/bin
+          cp "${BINARY}" staging/bin/
+          tar -czf "${ARTIFACT}" -C staging .
+          echo "artifact=${ARTIFACT}" >> "$GITHUB_OUTPUT"
+
+      - name: Package source tarball
+        working-directory: anolis-provider-bread
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git archive --format=tar.gz \
+            --prefix="anolis-provider-bread-${VERSION}/" \
+            -o "anolis-provider-bread-${VERSION}-source.tar.gz" \
+            HEAD
+
+      - name: Generate checksums
+        working-directory: anolis-provider-bread
+        run: sha256sum anolis-provider-bread-*.tar.gz > SHA256SUMS
+
+      - name: Generate manifest
+        working-directory: anolis-provider-bread
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARTIFACT="${{ steps.package.outputs.artifact }}"
+          SHA=$(grep "${ARTIFACT}" SHA256SUMS | awk '{print $1}')
+          jq -n \
+            --argjson schema_version 1 \
+            --arg repo "anolishq/anolis-provider-bread" \
+            --arg component "anolis_provider_bread" \
+            --arg version "${VERSION}" \
+            --arg platform "linux-x86_64" \
+            --arg asset "${ARTIFACT}" \
+            --arg sha256 "${SHA}" \
+            '{schema_version: $schema_version, repo: $repo, component: $component, version: $version, platform: $platform, asset: $asset, sha256: $sha256}' \
+            > manifest.json
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            anolis-provider-bread/anolis-provider-bread-*.tar.gz
+            anolis-provider-bread/SHA256SUMS
+            anolis-provider-bread/manifest.json
+          generate_release_notes: true
