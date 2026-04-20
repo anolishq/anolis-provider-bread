@@ -8,9 +8,9 @@ Clone them all before configuring:
 ```bash
 cd repos_feast  # or wherever you keep repos
 git clone https://github.com/anolishq/anolis-provider-bread
-git clone https://github.com/FEASTorg/CRUMBS
-git clone https://github.com/FEASTorg/bread-crumbs-contracts
-git clone https://github.com/anolishq/linux-wire
+git clone https://github.com/feastorg/CRUMBS
+git clone https://github.com/feastorg/bread-crumbs-contracts
+git clone https://github.com/feastorg/linux-wire
 ```
 
 Then initialize the `anolis-protocol` submodule inside `anolis-provider-bread`:
