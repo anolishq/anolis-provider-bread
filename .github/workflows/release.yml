@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: feastorg/CRUMBS
-          ref: v0.12.1
+          ref: v0.12.2
           path: CRUMBS
 
       - name: Checkout bread-crumbs-contracts
