@@ -37,16 +37,6 @@ FetchContent_Declare(
     URL_HASH SHA256=520154759d6a1cb4a1a7badde6c0c5394e2a2cdc68e189a3db6aa4a390abb6b1
 )
 FetchContent_MakeAvailable(anolis_protocol)
-if(NOT DEFINED CRUMBS_DIR)
-    set(CRUMBS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../CRUMBS" CACHE PATH "Path to CRUMBS repository")
-endif()
-if(NOT DEFINED BREAD_CONTRACTS_DIR)
-    set(BREAD_CONTRACTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../bread-crumbs-contracts" CACHE PATH "Path to bread-crumbs-contracts repository")
-endif()
-
-get_filename_component(CRUMBS_DIR_ABS "${CRUMBS_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-get_filename_component(BREAD_CONTRACTS_DIR_ABS "${BREAD_CONTRACTS_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-
 set(ADPP_PROTO_IMPORT_ROOT "${anolis_protocol_SOURCE_DIR}/proto")
 set(ADPP_PROTO_V1_DIR "${ADPP_PROTO_IMPORT_ROOT}/anolis/deviceprovider/v1")
 set(ADPP_PROTO_ENVELOPE "${ADPP_PROTO_V1_DIR}/envelope.proto")
@@ -66,24 +56,6 @@ if(NOT ADPP_PROTOS)
         "Expected split protocol layout from anolis-protocol PR #1."
     )
 endif()
-
-if(NOT EXISTS "${CRUMBS_DIR_ABS}/CMakeLists.txt")
-    message(FATAL_ERROR
-        "CRUMBS repository not found at: ${CRUMBS_DIR_ABS}\n"
-        "Set CRUMBS_DIR or place the repo beside anolis-provider-bread."
-    )
-endif()
-
-if(NOT EXISTS "${BREAD_CONTRACTS_DIR_ABS}/CMakeLists.txt")
-    message(FATAL_ERROR
-        "bread-crumbs-contracts repository not found at: ${BREAD_CONTRACTS_DIR_ABS}\n"
-        "Set BREAD_CONTRACTS_DIR or place the repo beside anolis-provider-bread."
-    )
-endif()
-
-set(CRUMBS_ENABLE_LINUX_HAL OFF CACHE BOOL "" FORCE)
-set(CRUMBS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(CRUMBS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 
 if(ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE)
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -109,18 +81,45 @@ if(ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE)
             "CRUMBS will rely on installed linux_wire package visibility if Linux HAL is enabled."
         )
     endif()
-
-    set(CRUMBS_ENABLE_LINUX_HAL ON CACHE BOOL "" FORCE)
 endif()
 
-add_subdirectory("${CRUMBS_DIR_ABS}" "${CMAKE_BINARY_DIR}/crumbs_subbuild")
-add_subdirectory("${BREAD_CONTRACTS_DIR_ABS}" "${CMAKE_BINARY_DIR}/bread_contracts_subbuild")
+# CRUMBS: find_package by default; set CRUMBS_DIR to use a source-tree override.
+if(DEFINED CRUMBS_DIR AND NOT CRUMBS_DIR STREQUAL "")
+    get_filename_component(CRUMBS_DIR_ABS "${CRUMBS_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+    if(NOT EXISTS "${CRUMBS_DIR_ABS}/CMakeLists.txt")
+        message(FATAL_ERROR
+            "CRUMBS not found at: ${CRUMBS_DIR_ABS}\n"
+            "Set CRUMBS_DIR to the root of the CRUMBS repository.")
+    endif()
+    set(CRUMBS_ENABLE_LINUX_HAL "${ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE}" CACHE BOOL "" FORCE)
+    set(CRUMBS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(CRUMBS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+    add_subdirectory("${CRUMBS_DIR_ABS}" "${CMAKE_BINARY_DIR}/crumbs_subbuild")
+    if(NOT TARGET crumbs::crumbs)
+        add_library(crumbs::crumbs ALIAS crumbs)
+    endif()
+else()
+    find_package(crumbs CONFIG REQUIRED)
+endif()
+
+# bread-crumbs-contracts: find_package by default; set BREAD_CONTRACTS_DIR to use a source-tree override.
+if(DEFINED BREAD_CONTRACTS_DIR AND NOT BREAD_CONTRACTS_DIR STREQUAL "")
+    get_filename_component(BREAD_CONTRACTS_DIR_ABS "${BREAD_CONTRACTS_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+    if(NOT EXISTS "${BREAD_CONTRACTS_DIR_ABS}/CMakeLists.txt")
+        message(FATAL_ERROR
+            "bread-crumbs-contracts not found at: ${BREAD_CONTRACTS_DIR_ABS}\n"
+            "Set BREAD_CONTRACTS_DIR to the root of the bread-crumbs-contracts repository.")
+    endif()
+    add_subdirectory("${BREAD_CONTRACTS_DIR_ABS}" "${CMAKE_BINARY_DIR}/bread_contracts_subbuild")
+else()
+    find_package(breadCrumbsContracts CONFIG REQUIRED)
+endif()
 
 add_library(anolis_provider_bread_bread_contracts INTERFACE)
 target_link_libraries(anolis_provider_bread_bread_contracts
     INTERFACE
         bread::contracts
-        crumbs
+        crumbs::crumbs
 )
 
 add_library(adpp_proto OBJECT ${ADPP_PROTOS})
@@ -173,7 +172,7 @@ if(ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE)
     target_sources(anolis_provider_bread_crumbs PRIVATE
         src/crumbs/linux_transport.cpp
     )
-    target_link_libraries(anolis_provider_bread_crumbs PUBLIC crumbs)
+    target_link_libraries(anolis_provider_bread_crumbs PUBLIC crumbs::crumbs)
     target_compile_definitions(anolis_provider_bread_crumbs PUBLIC
         ANOLIS_PROVIDER_BREAD_HAS_CRUMBS=1
     )
