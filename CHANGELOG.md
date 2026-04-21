@@ -13,6 +13,19 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-04-21
+
+### Changed
+
+- Switch `anolis-protocol` dependency from git submodule to FetchContent, pinned at `v1.0.0` then bumped to `v1.1.3`.
+- Cut `CRUMBS` and `bread-crumbs-contracts` dependencies to `find_package`; packages located via `CRUMBS_DIR` / `BREAD_CONTRACTS_DIR` CMake variables — removes the submodule requirement.
+- Remove stale `ANOLIS_PROTOCOL_DIR` variable from `CMakePresets.json`.
+
+### CI
+
+- Pin org reusable workflow refs from `@main` to `@v1`.
+- Add metrics collection to release workflow; `metrics.json` uploaded as release asset on each `v*` tag.
+
 ## [0.1.0] - 2026-04-20
 
 First tagged release. The BREAD provider was developed in full before tagging; this
