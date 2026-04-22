@@ -96,9 +96,7 @@
       "name": "ci-linux-release",
       "inherits": "dev-release",
       "cacheVariables": {
-        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON",
-        "CRUMBS_DIR": "${sourceDir}/../CRUMBS",
-        "BREAD_CONTRACTS_DIR": "${sourceDir}/../bread-crumbs-contracts"
+        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON"
       }
     },
     {
