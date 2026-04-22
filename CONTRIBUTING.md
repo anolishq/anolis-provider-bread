@@ -2,34 +2,24 @@
 
 ## Workspace Setup
 
-This repo depends on sibling source repos at the same directory level.
-Clone them all before configuring:
+Just clone this repo — no sibling checkouts required for a standard build.
+
+`anolis-protocol` is fetched automatically at configure time via CMake FetchContent, pinned to the
+release tag declared in `CMakeLists.txt`. `CRUMBS` and `bread-crumbs-contracts` are resolved from
+their release artifacts via `find_package` when `CRUMBS_DIR` / `BREAD_CONTRACTS_DIR` are not set.
+
+For active development of those dependencies, you can clone them as siblings and point CMake at them:
 
 ```bash
 cd repos_feast  # or wherever you keep repos
 git clone https://github.com/anolishq/anolis-provider-bread
+# Optional — only needed if developing CRUMBS or bread-crumbs-contracts alongside this repo:
 git clone https://github.com/feastorg/CRUMBS
 git clone https://github.com/feastorg/bread-crumbs-contracts
-git clone https://github.com/feastorg/linux-wire
+git clone https://github.com/feastorg/linux-wire  # required only for hardware I2C path
 ```
 
-Then initialize the `anolis-protocol` submodule inside `anolis-provider-bread`:
-
-```bash
-cd anolis-provider-bread
-git submodule update --init --recursive
-```
-
-Expected layout:
-
-```text
-repos_feast/
-├── anolis-provider-bread/
-│   └── external/anolis-protocol/   ← submodule
-├── CRUMBS/
-├── bread-crumbs-contracts/
-└── linux-wire/
-```
+Source overrides use `CRUMBS_DIR` and `BREAD_CONTRACTS_DIR` CMake variables.
 
 vcpkg must be installed and `VCPKG_ROOT` set before configuring.
 See [docs/build.md](docs/build.md) for the full prerequisites list.
