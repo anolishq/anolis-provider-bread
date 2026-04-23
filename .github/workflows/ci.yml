@@ -141,3 +141,9 @@ jobs:
         working-directory: anolis-provider-bread
         shell: pwsh
         run: ctest --preset ci-windows-release
+
+  version-sync:
+    uses: anolishq/.github-anolishq/.github/workflows/version-sync.yml@main
+    with:
+      python-version: '3.12'
+      working-directory: '.'
