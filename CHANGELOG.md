@@ -13,6 +13,14 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-04-23
+
+### CI
+
+- Fixed release workflow: pass `CRUMBS_DIR` and `BREAD_CONTRACTS_DIR` to cmake
+  configure so checked-out sources are used as `add_subdirectory` trees instead
+  of requiring an installed package (resolves `find_package(crumbs)` failure).
+
 ## [0.2.2] - 2026-04-23
 
 ### Changed
