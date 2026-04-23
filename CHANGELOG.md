@@ -13,6 +13,36 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-04-23
+
+### Changed
+
+- Bump `anolis-protocol` FetchContent pin from `v1.1.3` to `v1.1.4`.
+- Reverted `ci-linux-release` preset: `CRUMBS_DIR` / `BREAD_CONTRACTS_DIR` variables
+  removed; build now uses installed packages via `find_package`.
+
+### CI
+
+- Version-sync check wired: `version-locations.txt` added tracking `CMakeLists.txt`
+  and `vcpkg.json`; CI calls reusable `version-sync` workflow from `anolishq/.github`.
+- `vcpkg.json` version aligned to `0.2.0` (was stale at `0.1.0`).
+- `.anpkg` added to `.gitignore`.
+
+### Docs
+
+- Build setup guide updated: sibling-checkout pattern replaced with artifact-first
+  description.
+
+## [0.2.1] - 2026-04-21
+
+### CI
+
+- Fix `ci-linux-release` preset to pass `CRUMBS_DIR` and `BREAD_CONTRACTS_DIR`
+  to the CMake configure step.
+
+> **Note:** the `v0.2.1` tag was applied to a CI-only commit; version strings in
+> source remained at `0.2.0`. This entry is recorded for completeness.
+
 ## [0.2.0] - 2026-04-21
 
 ### Changed
