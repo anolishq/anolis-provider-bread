@@ -16,7 +16,7 @@ namespace {
 anolis_provider_bread::ProviderConfig make_stub_config() {
   anolis_provider_bread::ProviderConfig config;
   config.provider_name = "bread-lab";
-  config.bus_path = "/dev/i2c-1";
+  config.bus_path = "mock://test-stub";
   config.discovery_mode = anolis_provider_bread::DiscoveryMode::Manual;
   config.manual_addresses = {0x08, 0x09};
   config.devices = {
@@ -184,17 +184,16 @@ TEST(ProtoSmokeTest, InMemoryProviderLoopCanRoundTripHello) {
   EXPECT_FALSE(framed_response.str().empty());
 }
 
-TEST(ProtoSmokeTest, RequireLiveSessionConfigBehaviorMatchesBuildMode) {
+TEST(ProtoSmokeTest, RequireLiveSessionIsRemovedInFavorOfMockBusPath) {
+  // hardware.require_live_session has been removed. Runtime gating is now
+  // determined by bus_path prefix: mock:// => config-seeded, else => CRUMBS.
+  // This test confirms initialize() with a mock:// path succeeds and produces
+  // a config-seeded inventory.
   auto config = make_stub_config();
-  config.require_live_session = true;
-
+  // bus_path is already mock://test-stub from make_stub_config()
   anolis_provider_bread::runtime::reset();
-
-#if !defined(ANOLIS_PROVIDER_BREAD_HAS_CRUMBS)
-  EXPECT_THROW(anolis_provider_bread::runtime::initialize(config),
-               std::runtime_error);
-#else
-  GTEST_SKIP() << "no-hardware guard is only applicable when hardware "
-                  "integration is disabled";
-#endif
+  anolis_provider_bread::runtime::initialize(config);
+  const auto state = anolis_provider_bread::runtime::snapshot();
+  EXPECT_TRUE(state.ready);
+  EXPECT_EQ(state.inventory_mode, "config_seeded");
 }

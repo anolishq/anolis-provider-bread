@@ -1,6 +1,6 @@
 {
   "name": "anolis-provider-bread",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "BREAD-over-CRUMBS hardware provider for the Anolis runtime",
   "dependencies": [
     "gtest",

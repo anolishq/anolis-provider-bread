@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 
-option(ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE "Enable CRUMBS/Linux hardware integration" ${UNIX})
 option(ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS "Treat first-party compiler warnings as errors" OFF)
 
-project(anolis_provider_bread VERSION 0.2.3 LANGUAGES C CXX)
+project(anolis_provider_bread VERSION 0.2.4 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -57,30 +56,21 @@ if(NOT ADPP_PROTOS)
     )
 endif()
 
-if(ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE)
-    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        message(FATAL_ERROR
-            "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE requires a Linux host build.\n"
-            "Use a Linux hardware preset (dev-linux-hardware-debug, dev-linux-hardware-release)\n"
-            "or configure with ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF on other platforms."
-        )
-    endif()
-
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if(NOT DEFINED LINUX_WIRE_DIR)
         set(LINUX_WIRE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../linux-wire" CACHE PATH "Path to linux-wire repository")
     endif()
     get_filename_component(LINUX_WIRE_DIR_ABS "${LINUX_WIRE_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
-    if(EXISTS "${LINUX_WIRE_DIR_ABS}/CMakeLists.txt")
-        set(LINUX_WIRE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-        add_subdirectory("${LINUX_WIRE_DIR_ABS}" "${CMAKE_BINARY_DIR}/linux_wire_subbuild")
-        message(STATUS "Using linux-wire source tree: ${LINUX_WIRE_DIR_ABS}")
-    else()
-        message(STATUS
-            "LINUX_WIRE_DIR not found at '${LINUX_WIRE_DIR_ABS}'. "
-            "CRUMBS will rely on installed linux_wire package visibility if Linux HAL is enabled."
-        )
+    if(NOT EXISTS "${LINUX_WIRE_DIR_ABS}/CMakeLists.txt")
+        message(FATAL_ERROR
+            "linux-wire not found at: ${LINUX_WIRE_DIR_ABS}\n"
+            "Set LINUX_WIRE_DIR to the root of the linux-wire repository.")
     endif()
+    set(BUILD_SHARED_LIBS OFF)
+    set(LINUX_WIRE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    add_subdirectory("${LINUX_WIRE_DIR_ABS}" "${CMAKE_BINARY_DIR}/linux_wire_subbuild")
+    message(STATUS "Using linux-wire source tree: ${LINUX_WIRE_DIR_ABS}")
 endif()
 
 # CRUMBS: find_package by default; set CRUMBS_DIR to use a source-tree override.
@@ -91,7 +81,11 @@ if(DEFINED CRUMBS_DIR AND NOT CRUMBS_DIR STREQUAL "")
             "CRUMBS not found at: ${CRUMBS_DIR_ABS}\n"
             "Set CRUMBS_DIR to the root of the CRUMBS repository.")
     endif()
-    set(CRUMBS_ENABLE_LINUX_HAL "${ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE}" CACHE BOOL "" FORCE)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(CRUMBS_ENABLE_LINUX_HAL ON CACHE BOOL "" FORCE)
+    else()
+        set(CRUMBS_ENABLE_LINUX_HAL OFF CACHE BOOL "" FORCE)
+    endif()
     set(CRUMBS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(CRUMBS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
     add_subdirectory("${CRUMBS_DIR_ABS}" "${CMAKE_BINARY_DIR}/crumbs_subbuild")
@@ -168,14 +162,11 @@ target_compile_definitions(anolis_provider_bread_crumbs PUBLIC
 )
 anolis_provider_bread_apply_warnings(anolis_provider_bread_crumbs)
 
-if(ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(anolis_provider_bread_crumbs PRIVATE
         src/crumbs/linux_transport.cpp
     )
     target_link_libraries(anolis_provider_bread_crumbs PUBLIC crumbs::crumbs)
-    target_compile_definitions(anolis_provider_bread_crumbs PUBLIC
-        ANOLIS_PROVIDER_BREAD_HAS_CRUMBS=1
-    )
 endif()
 
 add_library(anolis_provider_bread_core STATIC

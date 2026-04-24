@@ -8,7 +8,7 @@
 
 #include "crumbs/session.hpp"
 
-#if defined(ANOLIS_PROVIDER_BREAD_HAS_CRUMBS)
+#if defined(__linux__)
 
 extern "C" {
 #include "crumbs.h"
@@ -76,4 +76,4 @@ private:
 
 } // namespace anolis_provider_bread::crumbs
 
-#endif
+#endif // defined(__linux__)

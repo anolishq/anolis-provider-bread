@@ -13,6 +13,36 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-04-24
+
+### Changed
+
+- Replaced compile-time `ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE` flag with runtime
+  gating via `bus_path` prefix. `bus_path: mock://...` produces a config-seeded
+  inventory without requiring any hardware; any other path opens a live CRUMBS
+  session. This aligns bread with the ezo provider pattern: one binary per
+  platform, behavior determined by config at runtime.
+- Removed `hardware.require_live_session` config field. The same intent is now
+  expressed by using a real bus path (e.g. `/dev/i2c-1`) — if the bus cannot be
+  opened, startup throws. Configs with `require_live_session` will be rejected
+  at load time as an unknown key.
+- Added `config/ci.test.yaml` with `bus_path: mock://ci-test` for CI and dev
+  testing without hardware.
+- `linux-wire` is now always compiled into the provider on Linux (no flag required).
+  `set(BUILD_SHARED_LIBS OFF)` added before the linux-wire subdirectory to ensure
+  a static archive regardless of the parent CMake context.
+- Removed `dev-linux-hardware-debug`, `dev-linux-hardware-release`, and
+  `ci-linux-hardware-release` presets (superseded by `dev-debug`, `dev-release`,
+  and `ci-linux-release` which now always include hardware capability on Linux).
+- Renamed hidden `linux-hardware-base` preset to `linux-base`.
+
+### CI
+
+- Release workflow: added linux-wire checkout (`feastorg/linux-wire@v0.1.2`).
+- Release workflow: removed explicit `-DCRUMBS_DIR` / `-DBREAD_CONTRACTS_DIR`
+  cmake overrides; these are now set by the `linux-base` preset via
+  `${sourceDir}/../CRUMBS` and `${sourceDir}/../bread-crumbs-contracts`.
+
 ## [0.2.3] - 2026-04-23
 
 ### CI

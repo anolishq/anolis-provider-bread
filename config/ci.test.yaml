@@ -1,0 +1,22 @@
+provider:
+  name: bread-ci-test
+
+hardware:
+  bus_path: mock://ci-test
+  query_delay_us: 10000
+  timeout_ms: 100
+  retry_count: 2
+
+discovery:
+  mode: manual
+  addresses: [0x08, 0x09]
+
+devices:
+  - id: rlht0
+    type: rlht
+    label: Left Heater (CI test)
+    address: 0x08
+  - id: dcmt0
+    type: dcmt
+    label: Conveyor Drive (CI test)
+    address: 0x09

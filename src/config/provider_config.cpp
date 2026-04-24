@@ -199,15 +199,11 @@ ProviderConfig load_config(const std::string &path) {
   }
   ensure_map(hardware_node, "hardware");
   reject_unknown_keys(hardware_node, "hardware",
-                      {"bus_path", "require_live_session", "query_delay_us",
+                      {"bus_path", "query_delay_us",
                        "timeout_ms", "retry_count"});
 
   config.bus_path =
       require_scalar(hardware_node["bus_path"], "hardware.bus_path");
-  if (hardware_node["require_live_session"]) {
-    config.require_live_session = parse_bool_value(
-        hardware_node["require_live_session"], "hardware.require_live_session");
-  }
   if (hardware_node["query_delay_us"]) {
     config.query_delay_us = parse_int_value(hardware_node["query_delay_us"],
                                             "hardware.query_delay_us", false);
@@ -325,8 +321,6 @@ std::string summarize_config(const ProviderConfig &config) {
   // the effective config without dumping the full YAML file.
   out << "provider.name=" << config.provider_name
       << ", hardware.bus_path=" << config.bus_path
-      << ", hardware.require_live_session="
-      << (config.require_live_session ? "true" : "false")
       << ", hardware.query_delay_us=" << config.query_delay_us
       << ", hardware.timeout_ms=" << config.timeout_ms
       << ", hardware.retry_count=" << config.retry_count

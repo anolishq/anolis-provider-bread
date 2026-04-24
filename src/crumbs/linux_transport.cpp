@@ -6,8 +6,6 @@
  * layer.
  */
 
-#if defined(ANOLIS_PROVIDER_BREAD_HAS_CRUMBS)
-
 #include <cerrno>
 #include <cstring>
 #include <sstream>
@@ -235,5 +233,3 @@ crumbs_device_t LinuxTransport::bind_device(uint8_t address) {
 }
 
 } // namespace anolis_provider_bread::crumbs
-
-#endif

@@ -50,7 +50,7 @@ target_link_libraries(provider_shell_tests PRIVATE
 
 target_compile_definitions(provider_shell_tests PRIVATE
     ANOLIS_PROVIDER_BREAD_TEST_EXE="$<TARGET_FILE:anolis-provider-bread>"
-    ANOLIS_PROVIDER_BREAD_TEST_CONFIG="${CMAKE_SOURCE_DIR}/config/example.local.yaml"
+    ANOLIS_PROVIDER_BREAD_TEST_CONFIG="${CMAKE_SOURCE_DIR}/config/ci.test.yaml"
 )
 
 anolis_provider_bread_apply_warnings(provider_shell_tests)

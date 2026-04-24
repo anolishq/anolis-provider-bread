@@ -28,7 +28,7 @@
       }
     },
     {
-      "name": "linux-hardware-base",
+      "name": "linux-base",
       "hidden": true,
       "inherits": "base",
       "cacheVariables": {
@@ -39,57 +39,30 @@
     },
     {
       "name": "dev-debug",
-      "inherits": "base",
+      "inherits": "linux-base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "OFF"
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
       "name": "dev-release",
-      "inherits": "base",
+      "inherits": "linux-base",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "OFF"
+        "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
       "name": "dev-windows-debug",
       "inherits": "base-windows-msvc",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "OFF"
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
       "name": "dev-windows-release",
       "inherits": "base-windows-msvc",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "OFF"
-      }
-    },
-    {
-      "name": "dev-linux-hardware-debug",
-      "inherits": "linux-hardware-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "ON"
-      }
-    },
-    {
-      "name": "dev-linux-hardware-release",
-      "inherits": "linux-hardware-base",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "ON"
-      }
-    },
-    {
-      "name": "ci-linux-hardware-release",
-      "inherits": "dev-linux-hardware-release",
-      "cacheVariables": {
-        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON"
+        "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
@@ -104,7 +77,6 @@
       "inherits": "base-windows-msvc",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE": "OFF",
         "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON"
       }
     }
@@ -127,18 +99,6 @@
       "name": "dev-windows-release",
       "configurePreset": "dev-windows-release",
       "configuration": "Release"
-    },
-    {
-      "name": "dev-linux-hardware-debug",
-      "configurePreset": "dev-linux-hardware-debug"
-    },
-    {
-      "name": "dev-linux-hardware-release",
-      "configurePreset": "dev-linux-hardware-release"
-    },
-    {
-      "name": "ci-linux-hardware-release",
-      "configurePreset": "ci-linux-hardware-release"
     },
     {
       "name": "ci-linux-release",
@@ -177,27 +137,6 @@
       "name": "dev-windows-release",
       "configurePreset": "dev-windows-release",
       "configuration": "Release",
-      "output": {
-        "outputOnFailure": true
-      }
-    },
-    {
-      "name": "dev-linux-hardware-debug",
-      "configurePreset": "dev-linux-hardware-debug",
-      "output": {
-        "outputOnFailure": true
-      }
-    },
-    {
-      "name": "dev-linux-hardware-release",
-      "configurePreset": "dev-linux-hardware-release",
-      "output": {
-        "outputOnFailure": true
-      }
-    },
-    {
-      "name": "ci-linux-hardware-release",
-      "configurePreset": "ci-linux-hardware-release",
       "output": {
         "outputOnFailure": true
       }
