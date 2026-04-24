@@ -39,34 +39,31 @@ jobs:
         with:
           path: anolis-provider-bread
 
+      - name: Checkout CRUMBS
+        uses: actions/checkout@v4
+        with:
+          repository: feastorg/CRUMBS
+          ref: v0.12.2
+          path: CRUMBS
+
+      - name: Checkout bread-crumbs-contracts
+        uses: actions/checkout@v4
+        with:
+          repository: feastorg/bread-crumbs-contracts
+          ref: v0.4.2
+          path: bread-crumbs-contracts
+
+      - name: Checkout linux-wire
+        uses: actions/checkout@v4
+        with:
+          repository: feastorg/linux-wire
+          ref: v0.1.2
+          path: linux-wire
+
       - name: Install build tools
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build g++
-
-      - name: Install CRUMBS from release
-        run: |
-          curl -fsSL https://github.com/feastorg/CRUMBS/archive/refs/tags/v0.12.2.tar.gz -o crumbs.tar.gz
-          tar -xzf crumbs.tar.gz
-          cmake -S CRUMBS-0.12.2 -B crumbs-build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCRUMBS_ENABLE_LINUX_HAL=OFF \
-            -DCRUMBS_BUILD_EXAMPLES=OFF \
-            -DCRUMBS_ENABLE_TESTS=OFF \
-            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/deps-install"
-          cmake --build crumbs-build --parallel
-          cmake --install crumbs-build
-
-      - name: Install bread-crumbs-contracts from release
-        run: |
-          curl -fsSL https://github.com/feastorg/bread-crumbs-contracts/archive/refs/tags/v0.4.2.tar.gz -o bread-contracts.tar.gz
-          tar -xzf bread-contracts.tar.gz
-          cmake -S bread-crumbs-contracts-0.4.2 -B bread-contracts-build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="${{ github.workspace }}/deps-install" \
-            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/deps-install"
-          cmake --build bread-contracts-build --parallel
-          cmake --install bread-contracts-build
 
       - name: Setup vcpkg
         uses: lukka/run-vcpkg@v11
@@ -76,7 +73,7 @@ jobs:
 
       - name: Configure
         working-directory: anolis-provider-bread
-        run: cmake --preset ci-linux-release "-DCMAKE_PREFIX_PATH=${{ github.workspace }}/deps-install"
+        run: cmake --preset ci-linux-release
 
       - name: Build
         working-directory: anolis-provider-bread

@@ -76,17 +76,6 @@ int parse_int_value(const YAML::Node &node, const std::string &field_name,
   }
 }
 
-bool parse_bool_value(const YAML::Node &node, const std::string &field_name) {
-  const std::string text = require_scalar(node, field_name);
-  if (text == "true") {
-    return true;
-  }
-  if (text == "false") {
-    return false;
-  }
-  throw std::runtime_error(field_name + " must be true or false");
-}
-
 int parse_address_text(const std::string &text, const std::string &field_name) {
   const int base =
       (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
