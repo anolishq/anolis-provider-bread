@@ -10,7 +10,7 @@ no-hardware build for development and CI.
 
 Repository documentation:
 
-- [docs/README.md](docs/README.md) — scope, design decisions, key rules
+- [docs/index.md](docs/index.md) — scope, design decisions, key rules
 - [docs/build.md](docs/build.md) — dependency install, configure, build, and test workflow
 - [docs/troubleshooting.md](docs/troubleshooting.md) — common failure modes and log signatures
 - [docs/versioning.md](docs/versioning.md) — provider and dependency version expectations
@@ -45,7 +45,7 @@ providers:
 ```
 
 A sample provider config is at `config/example.local.yaml` in the source. See
-[docs/README.md](docs/README.md) for device types, signal surfaces, and hardware wiring.
+[docs/index.md](docs/index.md) for device types, signal surfaces, and hardware wiring.
 
 ### Build from source (contributors / hardware builds)
 
@@ -72,5 +72,3 @@ Linux hardware build:
 cmake --preset dev-linux-hardware-release
 cmake --build --preset dev-linux-hardware-release --parallel
 ```
-
-
