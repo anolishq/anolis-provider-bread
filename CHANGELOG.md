@@ -13,6 +13,19 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-04-24
+
+### Fixed
+
+- Remove unused `parse_bool_value()` from `provider_config.cpp` (was
+  triggering `-Werror=unused-function` on Linux after `require_live_session`
+  was removed in v0.2.4).
+- `shell_test.cpp`: update `provider_name` expectation to `"bread-ci-test"`
+  to match `config/ci.test.yaml`.
+- CI (`ci.yml`): align `no-hardware-linux` job with release workflow — check
+  out CRUMBS, bread-crumbs-contracts, and linux-wire as sibling repos instead
+  of installing from tarballs; removes explicit `-DCMAKE_PREFIX_PATH` override.
+
 ## [0.2.4] - 2026-04-24
 
 ### Changed
