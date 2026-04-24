@@ -13,6 +13,16 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-04-24
+
+### Build
+
+- Added `triplets/x64-linux-static.cmake` and wired it into the
+  `ci-linux-release` preset (`VCPKG_TARGET_TRIPLET=x64-linux-static`,
+  `VCPKG_OVERLAY_TRIPLETS`). The released Linux binary now statically links
+  all vcpkg dependencies (protobuf, yaml-cpp, openssl) and is self-contained
+  on any glibc Linux system without requiring vcpkg to be installed.
+
 ## [0.2.5] - 2026-04-24
 
 ### Fixed
