@@ -13,6 +13,16 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-04-24
+
+### Changed
+
+- Updated `anolis-protocol` dependency from v1.1.4 to v1.2.0. The new release
+  adds `optional` presence to `ArgSpec` bounds fields, enabling zero-valued
+  bounds and fixing one-sided bound enforcement in the runtime. No source
+  changes required in this provider — all existing `set_min_*()` / `set_max_*()`
+  calls are unaffected.
+
 ## [0.2.6] - 2026-04-24
 
 ### Build
