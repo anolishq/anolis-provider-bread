@@ -28,25 +28,15 @@
       }
     },
     {
-      "name": "linux-base",
-      "hidden": true,
-      "inherits": "base",
-      "cacheVariables": {
-        "CRUMBS_DIR": "${sourceDir}/../CRUMBS",
-        "BREAD_CONTRACTS_DIR": "${sourceDir}/../bread-crumbs-contracts",
-        "LINUX_WIRE_DIR": "${sourceDir}/../linux-wire"
-      }
-    },
-    {
       "name": "dev-debug",
-      "inherits": "linux-base",
+      "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
     },
     {
       "name": "dev-release",
-      "inherits": "linux-base",
+      "inherits": "base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
