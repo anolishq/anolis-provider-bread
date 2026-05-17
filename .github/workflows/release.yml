@@ -28,27 +28,6 @@ jobs:
         with:
           path: anolis-provider-bread
 
-      - name: Checkout CRUMBS
-        uses: actions/checkout@v4
-        with:
-          repository: feastorg/CRUMBS
-          ref: v0.12.2
-          path: CRUMBS
-
-      - name: Checkout bread-crumbs-contracts
-        uses: actions/checkout@v4
-        with:
-          repository: feastorg/bread-crumbs-contracts
-          ref: v0.4.2
-          path: bread-crumbs-contracts
-
-      - name: Checkout linux-wire
-        uses: actions/checkout@v4
-        with:
-          repository: feastorg/linux-wire
-          ref: v0.1.2
-          path: linux-wire
-
       - name: Install system dependencies
         run: |
           sudo apt-get update
