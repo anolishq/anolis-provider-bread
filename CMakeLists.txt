@@ -34,6 +34,7 @@ FetchContent_Declare(
     anolis_protocol
     URL https://github.com/anolishq/anolis-protocol/releases/download/v1.2.0/anolis-protocol-1.2.0-source.tar.gz
     URL_HASH SHA256=ffd2839e02c5a0f1fe512f618808de8ce138f8dcbfbfb99ea432582ce517f26c
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(anolis_protocol)
 set(ADPP_PROTO_IMPORT_ROOT "${anolis_protocol_SOURCE_DIR}/proto")
@@ -57,20 +58,28 @@ if(NOT ADPP_PROTOS)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    if(NOT DEFINED LINUX_WIRE_DIR)
-        set(LINUX_WIRE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../linux-wire" CACHE PATH "Path to linux-wire repository")
+    if(DEFINED LINUX_WIRE_DIR AND NOT LINUX_WIRE_DIR STREQUAL "")
+        get_filename_component(LINUX_WIRE_DIR_ABS "${LINUX_WIRE_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+        if(NOT EXISTS "${LINUX_WIRE_DIR_ABS}/CMakeLists.txt")
+            message(FATAL_ERROR
+                "linux-wire not found at: ${LINUX_WIRE_DIR_ABS}\n"
+                "Set LINUX_WIRE_DIR to the root of the linux-wire repository.")
+        endif()
+        set(BUILD_SHARED_LIBS OFF)
+        set(LINUX_WIRE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+        add_subdirectory("${LINUX_WIRE_DIR_ABS}" "${CMAKE_BINARY_DIR}/linux_wire_subbuild")
+        message(STATUS "Using linux-wire source tree: ${LINUX_WIRE_DIR_ABS}")
+    else()
+        FetchContent_Declare(
+            linux_wire
+            URL https://github.com/feastorg/linux-wire/releases/download/v0.1.2/linux-wire-0.1.2-source.tar.gz
+            URL_HASH SHA256=5d25546e2123829d43c757a5dad5c3dcd3d49189e8240f9a48180ea3dfc3d02e
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        )
+        set(LINUX_WIRE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+        set(BUILD_SHARED_LIBS OFF)
+        FetchContent_MakeAvailable(linux_wire)
     endif()
-    get_filename_component(LINUX_WIRE_DIR_ABS "${LINUX_WIRE_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-
-    if(NOT EXISTS "${LINUX_WIRE_DIR_ABS}/CMakeLists.txt")
-        message(FATAL_ERROR
-            "linux-wire not found at: ${LINUX_WIRE_DIR_ABS}\n"
-            "Set LINUX_WIRE_DIR to the root of the linux-wire repository.")
-    endif()
-    set(BUILD_SHARED_LIBS OFF)
-    set(LINUX_WIRE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-    add_subdirectory("${LINUX_WIRE_DIR_ABS}" "${CMAKE_BINARY_DIR}/linux_wire_subbuild")
-    message(STATUS "Using linux-wire source tree: ${LINUX_WIRE_DIR_ABS}")
 endif()
 
 # CRUMBS: find_package by default; set CRUMBS_DIR to use a source-tree override.
@@ -93,7 +102,20 @@ if(DEFINED CRUMBS_DIR AND NOT CRUMBS_DIR STREQUAL "")
         add_library(crumbs::crumbs ALIAS crumbs)
     endif()
 else()
-    find_package(crumbs CONFIG REQUIRED)
+    FetchContent_Declare(
+        crumbs
+        URL https://github.com/feastorg/CRUMBS/releases/download/v0.12.2/crumbs-0.12.2-source.tar.gz
+        URL_HASH SHA256=e0e2c8bceba6fe4b22a49a5111a85dc80031e07a7c636258021e50185057c3b6
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(CRUMBS_ENABLE_LINUX_HAL ON CACHE BOOL "" FORCE)
+    else()
+        set(CRUMBS_ENABLE_LINUX_HAL OFF CACHE BOOL "" FORCE)
+    endif()
+    set(CRUMBS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(CRUMBS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(crumbs)
 endif()
 
 # bread-crumbs-contracts: find_package by default; set BREAD_CONTRACTS_DIR to use a source-tree override.
@@ -106,7 +128,13 @@ if(DEFINED BREAD_CONTRACTS_DIR AND NOT BREAD_CONTRACTS_DIR STREQUAL "")
     endif()
     add_subdirectory("${BREAD_CONTRACTS_DIR_ABS}" "${CMAKE_BINARY_DIR}/bread_contracts_subbuild")
 else()
-    find_package(breadCrumbsContracts CONFIG REQUIRED)
+    FetchContent_Declare(
+        bread_crumbs_contracts
+        URL https://github.com/feastorg/bread-crumbs-contracts/releases/download/v0.4.2/bread-crumbs-contracts-0.4.2-source.tar.gz
+        URL_HASH SHA256=8c7a805b1103c2c9146eea66da1ec7a3f172b22b664413200d3cbdee37db36a8
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+    FetchContent_MakeAvailable(bread_crumbs_contracts)
 endif()
 
 add_library(anolis_provider_bread_bread_contracts INTERFACE)
