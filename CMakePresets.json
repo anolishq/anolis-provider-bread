@@ -65,6 +65,14 @@
       }
     },
     {
+      "name": "ci-linux-arm64-release",
+      "inherits": "dev-release",
+      "cacheVariables": {
+        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "ON",
+        "VCPKG_TARGET_TRIPLET": "arm64-linux"
+      }
+    },
+    {
       "name": "ci-windows-release",
       "inherits": "base-windows-msvc",
       "cacheVariables": {
@@ -95,6 +103,10 @@
     {
       "name": "ci-linux-release",
       "configurePreset": "ci-linux-release"
+    },
+    {
+      "name": "ci-linux-arm64-release",
+      "configurePreset": "ci-linux-arm64-release"
     },
     {
       "name": "ci-windows-release",
@@ -136,6 +148,13 @@
     {
       "name": "ci-linux-release",
       "configurePreset": "ci-linux-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-linux-arm64-release",
+      "configurePreset": "ci-linux-arm64-release",
       "output": {
         "outputOnFailure": true
       }

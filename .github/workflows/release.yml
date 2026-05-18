@@ -110,10 +110,87 @@ jobs:
             anolis-provider-bread/manifest.json
           generate_release_notes: true
 
+  release-linux-arm64:
+    name: Release (linux-arm64)
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout anolis-provider-bread
+        uses: actions/checkout@v4
+        with:
+          path: anolis-provider-bread
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++ jq
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
+          doNotCache: false
+
+      - name: Configure
+        working-directory: anolis-provider-bread
+        run: cmake --preset ci-linux-arm64-release
+
+      - name: Build
+        working-directory: anolis-provider-bread
+        run: cmake --build --preset ci-linux-arm64-release --parallel
+
+      - name: Test
+        working-directory: anolis-provider-bread
+        run: ctest --preset ci-linux-arm64-release
+
+      - name: Package binary artifact
+        id: package
+        working-directory: anolis-provider-bread
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARTIFACT="anolis-provider-bread-${VERSION}-linux-arm64.tar.gz"
+          BINARY="build/ci-linux-arm64-release/anolis-provider-bread"
+          if [ ! -f "${BINARY}" ]; then
+            echo "ERROR: binary not found at ${BINARY}" >&2
+            exit 1
+          fi
+          mkdir -p staging/bin
+          cp "${BINARY}" staging/bin/
+          tar -czf "${ARTIFACT}" -C staging .
+          echo "artifact=${ARTIFACT}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate manifest
+        working-directory: anolis-provider-bread
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARTIFACT="${{ steps.package.outputs.artifact }}"
+          SHA=$(sha256sum "${ARTIFACT}" | awk '{print $1}')
+          jq -n \
+            --argjson schema_version 1 \
+            --arg repo "anolishq/anolis-provider-bread" \
+            --arg component "anolis_provider_bread" \
+            --arg version "${VERSION}" \
+            --arg platform "linux-arm64" \
+            --arg asset "${ARTIFACT}" \
+            --arg sha256 "${SHA}" \
+            '{schema_version: $schema_version, repo: $repo, component: $component, version: $version, platform: $platform, asset: $asset, sha256: $sha256}' \
+            > manifest-linux-arm64.json
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            anolis-provider-bread/anolis-provider-bread-*-linux-arm64.tar.gz
+            anolis-provider-bread/manifest-linux-arm64.json
+
   upload-metrics:
     name: Upload metrics to release
     runs-on: ubuntu-24.04
-    needs: [release-linux-x86_64, metrics]
+    needs: [release-linux-x86_64, release-linux-arm64, metrics]
     steps:
       - name: Download metrics artifact
         uses: actions/download-artifact@v4
