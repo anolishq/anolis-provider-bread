@@ -193,7 +193,7 @@ jobs:
     needs: [release-linux-x86_64, release-linux-arm64, metrics]
     steps:
       - name: Download metrics artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: metrics-${{ github.event.repository.name }}-${{ github.run_number }}
           path: metrics-out/
