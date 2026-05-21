@@ -45,7 +45,7 @@ jobs:
           sudo apt-get install -y cmake ninja-build g++
 
       - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
+        uses: lukka/run-vcpkg@v11.6
         with:
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
           doNotCache: false
@@ -74,7 +74,7 @@ jobs:
           path: anolis-provider-bread
 
       - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
+        uses: lukka/run-vcpkg@v11.6
         with:
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT }}
           doNotCache: false
