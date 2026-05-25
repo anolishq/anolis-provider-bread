@@ -95,7 +95,7 @@ jobs:
         run: ctest --preset ci-windows-release
 
   version-sync:
-    uses: anolishq/.github/.github/workflows/version-sync.yml@385a74dcb37bef6760f9b81abe67ed4c04bf2588 # main
+    uses: anolishq/.github/.github/workflows/version-sync.yml@15f6901a9ef7e845841d371a64addb04b0f7755a # main
     with:
       python-version: '3.12'
       working-directory: '.'
