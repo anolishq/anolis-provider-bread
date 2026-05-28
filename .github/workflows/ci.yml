@@ -3,18 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "**/*.png"
-      - "**/*.svg"
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-      - "**/*.png"
-      - "**/*.svg"
   workflow_dispatch:
 
 concurrency:
@@ -28,8 +18,29 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            code:
+              - '**'
+              - '!docs/**'
+              - '!**/*.md'
+              - '!**/*.png'
+              - '!**/*.svg'
+
   no-hardware-linux:
     name: Linux Build and Test (no hardware)
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -64,6 +75,8 @@ jobs:
 
   no-hardware-windows:
     name: Windows Build and Test (no hardware)
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: windows-2025
     timeout-minutes: 45
 
@@ -95,7 +108,27 @@ jobs:
         run: ctest --preset ci-windows-release
 
   version-sync:
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     uses: anolishq/.github/.github/workflows/version-sync.yml@01b61259e549666b145d941a5aa8a851b98ec399 # main
     with:
       python-version: '3.12'
       working-directory: '.'
+
+  ok:
+    name: ok
+    if: always()
+    needs:
+      - changes
+      - no-hardware-linux
+      - no-hardware-windows
+      - version-sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate job results
+        run: |
+          echo "Job results: ${{ toJSON(needs.*.result) }}"
+      - name: Fail if any required job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
