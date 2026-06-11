@@ -20,10 +20,10 @@ namespace anolis_provider_bread::dcmt {
  * @brief Read one coherent DCMT state snapshot and project it into ADPP
  * signals.
  *
- * Performs a single `DCMT_OP_GET_STATE` query and handles both the open-loop
- * and closed-loop payload layouts transparently. If `signal_ids` is empty all
- * supported signals are returned; otherwise only the requested subset is
- * emitted.
+ * Performs a single `DCMT_OP_GET_STATE` query, decodes the fixed-layout BREAD
+ * state payload, and maps mode-specific fields onto the stable ADPP signal
+ * surface. If `signal_ids` is empty all supported signals are returned;
+ * otherwise only the requested subset is emitted.
  */
 AdapterReadResult read_signals(crumbs::Session &session,
                                const inventory::InventoryDevice &device,

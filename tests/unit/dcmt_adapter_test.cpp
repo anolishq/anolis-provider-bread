@@ -74,32 +74,50 @@ private:
 // Payload builders
 // ---------------------------------------------------------------------------
 
-static std::vector<uint8_t> make_open_loop_payload(int16_t target1,
-                                                   int16_t target2,
-                                                   uint8_t brakes,
-                                                   uint8_t estop) {
+static std::vector<uint8_t>
+make_state_payload(uint8_t mode, int16_t m1_pwm, int16_t m2_pwm, int16_t sp1,
+                   int16_t sp2, int16_t pos1, int16_t pos2, int16_t spd1,
+                   int16_t spd2, uint8_t brakes, uint8_t estop) {
   std::vector<uint8_t> p;
-  append_u8(p, DCMT_MODE_OPEN_LOOP);
-  append_i16_le(p, target1);
-  append_i16_le(p, target2);
+  append_u8(p, mode);
+  append_i16_le(p, m1_pwm);
+  append_i16_le(p, m2_pwm);
+  append_i16_le(p, sp1);
+  append_i16_le(p, sp2);
+  append_i16_le(p, pos1);
+  append_i16_le(p, pos2);
+  append_i16_le(p, spd1);
+  append_i16_le(p, spd2);
   append_u8(p, brakes);
   append_u8(p, estop);
   return p;
 }
 
+static std::vector<uint8_t> make_open_loop_payload(int16_t m1_pwm,
+                                                   int16_t m2_pwm,
+                                                   uint8_t brakes,
+                                                   uint8_t estop) {
+  return make_state_payload(DCMT_MODE_OPEN_LOOP, m1_pwm, m2_pwm,
+                            BREAD_INVALID_I16, BREAD_INVALID_I16, 0, 0,
+                            BREAD_INVALID_I16, BREAD_INVALID_I16, brakes,
+                            estop);
+}
+
 static std::vector<uint8_t>
-make_closed_loop_payload(uint8_t mode, int16_t target1, int16_t target2,
-                         int16_t value1, int16_t value2, uint8_t brakes,
-                         uint8_t estop) {
-  std::vector<uint8_t> p;
-  append_u8(p, mode);
-  append_i16_le(p, target1);
-  append_i16_le(p, target2);
-  append_i16_le(p, value1);
-  append_i16_le(p, value2);
-  append_u8(p, brakes);
-  append_u8(p, estop);
-  return p;
+make_closed_position_payload(int16_t sp1, int16_t sp2, int16_t pos1,
+                             int16_t pos2, uint8_t brakes, uint8_t estop) {
+  return make_state_payload(DCMT_MODE_CLOSED_POSITION, 0, 0, sp1, sp2, pos1,
+                            pos2, BREAD_INVALID_I16, BREAD_INVALID_I16, brakes,
+                            estop);
+}
+
+static std::vector<uint8_t> make_closed_speed_payload(int16_t sp1, int16_t sp2,
+                                                      int16_t spd1,
+                                                      int16_t spd2,
+                                                      uint8_t brakes,
+                                                      uint8_t estop) {
+  return make_state_payload(DCMT_MODE_CLOSED_SPEED, 0, 0, sp1, sp2, 0, 0, spd1,
+                            spd2, brakes, estop);
 }
 
 // ---------------------------------------------------------------------------
@@ -144,7 +162,7 @@ struct DcmtAdapterTest : public ::testing::Test {
 // ---------------------------------------------------------------------------
 
 TEST_F(DcmtAdapterTest, ReadSignals_OpenLoop_ReturnsAllSignals) {
-  // target1=200, target2=-150, brakes=motor1 on, estop=0
+  // pwm1=200, pwm2=-150, brakes=motor1 on, estop=0
   script_state_reply(make_open_loop_payload(200, -150, 0x01, 0x00));
 
   const auto result = read_signals(session, device, {});
@@ -173,7 +191,7 @@ TEST_F(DcmtAdapterTest, ReadSignals_OpenLoop_ReturnsAllSignals) {
   ASSERT_NE(tgt2_sv, nullptr);
   EXPECT_EQ(tgt2_sv->value().int64_value(), -150);
 
-  // In open-loop: value1 == target1, value2 == target2
+  // In open-loop: value mirrors the PWM output.
   const auto *val1_sv = find("motor1_value");
   ASSERT_NE(val1_sv, nullptr);
   EXPECT_EQ(val1_sv->value().int64_value(), 200);
@@ -198,8 +216,8 @@ TEST_F(DcmtAdapterTest, ReadSignals_OpenLoop_ReturnsAllSignals) {
 TEST_F(DcmtAdapterTest,
        ReadSignals_ClosedPosition_EncoderFeedbackIsIndependent) {
   // target=1000, actual encoder reading=980, brakes off
-  script_state_reply(make_closed_loop_payload(DCMT_MODE_CLOSED_POSITION, 1000,
-                                              -1000, 980, -990, 0x00, 0x00));
+  script_state_reply(
+      make_closed_position_payload(1000, -1000, 980, -990, 0x00, 0x00));
 
   const auto result = read_signals(session, device, {});
 
@@ -222,13 +240,37 @@ TEST_F(DcmtAdapterTest,
 }
 
 TEST_F(DcmtAdapterTest, ReadSignals_ClosedSpeed_ModeStringCorrect) {
-  script_state_reply(make_closed_loop_payload(DCMT_MODE_CLOSED_SPEED, 500, 500,
-                                              498, 501, 0x00, 0x00));
+  script_state_reply(
+      make_closed_speed_payload(500, 500, 498, 501, 0x00, 0x00));
 
   const auto result = read_signals(session, device, {});
 
   ASSERT_TRUE(result.ok);
   EXPECT_EQ(result.values.at(0).value().string_value(), "closed_speed");
+}
+
+TEST_F(DcmtAdapterTest, ReadSignals_ClosedSpeed_TachFeedbackIsIndependent) {
+  script_state_reply(
+      make_closed_speed_payload(500, -500, 498, -501, 0x00, 0x00));
+
+  const auto result = read_signals(session, device, {});
+
+  ASSERT_TRUE(result.ok);
+
+  const auto find = [&](const std::string &id)
+      -> const anolis::deviceprovider::v1::SignalValue * {
+    for (const auto &sv : result.values) {
+      if (sv.signal_id() == id)
+        return &sv;
+    }
+    return nullptr;
+  };
+
+  EXPECT_EQ(find("mode")->value().string_value(), "closed_speed");
+  EXPECT_EQ(find("motor1_target")->value().int64_value(), 500);
+  EXPECT_EQ(find("motor1_value")->value().int64_value(), 498);
+  EXPECT_EQ(find("motor2_target")->value().int64_value(), -500);
+  EXPECT_EQ(find("motor2_value")->value().int64_value(), -501);
 }
 
 TEST_F(DcmtAdapterTest, ReadSignals_SubsetRequest_ReturnsOnlyRequested) {
@@ -258,8 +300,8 @@ TEST_F(DcmtAdapterTest, ReadSignals_Estop_DecodedCorrectly) {
   }
 }
 
-TEST_F(DcmtAdapterTest, ReadSignals_TruncatedOpenLoopPayload_ReturnsInternal) {
-  // Only 4 bytes — too short for open-loop (needs 7)
+TEST_F(DcmtAdapterTest, ReadSignals_TruncatedPayload_ReturnsInternal) {
+  // Only 4 bytes, too short for the fixed 19-byte payload.
   transport.read_replies[DCMT_OP_GET_STATE] = crumbs::RawFrame{
       DCMT_TYPE_ID, DCMT_OP_GET_STATE, {0x00, 0x10, 0x00, 0x10}};
 
@@ -271,12 +313,10 @@ TEST_F(DcmtAdapterTest, ReadSignals_TruncatedOpenLoopPayload_ReturnsInternal) {
 }
 
 TEST_F(DcmtAdapterTest,
-       ReadSignals_TruncatedClosedLoopPayload_ReturnsInternal) {
-  // mode byte = closed_position but payload too short (only 6 bytes, needs 11)
-  transport.read_replies[DCMT_OP_GET_STATE] = crumbs::RawFrame{
-      DCMT_TYPE_ID,
-      DCMT_OP_GET_STATE,
-      {DCMT_MODE_CLOSED_POSITION, 0x10, 0x00, 0x10, 0x00, 0x00}};
+       ReadSignals_InvalidClosedSpeedSentinel_ReturnsInternal) {
+  script_state_reply(make_state_payload(DCMT_MODE_CLOSED_SPEED, 0, 0, 100, 100,
+                                        0, 0, BREAD_INVALID_I16,
+                                        BREAD_INVALID_I16, 0x00, 0x00));
 
   const auto result = read_signals(session, device, {});
 

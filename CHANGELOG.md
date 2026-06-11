@@ -13,6 +13,18 @@ commit messages only.
 
 ## [Unreleased]
 
+### Fixed
+
+- Decode DCMT telemetry from the fixed-layout `bread-crumbs-contracts` state
+  payload and map mode-specific fields onto the stable ADPP motor target/value
+  signals.
+
+### Changed
+
+- Bump provider metadata to `0.2.9`.
+- Bump `CRUMBS` FetchContent pin from `v0.12.2` to `v0.12.4`.
+- Bump `bread-crumbs-contracts` FetchContent pin from `v0.4.2` to `v0.4.3`.
+
 ### CI
 
 - Add CI OK aggregator gate: removed `paths-ignore`, added `dorny/paths-filter`
