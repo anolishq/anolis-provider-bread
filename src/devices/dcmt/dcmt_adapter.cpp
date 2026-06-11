@@ -16,29 +16,14 @@ namespace anolis_provider_bread::dcmt {
 namespace {
 
 // ---------------------------------------------------------------------------
-// DCMT GET_STATE payload layout (mode-dependent)
+// DCMT GET_STATE fixed payload layout is owned by bread-crumbs-contracts:
+//   [mode][m1_pwm][m2_pwm][sp1][sp2][pos1][pos2][spd1][spd2][brakes][estop]
 //
-// Open-loop (DCMT_MODE_OPEN_LOOP = 0x00), 7 bytes:
-//   [0]   mode     u8  (= 0x00)
-//   [1-2] target1  i16 LE
-//   [3-4] target2  i16 LE
-//   [5]   brakes   u8
-//   [6]   estop    u8
-//   value1 = target1, value2 = target2 (no encoder feedback in open-loop)
-//
-// Closed-loop (DCMT_MODE_CLOSED_POSITION = 0x01 or DCMT_MODE_CLOSED_SPEED =
-// 0x02), 11 bytes:
-//   [0]   mode     u8  (= 0x01 or 0x02)
-//   [1-2] target1  i16 LE
-//   [3-4] target2  i16 LE
-//   [5-6] value1   i16 LE  (measured encoder/speed value)
-//   [7-8] value2   i16 LE
-//   [9]   brakes   u8
-//   [10]  estop    u8
+// The provider keeps the stable ADPP signal surface:
+//   open-loop:       target/value = PWM output
+//   closed-position: target = setpoint, value = encoder position
+//   closed-speed:    target = setpoint, value = tachometer speed
 // ---------------------------------------------------------------------------
-
-constexpr std::size_t kMinOpenLoopPayloadBytes = 7u;
-constexpr std::size_t kMinClosedLoopPayloadBytes = 11u;
 
 constexpr const char *kSigMode = "mode";
 constexpr const char *kSigMotor1Tgt = "motor1_target";
@@ -53,45 +38,76 @@ struct DcmtState {
   uint8_t mode = 0;
   int16_t target1 = 0;
   int16_t target2 = 0;
-  int16_t value1 = 0; // equals target1 in open-loop
-  int16_t value2 = 0; // equals target2 in open-loop
+  int16_t value1 = 0;
+  int16_t value2 = 0;
   uint8_t brakes = 0;
   uint8_t estop = 0;
 };
 
 bool parse_state(const std::vector<uint8_t> &payload, DcmtState &out) {
-  if (!read_u8(payload, 0u, out.mode))
+  int16_t m1_pwm = 0;
+  int16_t m2_pwm = 0;
+  int16_t sp1 = 0;
+  int16_t sp2 = 0;
+  int16_t pos1 = 0;
+  int16_t pos2 = 0;
+  int16_t spd1 = 0;
+  int16_t spd2 = 0;
+
+  if (payload.size() != static_cast<std::size_t>(DCMT_STATE_FIXED_LEN))
     return false;
 
-  if (out.mode == DCMT_MODE_OPEN_LOOP) {
-    if (payload.size() < kMinOpenLoopPayloadBytes)
+  if (!read_u8(payload, DCMT_STATE_OFF_MODE, out.mode))
+    return false;
+  if (!read_i16_le(payload, DCMT_STATE_OFF_M1_PWM, m1_pwm))
+    return false;
+  if (!read_i16_le(payload, DCMT_STATE_OFF_M2_PWM, m2_pwm))
+    return false;
+  if (!read_i16_le(payload, DCMT_STATE_OFF_SP1, sp1))
+    return false;
+  if (!read_i16_le(payload, DCMT_STATE_OFF_SP2, sp2))
+    return false;
+  if (!read_i16_le(payload, DCMT_STATE_OFF_POS1, pos1))
+    return false;
+  if (!read_i16_le(payload, DCMT_STATE_OFF_POS2, pos2))
+    return false;
+  if (!read_i16_le(payload, DCMT_STATE_OFF_SPD1, spd1))
+    return false;
+  if (!read_i16_le(payload, DCMT_STATE_OFF_SPD2, spd2))
+    return false;
+  if (!read_u8(payload, DCMT_STATE_OFF_BRAKES, out.brakes))
+    return false;
+  if (!read_u8(payload, DCMT_STATE_OFF_ESTOP, out.estop))
+    return false;
+
+  switch (out.mode) {
+  case DCMT_MODE_OPEN_LOOP:
+    out.target1 = m1_pwm;
+    out.target2 = m2_pwm;
+    out.value1 = m1_pwm;
+    out.value2 = m2_pwm;
+    break;
+  case DCMT_MODE_CLOSED_POSITION:
+    if (!BREAD_IS_VALID_I16(sp1) || !BREAD_IS_VALID_I16(sp2))
       return false;
-    if (!read_i16_le(payload, 1u, out.target1))
+    out.target1 = sp1;
+    out.target2 = sp2;
+    out.value1 = pos1;
+    out.value2 = pos2;
+    break;
+  case DCMT_MODE_CLOSED_SPEED:
+    if (!BREAD_IS_VALID_I16(sp1) || !BREAD_IS_VALID_I16(sp2) ||
+        !BREAD_IS_VALID_I16(spd1) || !BREAD_IS_VALID_I16(spd2))
       return false;
-    if (!read_i16_le(payload, 3u, out.target2))
-      return false;
-    out.value1 = out.target1;
-    out.value2 = out.target2;
-    if (!read_u8(payload, 5u, out.brakes))
-      return false;
-    if (!read_u8(payload, 6u, out.estop))
-      return false;
-  } else {
-    if (payload.size() < kMinClosedLoopPayloadBytes)
-      return false;
-    if (!read_i16_le(payload, 1u, out.target1))
-      return false;
-    if (!read_i16_le(payload, 3u, out.target2))
-      return false;
-    if (!read_i16_le(payload, 5u, out.value1))
-      return false;
-    if (!read_i16_le(payload, 7u, out.value2))
-      return false;
-    if (!read_u8(payload, 9u, out.brakes))
-      return false;
-    if (!read_u8(payload, 10u, out.estop))
-      return false;
+    out.target1 = sp1;
+    out.target2 = sp2;
+    out.value1 = spd1;
+    out.value2 = spd2;
+    break;
+  default:
+    return false;
   }
+
   return true;
 }
 

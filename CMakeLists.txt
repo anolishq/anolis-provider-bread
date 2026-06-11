@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 option(ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS "Treat first-party compiler warnings as errors" OFF)
 
-project(anolis_provider_bread VERSION 0.2.8 LANGUAGES C CXX)
+project(anolis_provider_bread VERSION 0.2.9 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -104,8 +104,8 @@ if(DEFINED CRUMBS_DIR AND NOT CRUMBS_DIR STREQUAL "")
 else()
     FetchContent_Declare(
         crumbs
-        URL https://github.com/feastorg/CRUMBS/releases/download/v0.12.2/crumbs-0.12.2-source.tar.gz
-        URL_HASH SHA256=e0e2c8bceba6fe4b22a49a5111a85dc80031e07a7c636258021e50185057c3b6
+        URL https://github.com/feastorg/CRUMBS/releases/download/v0.12.4/crumbs-0.12.4-source.tar.gz
+        URL_HASH SHA256=c548155980b304952ac643521188e44a7971c6bed38dfb5bc807f615b3cf78c5
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -130,8 +130,8 @@ if(DEFINED BREAD_CONTRACTS_DIR AND NOT BREAD_CONTRACTS_DIR STREQUAL "")
 else()
     FetchContent_Declare(
         bread_crumbs_contracts
-        URL https://github.com/feastorg/bread-crumbs-contracts/releases/download/v0.4.2/bread-crumbs-contracts-0.4.2-source.tar.gz
-        URL_HASH SHA256=8c7a805b1103c2c9146eea66da1ec7a3f172b22b664413200d3cbdee37db36a8
+        URL https://github.com/feastorg/bread-crumbs-contracts/releases/download/v0.4.3/bread-crumbs-contracts-0.4.3-source.tar.gz
+        URL_HASH SHA256=41f567070dc16b9a855a269b432e45434889bfdbaae5a55440be26b26c513dc0
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
     FetchContent_MakeAvailable(bread_crumbs_contracts)
