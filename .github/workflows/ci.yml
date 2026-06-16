@@ -11,9 +11,6 @@ concurrency:
   group: provider-bread-ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  VCPKG_COMMIT: "66c0373dc7fca549e5803087b9487edfe3aca0a1"
-
 permissions:
   contents: read
 
@@ -57,9 +54,8 @@ jobs:
           sudo apt-get install -y cmake ninja-build g++
 
       - name: Setup vcpkg
-        uses: anolishq/.github/.github/actions/setup-vcpkg@ef4c42d66024dc4c42edf6971f98640d43965ebb # main
+        uses: anolishq/.github/.github/actions/setup-vcpkg@c995c89985377c46ed4350e16cb761d8a9c57d1a # main
         with:
-          vcpkg-commit: ${{ env.VCPKG_COMMIT }}
           triplet: x64-linux-static
 
       - name: Configure
@@ -88,9 +84,8 @@ jobs:
           path: anolis-provider-bread
 
       - name: Setup vcpkg
-        uses: anolishq/.github/.github/actions/setup-vcpkg@ef4c42d66024dc4c42edf6971f98640d43965ebb # main
+        uses: anolishq/.github/.github/actions/setup-vcpkg@c995c89985377c46ed4350e16cb761d8a9c57d1a # main
         with:
-          vcpkg-commit: ${{ env.VCPKG_COMMIT }}
           triplet: x64-windows
 
       - name: Configure
