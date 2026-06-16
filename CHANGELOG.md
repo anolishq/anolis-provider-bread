@@ -13,6 +13,28 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-06-16
+
+### Changed
+
+- Bump the vcpkg baseline to the vcpkg `2026.06.01` release: protobuf
+  `5.29.5` → `6.33.4`, grpc `1.71.0` → `1.76.0`, abseil and the rest refreshed.
+  No source changes required.
+
+### CI
+
+- Fix Windows build on the VS 2026 runner image. The hosted `windows-2025`
+  image moved from Visual Studio 2022 to VS 2026, breaking the hardcoded
+  `Visual Studio 17 2022` generator at CMake `project()`. Update the
+  `base-windows-msvc` preset generator to `Visual Studio 18 2026`. The plain
+  `x64-windows` triplet inherits the image's default toolset (`v145`), so no
+  triplet/toolset change is required.
+- Centralize the vcpkg pin: the shared `setup-vcpkg` action now derives the
+  vcpkg commit from `vcpkg-configuration.json`, so the per-workflow
+  `VCPKG_COMMIT` env was removed.
+
+## [0.2.9] - 2026-06-11
+
 ### Fixed
 
 - Decode DCMT telemetry from the fixed-layout `bread-crumbs-contracts` state
@@ -27,12 +49,6 @@ commit messages only.
 
 ### CI
 
-- Fix Windows build on the VS 2026 runner image. The hosted `windows-2025`
-  image moved from Visual Studio 2022 to VS 2026, breaking the hardcoded
-  `Visual Studio 17 2022` generator at CMake `project()`. Update the
-  `base-windows-msvc` preset generator to `Visual Studio 18 2026`. The plain
-  `x64-windows` triplet inherits the image's default toolset (`v145`), so no
-  triplet/toolset change is required.
 - Add CI OK aggregator gate: removed `paths-ignore`, added `dorny/paths-filter`
   to detect code-vs-docs changes, gated all jobs behind the filter, and added a
   final `ok` job as the sole required status check for `main` branch protection.
