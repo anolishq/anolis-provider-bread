@@ -106,7 +106,7 @@ jobs:
   version-sync:
     needs: [changes]
     if: needs.changes.outputs.code == 'true'
-    uses: anolishq/.github/.github/workflows/version-sync.yml@ef4c42d66024dc4c42edf6971f98640d43965ebb # main
+    uses: anolishq/.github/.github/workflows/version-sync.yml@c995c89985377c46ed4350e16cb761d8a9c57d1a # main
     with:
       python-version: '3.12'
       working-directory: '.'
