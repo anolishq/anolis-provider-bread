@@ -54,7 +54,7 @@ jobs:
           sudo apt-get install -y cmake ninja-build g++
 
       - name: Setup vcpkg
-        uses: anolishq/.github/.github/actions/setup-vcpkg@8d38de670b4bdb324ea7dba446071b4d62ec3dd1 # main
+        uses: anolishq/.github/.github/actions/setup-vcpkg@d663c20e85733d18b083c20e8051c7ce2149e9ed # main
         with:
           triplet: x64-linux-static
 
@@ -84,7 +84,7 @@ jobs:
           path: anolis-provider-bread
 
       - name: Setup vcpkg
-        uses: anolishq/.github/.github/actions/setup-vcpkg@8d38de670b4bdb324ea7dba446071b4d62ec3dd1 # main
+        uses: anolishq/.github/.github/actions/setup-vcpkg@d663c20e85733d18b083c20e8051c7ce2149e9ed # main
         with:
           triplet: x64-windows
 
@@ -106,7 +106,7 @@ jobs:
   version-sync:
     needs: [changes]
     if: needs.changes.outputs.code == 'true'
-    uses: anolishq/.github/.github/workflows/version-sync.yml@8d38de670b4bdb324ea7dba446071b4d62ec3dd1 # main
+    uses: anolishq/.github/.github/workflows/version-sync.yml@d663c20e85733d18b083c20e8051c7ce2149e9ed # main
     with:
       python-version: '3.12'
       working-directory: '.'
