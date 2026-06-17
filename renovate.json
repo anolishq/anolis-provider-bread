@@ -1,12 +1,4 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
-  "prConcurrentLimit": 3,
-  "packageRules": [
-    {
-      "matchManagers": ["github-actions"],
-      "groupName": "github-actions",
-      "pinDigests": true
-    }
-  ]
+  "extends": ["local>anolishq/renovate-config"]
 }
