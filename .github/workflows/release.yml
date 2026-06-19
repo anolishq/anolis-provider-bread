@@ -11,7 +11,7 @@ permissions:
 jobs:
   metrics:
     name: Collect metrics
-    uses: anolishq/.github/.github/workflows/metrics.yml@fe0a8fce045364cb2e3552a7fbca59263395c8d6 # v2
+    uses: anolishq/.github/.github/workflows/metrics.yml@0f4d8cd3c04dcb17fe128248a147b237c1465e0c # v2
     with:
       tag: ${{ github.ref_name }}
 
@@ -35,7 +35,7 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Setup vcpkg
-        uses: anolishq/.github/.github/actions/setup-vcpkg@fe0a8fce045364cb2e3552a7fbca59263395c8d6 # v2
+        uses: anolishq/.github/.github/actions/setup-vcpkg@0f4d8cd3c04dcb17fe128248a147b237c1465e0c # v2
         with:
           triplet: x64-linux-static
 
@@ -98,7 +98,7 @@ jobs:
             > manifest.json
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3
         with:
           files: |
             anolis-provider-bread/anolis-provider-bread-*.tar.gz
@@ -126,7 +126,7 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Setup vcpkg
-        uses: anolishq/.github/.github/actions/setup-vcpkg@fe0a8fce045364cb2e3552a7fbca59263395c8d6 # v2
+        uses: anolishq/.github/.github/actions/setup-vcpkg@0f4d8cd3c04dcb17fe128248a147b237c1465e0c # v2
         with:
           triplet: arm64-linux
 
@@ -176,7 +176,7 @@ jobs:
             > manifest-linux-arm64.json
 
       - name: Upload to release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3
         with:
           files: |
             anolis-provider-bread/anolis-provider-bread-*-linux-arm64.tar.gz
@@ -194,6 +194,6 @@ jobs:
           path: metrics-out/
 
       - name: Upload metrics.json to release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3
         with:
           files: metrics-out/metrics.json
