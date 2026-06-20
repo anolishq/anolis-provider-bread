@@ -103,6 +103,53 @@ jobs:
         shell: pwsh
         run: ctest --preset ci-windows-release
 
+  provider-conformance:
+    name: ADPP Conformance (Linux)
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout anolis-provider-bread
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          path: anolis-provider-bread
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++
+
+      - name: Setup vcpkg
+        uses: anolishq/.github/.github/actions/setup-vcpkg@c76784aff711e6540d539f6a5c3ea33c63627930 # v2
+        with:
+          triplet: x64-linux-static
+
+      - name: Build provider (no hardware)
+        working-directory: anolis-provider-bread
+        run: |
+          cmake --preset ci-linux-release
+          cmake --build --preset ci-linux-release --parallel
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+
+      - name: Pull the pinned anolis-protocol[conformance] harness
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "anolis-protocol[conformance] @ https://github.com/anolishq/anolis-protocol/releases/download/v1.3.0/anolis_protocol-1.3.0-py3-none-any.whl"
+
+      - name: Run ADPP conformance against the built binary
+        working-directory: anolis-provider-bread
+        run: |
+          anolis-adpp-conformance \
+            --provider-bin build/ci-linux-release/anolis-provider-bread \
+            --provider-config config/conformance.yaml \
+            --provider-profile config/conformance.toml \
+            -ra
+
   version-sync:
     needs: [changes]
     if: needs.changes.outputs.code == 'true'
@@ -118,6 +165,7 @@ jobs:
       - changes
       - no-hardware-linux
       - no-hardware-windows
+      - provider-conformance
       - version-sync
     runs-on: ubuntu-latest
     timeout-minutes: 5
