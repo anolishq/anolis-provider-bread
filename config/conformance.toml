@@ -1,0 +1,13 @@
+# ADPP conformance profile for anolis-provider-bread.
+#
+# Provider-owned identity + waiver manifest, consumed by anolis-protocol's
+# anolis-adpp-conformance (--provider-profile). The protocol package ships none
+# of this; see that repo's conformance/ADPP-CONFORMANCE.md for the schema.
+provider_name = "anolis-provider-bread"
+has_mock_devices = true
+
+[waivers]
+# Executable-profile gap only (never core/transport): bread's WaitReady response
+# omits the init_time_ms diagnostic. Tracked in anolishq/anolis-provider-bread#45;
+# remove this waiver when init_time_ms is added.
+test_wait_ready_reports_init_time_ms = "bread WaitReady omits init_time_ms (anolishq/anolis-provider-bread#45)"
