@@ -191,11 +191,10 @@ AdapterReadResult read_signals(crumbs::Session &session,
   return result;
 }
 
-AdapterCallResult call(crumbs::Session &session,
-                       const inventory::InventoryDevice &device,
-                       uint32_t function_id, const ValueMap &args) {
-  const auto addr = static_cast<uint8_t>(device.address);
-  crumbs::RawFrame frame;
+// §8.3: validation + frame encoding only — no session, so the handler can
+// validate arguments before checking hardware availability.
+AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args,
+                              crumbs::RawFrame &frame) {
   frame.type_id = DCMT_TYPE_ID;
 
   switch (function_id) {
@@ -306,14 +305,31 @@ AdapterCallResult call(crumbs::Session &session,
             "unknown DCMT function_id " + std::to_string(function_id)};
   }
 
+  // DCMT setters are treated as accepted once the frame is written
+  // successfully; callers observe the resulting state on a later read.
+  return {true, anolis::deviceprovider::v1::Status::CODE_OK, "ok"};
+}
+
+AdapterCallResult transmit(crumbs::Session &session,
+                           const inventory::InventoryDevice &device,
+                           const crumbs::RawFrame &frame) {
+  const auto addr = static_cast<uint8_t>(device.address);
   const crumbs::SessionStatus send_status = session.send(addr, frame);
   if (!send_status.ok()) {
     return call_error_from_session(send_status, "DCMT SET command");
   }
-
-  // DCMT setters are treated as accepted once the frame is written
-  // successfully; callers observe the resulting state on a later read.
   return {true, anolis::deviceprovider::v1::Status::CODE_OK, "ok"};
+}
+
+AdapterCallResult call(crumbs::Session &session,
+                       const inventory::InventoryDevice &device,
+                       uint32_t function_id, const ValueMap &args) {
+  crumbs::RawFrame frame;
+  const AdapterCallResult built = build_frame(function_id, args, frame);
+  if (!built.ok) {
+    return built;
+  }
+  return transmit(session, device, frame);
 }
 
 } // namespace anolis_provider_bread::dcmt

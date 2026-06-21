@@ -30,7 +30,28 @@ AdapterReadResult read_signals(crumbs::Session &session,
                                const std::vector<std::string> &signal_ids);
 
 /**
+ * @brief Validate `args` and encode one DCMT control function call into
+ * `frame`, without touching the hardware session.
+ *
+ * Split out from @ref call so the request handler can validate arguments
+ * (ADPP §8.3: INVALID_ARGUMENT / OUT_OF_RANGE) before checking hardware
+ * availability. `function_id` must already be resolved from the device
+ * capability metadata.
+ */
+AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args,
+                              crumbs::RawFrame &frame);
+
+/**
+ * @brief Transmit an already-encoded DCMT frame over the session.
+ */
+AdapterCallResult transmit(crumbs::Session &session,
+                           const inventory::InventoryDevice &device,
+                           const crumbs::RawFrame &frame);
+
+/**
  * @brief Encode and send one DCMT control function call.
+ *
+ * Convenience wrapper over @ref build_frame followed by @ref transmit.
  *
  * Preconditions:
  * `function_id` must already be resolved from the device capability metadata.
