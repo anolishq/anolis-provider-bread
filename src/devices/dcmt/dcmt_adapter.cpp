@@ -212,7 +212,7 @@ AdapterCallResult call(crumbs::Session &session,
               "missing or invalid arg: motor2_pwm (int64)"};
     }
     if (m1 < -255 || m1 > 255 || m2 < -255 || m2 > 255) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "motor PWM values must be in [-255, 255]"};
     }
     frame.opcode = DCMT_OP_SET_OPEN_LOOP;
@@ -267,7 +267,7 @@ AdapterCallResult call(crumbs::Session &session,
               "missing or invalid arg: motor2_target (int64)"};
     }
     if (t1 < INT16_MIN || t1 > INT16_MAX || t2 < INT16_MIN || t2 > INT16_MAX) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "motor target values must be in [-32768, 32767]"};
     }
     frame.opcode = DCMT_OP_SET_SETPOINT;
@@ -289,7 +289,7 @@ AdapterCallResult call(crumbs::Session &session,
     }
     if (kp1 > 255u || ki1 > 255u || kd1 > 255u || kp2 > 255u || ki2 > 255u ||
         kd2 > 255u) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "PID gain values must be in [0, 255]"};
     }
     frame.opcode = DCMT_OP_SET_PID;

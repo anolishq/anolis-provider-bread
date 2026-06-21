@@ -191,11 +191,15 @@ AdapterCallResult call(crumbs::Session &session,
       return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
               "missing or invalid arg: setpoint2_c (double)"};
     }
+    if (!std::isfinite(sp1) || !std::isfinite(sp2)) {  // §8.3 [L2]: non-finite first
+      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+              "setpoint values must be finite (not NaN or +/-Inf)"};
+    }
     constexpr double kMinSetpointC = static_cast<double>(INT16_MIN) / 10.0;
     constexpr double kMaxSetpointC = static_cast<double>(INT16_MAX) / 10.0;
     if (sp1 < kMinSetpointC || sp1 > kMaxSetpointC || sp2 < kMinSetpointC ||
         sp2 > kMaxSetpointC) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,  // §8.3 [L2]
               "setpoint values must be in [-3276.8, 3276.7] C"};
     }
     const auto sp1_deci = std::llround(sp1 * 10.0);
@@ -224,7 +228,7 @@ AdapterCallResult call(crumbs::Session &session,
     }
     if (kp1 > 255u || ki1 > 255u || kd1 > 255u || kp2 > 255u || ki2 > 255u ||
         kd2 > 255u) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "PID gain values must be in [0, 255]"};
     }
     frame.opcode = RLHT_OP_SET_PID;
@@ -244,7 +248,7 @@ AdapterCallResult call(crumbs::Session &session,
               "missing or invalid args: period1_ms, period2_ms (uint64)"};
     }
     if (p1 > 65535u || p2 > 65535u) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "period values must be in [0, 65535] ms"};
     }
     frame.opcode = RLHT_OP_SET_PERIODS;
@@ -260,7 +264,7 @@ AdapterCallResult call(crumbs::Session &session,
               "missing or invalid args: tc1_index, tc2_index (uint64)"};
     }
     if (tc1 > 255u || tc2 > 255u) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "tc_index values must be in [0, 255]"};
     }
     frame.opcode = RLHT_OP_SET_TC_SELECT;
@@ -276,7 +280,7 @@ AdapterCallResult call(crumbs::Session &session,
               "missing or invalid args: duty1_pct, duty2_pct (uint64)"};
     }
     if (d1 > 100u || d2 > 100u) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "duty_pct values must be in [0, 100]"};
     }
     frame.opcode = RLHT_OP_SET_OPEN_DUTY;
