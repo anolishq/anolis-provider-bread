@@ -391,13 +391,34 @@ TEST(ShellTest, SupportsHelloInventoryAndHealth) {
 
   {
     SCOPED_TRACE("call_unimplemented");
+    // Well-formed call: passes argument validation, then fails at the hardware
+    // session check because this mock shell has no backing transport.
+    anolis::deviceprovider::v1::Request call;
+    call.set_request_id(8);
+    call.mutable_call()->set_device_id("dcmt0");
+    call.mutable_call()->set_function_id(1);
+    auto &args = *call.mutable_call()->mutable_args();
+    for (const char *key : {"motor1_pwm", "motor2_pwm"}) {
+      args[key].set_type(anolis::deviceprovider::v1::VALUE_TYPE_INT64);
+      args[key].set_int64_value(0);
+    }
+    const auto response = session.send(call);
+    EXPECT_EQ(response.status().code(),
+              anolis::deviceprovider::v1::Status::CODE_UNAVAILABLE);
+  }
+
+  {
+    SCOPED_TRACE("call_missing_arg_invalid");
+    // ADPP §8.3 / bucket-A: argument validation runs before the hardware
+    // session check, so a missing required arg is INVALID_ARGUMENT even when
+    // no hardware is attached.
     anolis::deviceprovider::v1::Request call;
     call.set_request_id(8);
     call.mutable_call()->set_device_id("dcmt0");
     call.mutable_call()->set_function_id(1);
     const auto response = session.send(call);
     EXPECT_EQ(response.status().code(),
-              anolis::deviceprovider::v1::Status::CODE_UNAVAILABLE);
+              anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT);
   }
 
   {
