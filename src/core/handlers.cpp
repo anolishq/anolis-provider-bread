@@ -195,14 +195,6 @@ void handle_call(const CallRequest &request, Response &response) {
     return;
   }
 
-  crumbs::Session *session_ptr = runtime::session();
-  if (!session_ptr) {
-    set_status(
-        response, Status::CODE_UNAVAILABLE,
-        "no hardware session (provider not built with hardware support)");
-    return;
-  }
-
   // Name-based selectors resolve against the published capability surface so
   // handlers and external callers share the same function ID mapping.
   uint32_t fid = request.function_id();
@@ -215,14 +207,31 @@ void handle_call(const CallRequest &request, Response &response) {
     }
   }
 
+  // ADPP §8.3: validate and encode the request before touching hardware, so
+  // argument errors surface as INVALID_ARGUMENT / OUT_OF_RANGE regardless of
+  // whether a hardware session is available.
+  crumbs::RawFrame frame;
   AdapterCallResult adapter_result;
   if (device->type == DeviceType::Rlht) {
-    adapter_result = rlht::call(*session_ptr, *device, fid, request.args());
+    adapter_result = rlht::build_frame(fid, request.args(), frame);
   } else if (device->type == DeviceType::Dcmt) {
-    adapter_result = dcmt::call(*session_ptr, *device, fid, request.args());
+    adapter_result = dcmt::build_frame(fid, request.args(), frame);
   } else {
     set_status(response, Status::CODE_UNIMPLEMENTED, "unsupported device type");
     return;
+  }
+
+  if (adapter_result.ok) {
+    crumbs::Session *session_ptr = runtime::session();
+    if (!session_ptr) {
+      set_status(
+          response, Status::CODE_UNAVAILABLE,
+          "no hardware session (provider not built with hardware support)");
+      return;
+    }
+    adapter_result = (device->type == DeviceType::Rlht)
+                         ? rlht::transmit(*session_ptr, *device, frame)
+                         : dcmt::transmit(*session_ptr, *device, frame);
   }
 
   if (!adapter_result.ok) {

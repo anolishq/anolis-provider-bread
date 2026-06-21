@@ -155,11 +155,10 @@ AdapterReadResult read_signals(crumbs::Session &session,
   return result;
 }
 
-AdapterCallResult call(crumbs::Session &session,
-                       const inventory::InventoryDevice &device,
-                       uint32_t function_id, const ValueMap &args) {
-  const auto addr = static_cast<uint8_t>(device.address);
-  crumbs::RawFrame frame;
+// §8.3: validation + frame encoding only — no session, so the handler can
+// validate arguments before checking hardware availability.
+AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args,
+                              crumbs::RawFrame &frame) {
   frame.type_id = RLHT_TYPE_ID;
 
   switch (function_id) {
@@ -191,11 +190,15 @@ AdapterCallResult call(crumbs::Session &session,
       return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
               "missing or invalid arg: setpoint2_c (double)"};
     }
+    if (!std::isfinite(sp1) || !std::isfinite(sp2)) {  // §8.3 [L2]: non-finite first
+      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+              "setpoint values must be finite (not NaN or +/-Inf)"};
+    }
     constexpr double kMinSetpointC = static_cast<double>(INT16_MIN) / 10.0;
     constexpr double kMaxSetpointC = static_cast<double>(INT16_MAX) / 10.0;
     if (sp1 < kMinSetpointC || sp1 > kMaxSetpointC || sp2 < kMinSetpointC ||
         sp2 > kMaxSetpointC) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,  // §8.3 [L2]
               "setpoint values must be in [-3276.8, 3276.7] C"};
     }
     const auto sp1_deci = std::llround(sp1 * 10.0);
@@ -224,7 +227,7 @@ AdapterCallResult call(crumbs::Session &session,
     }
     if (kp1 > 255u || ki1 > 255u || kd1 > 255u || kp2 > 255u || ki2 > 255u ||
         kd2 > 255u) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "PID gain values must be in [0, 255]"};
     }
     frame.opcode = RLHT_OP_SET_PID;
@@ -244,7 +247,7 @@ AdapterCallResult call(crumbs::Session &session,
               "missing or invalid args: period1_ms, period2_ms (uint64)"};
     }
     if (p1 > 65535u || p2 > 65535u) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "period values must be in [0, 65535] ms"};
     }
     frame.opcode = RLHT_OP_SET_PERIODS;
@@ -260,7 +263,7 @@ AdapterCallResult call(crumbs::Session &session,
               "missing or invalid args: tc1_index, tc2_index (uint64)"};
     }
     if (tc1 > 255u || tc2 > 255u) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "tc_index values must be in [0, 255]"};
     }
     frame.opcode = RLHT_OP_SET_TC_SELECT;
@@ -276,7 +279,7 @@ AdapterCallResult call(crumbs::Session &session,
               "missing or invalid args: duty1_pct, duty2_pct (uint64)"};
     }
     if (d1 > 100u || d2 > 100u) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "duty_pct values must be in [0, 100]"};
     }
     frame.opcode = RLHT_OP_SET_OPEN_DUTY;
@@ -289,14 +292,31 @@ AdapterCallResult call(crumbs::Session &session,
             "unknown RLHT function_id " + std::to_string(function_id)};
   }
 
+  // RLHT setters are fire-and-forget at this layer; confirmation is observed
+  // on the next state read rather than through a dedicated ACK payload.
+  return {true, anolis::deviceprovider::v1::Status::CODE_OK, "ok"};
+}
+
+AdapterCallResult transmit(crumbs::Session &session,
+                           const inventory::InventoryDevice &device,
+                           const crumbs::RawFrame &frame) {
+  const auto addr = static_cast<uint8_t>(device.address);
   const crumbs::SessionStatus send_status = session.send(addr, frame);
   if (!send_status.ok()) {
     return call_error_from_session(send_status, "RLHT SET command");
   }
-
-  // RLHT setters are fire-and-forget at this layer; confirmation is observed
-  // on the next state read rather than through a dedicated ACK payload.
   return {true, anolis::deviceprovider::v1::Status::CODE_OK, "ok"};
+}
+
+AdapterCallResult call(crumbs::Session &session,
+                       const inventory::InventoryDevice &device,
+                       uint32_t function_id, const ValueMap &args) {
+  crumbs::RawFrame frame;
+  const AdapterCallResult built = build_frame(function_id, args, frame);
+  if (!built.ok) {
+    return built;
+  }
+  return transmit(session, device, frame);
 }
 
 } // namespace anolis_provider_bread::rlht

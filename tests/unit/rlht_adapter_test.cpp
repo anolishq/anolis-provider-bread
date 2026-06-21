@@ -354,7 +354,7 @@ TEST_F(RlhtAdapterTest, Call_SetSetpoints_SendsCorrectPayload) {
   EXPECT_EQ(sp2, 1900);
 }
 
-TEST_F(RlhtAdapterTest, Call_SetSetpoints_OutOfRange_ReturnsInvalidArgument) {
+TEST_F(RlhtAdapterTest, Call_SetSetpoints_OutOfRange_ReturnsOutOfRange) {
   const auto args = make_args({
       {"setpoint1_c", make_double_val(4000.0)},
       {"setpoint2_c", make_double_val(25.0)},
@@ -364,7 +364,7 @@ TEST_F(RlhtAdapterTest, Call_SetSetpoints_OutOfRange_ReturnsInvalidArgument) {
 
   EXPECT_FALSE(result.ok);
   EXPECT_EQ(result.error_code,
-            anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT);
+            anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE);
   EXPECT_EQ(result.error_message,
             "setpoint values must be in [-3276.8, 3276.7] C");
 }
@@ -388,7 +388,7 @@ TEST_F(RlhtAdapterTest, Call_SetPidX10_ValidArgs_SendsSixBytes) {
   EXPECT_EQ(payload.at(3), 12u);
 }
 
-TEST_F(RlhtAdapterTest, Call_SetPidX10_ValueTooLarge_ReturnsInvalidArgument) {
+TEST_F(RlhtAdapterTest, Call_SetPidX10_ValueTooLarge_ReturnsOutOfRange) {
   const auto args = make_args({
       {"kp1_x10", make_uint64_val(256u)}, // > 255
       {"ki1_x10", make_uint64_val(0u)},
@@ -402,7 +402,7 @@ TEST_F(RlhtAdapterTest, Call_SetPidX10_ValueTooLarge_ReturnsInvalidArgument) {
 
   EXPECT_FALSE(result.ok);
   EXPECT_EQ(result.error_code,
-            anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT);
+            anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE);
 }
 
 TEST_F(RlhtAdapterTest, Call_SetPeriodsMs_SendsFourBytes) {
@@ -438,7 +438,7 @@ TEST_F(RlhtAdapterTest, Call_SetOpenDutyPct_ValidRange_SendsTwoBytes) {
   EXPECT_EQ(payload.at(1), 50u);
 }
 
-TEST_F(RlhtAdapterTest, Call_SetOpenDutyPct_Over100_ReturnsInvalidArgument) {
+TEST_F(RlhtAdapterTest, Call_SetOpenDutyPct_Over100_ReturnsOutOfRange) {
   const auto args = make_args({
       {"duty1_pct", make_uint64_val(101u)},
       {"duty2_pct", make_uint64_val(50u)},
@@ -448,7 +448,7 @@ TEST_F(RlhtAdapterTest, Call_SetOpenDutyPct_Over100_ReturnsInvalidArgument) {
 
   EXPECT_FALSE(result.ok);
   EXPECT_EQ(result.error_code,
-            anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT);
+            anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE);
 }
 
 TEST_F(RlhtAdapterTest, Call_MissingRequiredArg_ReturnsInvalidArgument) {

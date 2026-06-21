@@ -5,6 +5,7 @@
 # of this; see that repo's conformance/ADPP-CONFORMANCE.md for the schema.
 provider_name = "anolis-provider-bread"
 has_mock_devices = true
+conformance_level = 2
 
 [waivers]
 # Executable-profile gap only (never core/transport): bread's WaitReady response

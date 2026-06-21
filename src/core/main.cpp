@@ -91,6 +91,10 @@ int main(int argc, char **argv) {
 
   std::vector<uint8_t> frame;
   std::string io_error;
+  // ADPP L2 §3.2: a non-Hello request received before a successful Hello is
+  // rejected with CODE_FAILED_PRECONDITION. The session is this process's stdio
+  // stream, so a local flag suffices.
+  bool hello_completed = false;
 
   while (true) {
     frame.clear();
@@ -119,6 +123,15 @@ int main(int argc, char **argv) {
 
     if (request.has_hello()) {
       anolis_provider_bread::handlers::handle_hello(request.hello(), response);
+      if (response.status().code() == anolis::deviceprovider::v1::Status::CODE_OK) {
+        hello_completed = true;
+      }
+    } else if (!hello_completed) {
+      // ADPP L2 §3.2: reject (do not process) any non-Hello request before Hello.
+      response.mutable_status()->set_code(
+          anolis::deviceprovider::v1::Status::CODE_FAILED_PRECONDITION);
+      response.mutable_status()->set_message(
+          "Hello handshake required before any other request");
     } else if (request.has_wait_ready()) {
       anolis_provider_bread::handlers::handle_wait_ready(request.wait_ready(),
                                                          response);

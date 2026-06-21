@@ -191,11 +191,10 @@ AdapterReadResult read_signals(crumbs::Session &session,
   return result;
 }
 
-AdapterCallResult call(crumbs::Session &session,
-                       const inventory::InventoryDevice &device,
-                       uint32_t function_id, const ValueMap &args) {
-  const auto addr = static_cast<uint8_t>(device.address);
-  crumbs::RawFrame frame;
+// §8.3: validation + frame encoding only — no session, so the handler can
+// validate arguments before checking hardware availability.
+AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args,
+                              crumbs::RawFrame &frame) {
   frame.type_id = DCMT_TYPE_ID;
 
   switch (function_id) {
@@ -212,7 +211,7 @@ AdapterCallResult call(crumbs::Session &session,
               "missing or invalid arg: motor2_pwm (int64)"};
     }
     if (m1 < -255 || m1 > 255 || m2 < -255 || m2 > 255) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "motor PWM values must be in [-255, 255]"};
     }
     frame.opcode = DCMT_OP_SET_OPEN_LOOP;
@@ -267,7 +266,7 @@ AdapterCallResult call(crumbs::Session &session,
               "missing or invalid arg: motor2_target (int64)"};
     }
     if (t1 < INT16_MIN || t1 > INT16_MAX || t2 < INT16_MIN || t2 > INT16_MAX) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "motor target values must be in [-32768, 32767]"};
     }
     frame.opcode = DCMT_OP_SET_SETPOINT;
@@ -289,7 +288,7 @@ AdapterCallResult call(crumbs::Session &session,
     }
     if (kp1 > 255u || ki1 > 255u || kd1 > 255u || kp2 > 255u || ki2 > 255u ||
         kd2 > 255u) {
-      return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+      return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
               "PID gain values must be in [0, 255]"};
     }
     frame.opcode = DCMT_OP_SET_PID;
@@ -306,14 +305,31 @@ AdapterCallResult call(crumbs::Session &session,
             "unknown DCMT function_id " + std::to_string(function_id)};
   }
 
+  // DCMT setters are treated as accepted once the frame is written
+  // successfully; callers observe the resulting state on a later read.
+  return {true, anolis::deviceprovider::v1::Status::CODE_OK, "ok"};
+}
+
+AdapterCallResult transmit(crumbs::Session &session,
+                           const inventory::InventoryDevice &device,
+                           const crumbs::RawFrame &frame) {
+  const auto addr = static_cast<uint8_t>(device.address);
   const crumbs::SessionStatus send_status = session.send(addr, frame);
   if (!send_status.ok()) {
     return call_error_from_session(send_status, "DCMT SET command");
   }
-
-  // DCMT setters are treated as accepted once the frame is written
-  // successfully; callers observe the resulting state on a later read.
   return {true, anolis::deviceprovider::v1::Status::CODE_OK, "ok"};
+}
+
+AdapterCallResult call(crumbs::Session &session,
+                       const inventory::InventoryDevice &device,
+                       uint32_t function_id, const ValueMap &args) {
+  crumbs::RawFrame frame;
+  const AdapterCallResult built = build_frame(function_id, args, frame);
+  if (!built.ok) {
+    return built;
+  }
+  return transmit(session, device, frame);
 }
 
 } // namespace anolis_provider_bread::dcmt
