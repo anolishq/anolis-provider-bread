@@ -165,7 +165,12 @@ TEST_F(DcmtAdapterTest, ReadSignals_OpenLoop_ReturnsAllSignals) {
   // pwm1=200, pwm2=-150, brakes=motor1 on, estop=0
   script_state_reply(make_open_loop_payload(200, -150, 0x01, 0x00));
 
-  const auto result = read_signals(session, device, {});
+  // Request the full surface explicitly to verify every field decodes (the
+  // default set is curated; see ReadSignals_DefaultSet_IsCuratedSubset).
+  const auto result =
+      read_signals(session, device,
+                   {"mode", "motor1_target", "motor2_target", "motor1_value",
+                    "motor2_value", "motor1_brake", "motor2_brake", "estop"});
 
   ASSERT_TRUE(result.ok) << result.error_message;
   ASSERT_EQ(result.values.size(), 8u);
@@ -219,7 +224,10 @@ TEST_F(DcmtAdapterTest,
   script_state_reply(
       make_closed_position_payload(1000, -1000, 980, -990, 0x00, 0x00));
 
-  const auto result = read_signals(session, device, {});
+  const auto result =
+      read_signals(session, device,
+                   {"mode", "motor1_target", "motor1_value", "motor2_target",
+                    "motor2_value"});
 
   ASSERT_TRUE(result.ok);
 
@@ -243,7 +251,7 @@ TEST_F(DcmtAdapterTest, ReadSignals_ClosedSpeed_ModeStringCorrect) {
   script_state_reply(
       make_closed_speed_payload(500, 500, 498, 501, 0x00, 0x00));
 
-  const auto result = read_signals(session, device, {});
+  const auto result = read_signals(session, device, {"mode"});
 
   ASSERT_TRUE(result.ok);
   EXPECT_EQ(result.values.at(0).value().string_value(), "closed_speed");
@@ -253,7 +261,10 @@ TEST_F(DcmtAdapterTest, ReadSignals_ClosedSpeed_TachFeedbackIsIndependent) {
   script_state_reply(
       make_closed_speed_payload(500, -500, 498, -501, 0x00, 0x00));
 
-  const auto result = read_signals(session, device, {});
+  const auto result =
+      read_signals(session, device,
+                   {"mode", "motor1_target", "motor1_value", "motor2_target",
+                    "motor2_value"});
 
   ASSERT_TRUE(result.ok);
 
@@ -286,7 +297,10 @@ TEST_F(DcmtAdapterTest, ReadSignals_Estop_DecodedCorrectly) {
   script_state_reply(
       make_open_loop_payload(0, 0, 0x03, 0x01)); // both brakes + estop
 
-  const auto result = read_signals(session, device, {});
+  // estop is not in the curated default set, so request it (with the brakes)
+  // explicitly.
+  const auto result =
+      read_signals(session, device, {"estop", "motor1_brake", "motor2_brake"});
   ASSERT_TRUE(result.ok);
 
   for (const auto &sv : result.values) {
@@ -298,6 +312,21 @@ TEST_F(DcmtAdapterTest, ReadSignals_Estop_DecodedCorrectly) {
       EXPECT_TRUE(sv.value().bool_value());
     }
   }
+}
+
+TEST_F(DcmtAdapterTest, ReadSignals_DefaultSet_IsCuratedSubset) {
+  // [§7.2] empty signal_ids returns the curated default: measured motor values
+  // + brake states (no mode/targets/estop).
+  script_state_reply(make_open_loop_payload(200, -150, 0x01, 0x00));
+
+  const auto result = read_signals(session, device, {});
+
+  ASSERT_TRUE(result.ok) << result.error_message;
+  ASSERT_EQ(result.values.size(), 4u);
+  EXPECT_EQ(result.values.at(0).signal_id(), "motor1_value");
+  EXPECT_EQ(result.values.at(1).signal_id(), "motor2_value");
+  EXPECT_EQ(result.values.at(2).signal_id(), "motor1_brake");
+  EXPECT_EQ(result.values.at(3).signal_id(), "motor2_brake");
 }
 
 TEST_F(DcmtAdapterTest, ReadSignals_TruncatedPayload_ReturnsInternal) {

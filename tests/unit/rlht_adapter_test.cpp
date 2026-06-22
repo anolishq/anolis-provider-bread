@@ -153,7 +153,13 @@ TEST_F(RlhtAdapterTest, ReadSignals_ClosedLoopState_ReturnsAllSignals) {
                          5000, 6000, // period1_ms, period2_ms
                          0x00));
 
-  const auto result = read_signals(session, device, {});
+  // Request the full surface explicitly to verify every field decodes (the
+  // default set is curated; see ReadSignals_DefaultSet_IsCuratedSubset).
+  const auto result =
+      read_signals(session, device,
+                   {"mode", "t1_c", "t2_c", "setpoint1_c", "setpoint2_c",
+                    "period1_ms", "period2_ms", "relay1_on", "relay2_on",
+                    "estop"});
 
   ASSERT_TRUE(result.ok) << result.error_message;
   ASSERT_EQ(result.values.size(), 10u);
@@ -208,7 +214,8 @@ TEST_F(RlhtAdapterTest, ReadSignals_OpenLoopState_ReturnsOpenLoopMode) {
   script_state_reply(make_state_payload(RLHT_MODE_OPEN_LOOP, RLHT_FLAG_ESTOP, 0,
                                         0, 0, 0, 0, 0, 1000, 1000, 0x00));
 
-  const auto result = read_signals(session, device, {});
+  // mode/estop are not in the curated default set, so request them explicitly.
+  const auto result = read_signals(session, device, {"mode", "estop"});
 
   ASSERT_TRUE(result.ok);
   const auto &mode_sv = result.values.at(0);
@@ -220,6 +227,23 @@ TEST_F(RlhtAdapterTest, ReadSignals_OpenLoopState_ReturnsOpenLoopMode) {
       EXPECT_TRUE(sv.value().bool_value());
     }
   }
+}
+
+TEST_F(RlhtAdapterTest, ReadSignals_DefaultSet_IsCuratedSubset) {
+  // [§7.2] empty signal_ids returns the curated default: measured temperatures
+  // + relay states (no mode/setpoints/periods/estop).
+  script_state_reply(make_state_payload(RLHT_MODE_CLOSED_LOOP,
+                                        RLHT_FLAG_RELAY1_ON, 2505, 2510, 2000,
+                                        2010, 500, 600, 5000, 6000, 0x00));
+
+  const auto result = read_signals(session, device, {});
+
+  ASSERT_TRUE(result.ok) << result.error_message;
+  ASSERT_EQ(result.values.size(), 4u);
+  EXPECT_EQ(result.values.at(0).signal_id(), "t1_c");
+  EXPECT_EQ(result.values.at(1).signal_id(), "t2_c");
+  EXPECT_EQ(result.values.at(2).signal_id(), "relay1_on");
+  EXPECT_EQ(result.values.at(3).signal_id(), "relay2_on");
 }
 
 TEST_F(RlhtAdapterTest, ReadSignals_SubsetRequest_ReturnsOnlyRequestedSignals) {

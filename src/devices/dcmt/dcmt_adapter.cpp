@@ -124,9 +124,18 @@ const char *mode_to_string(uint8_t mode) {
   }
 }
 
+// [§7.2] Curated default signal set returned for an empty signal_ids request:
+// measured motor values + brake states. Mode, targets, and estop are excluded
+// (config/target/fault, not routine telemetry).
+bool is_default_signal(const char *id) {
+  const std::string s(id);
+  return s == kSigMotor1Val || s == kSigMotor2Val || s == kSigMotor1Brake ||
+         s == kSigMotor2Brake;
+}
+
 bool should_include(const std::vector<std::string> &ids, const char *id) {
   if (ids.empty())
-    return true;
+    return is_default_signal(id);
   for (const auto &req : ids) {
     if (req == id)
       return true;

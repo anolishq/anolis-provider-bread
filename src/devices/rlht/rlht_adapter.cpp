@@ -79,9 +79,17 @@ bool parse_state(const std::vector<uint8_t> &payload, RlhtState &out) {
   return true;
 }
 
+// [§7.2] Curated default signal set returned for an empty signal_ids request:
+// measured temperatures + relay states. Setpoints, periods, mode, and estop are
+// excluded (config/target/fault, not routine telemetry).
+bool is_default_signal(const char *id) {
+  const std::string s(id);
+  return s == kSigT1 || s == kSigT2 || s == kSigRelay1 || s == kSigRelay2;
+}
+
 bool should_include(const std::vector<std::string> &ids, const char *id) {
   if (ids.empty())
-    return true;
+    return is_default_signal(id);
   for (const auto &req : ids) {
     if (req == id)
       return true;
