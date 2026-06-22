@@ -13,6 +13,13 @@
 #include "devices/common/bread_compatibility.hpp"
 #include "protocol.pb.h"
 
+namespace anolis_provider_bread {
+// [§5.1] The fixed ADPP provider identity. Used for both Hello.provider_name and
+// Device.provider_name so the two can never diverge (which would break the
+// {provider_name, device_id} identity). Not config-driven.
+inline constexpr const char *kProviderName = "anolis-provider-bread";
+} // namespace anolis_provider_bread
+
 namespace anolis_provider_bread::inventory {
 
 using Device = anolis::deviceprovider::v1::Device;

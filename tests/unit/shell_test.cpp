@@ -340,7 +340,10 @@ TEST(ShellTest, SupportsHelloInventoryAndHealth) {
               anolis::deviceprovider::v1::Status::CODE_OK);
     ASSERT_EQ(response.list_devices().devices_size(), 2);
     ASSERT_EQ(response.list_devices().device_health_size(), 2);
-    EXPECT_EQ(response.list_devices().devices(0).provider_name(), "bread-ci-test");
+    // [§5.1] Device.provider_name MUST equal the Hello provider_name (the fixed
+    // identity), regardless of the config's provider.name (bread-ci-test here).
+    EXPECT_EQ(response.list_devices().devices(0).provider_name(),
+              "anolis-provider-bread");
   }
 
   {

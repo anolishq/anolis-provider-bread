@@ -73,7 +73,7 @@ void handle_hello(const HelloRequest &request, Response &response) {
 
   auto *hello = response.mutable_hello();
   hello->set_protocol_version("v1");
-  hello->set_provider_name("anolis-provider-bread");
+  hello->set_provider_name(kProviderName);
   hello->set_provider_version(ANOLIS_PROVIDER_BREAD_VERSION);
   (*hello->mutable_metadata())["transport"] = "stdio+uint32_le";
   (*hello->mutable_metadata())["max_frame_bytes"] =
