@@ -89,6 +89,13 @@ add_function(CapabilitySet &caps, uint32_t function_id, const std::string &name,
   function->set_description(description);
   function->mutable_policy()->set_category(category);
   function->mutable_policy()->set_is_idempotent(false);
+  // ADPP §8: declare a result so a successful call carries a verifiable payload
+  // (populated in handle_call). Uniform `accepted` across all functions.
+  ArgSpec *accepted = function->add_results();
+  accepted->set_name("accepted");
+  accepted->set_type(anolis::deviceprovider::v1::VALUE_TYPE_BOOL);
+  accepted->set_description("Whether the call was accepted and applied.");
+  accepted->set_required(true);
   return function;
 }
 
