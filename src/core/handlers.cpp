@@ -247,6 +247,8 @@ void handle_call(const CallRequest &request, Response &response) {
 
   auto *out = response.mutable_call();
   out->set_device_id(request.device_id());
+  // ADPP §8: populate the declared `accepted` result on success.
+  (*out->mutable_results())["accepted"] = make_bool_val(true);
   set_status_ok(response);
 }
 
