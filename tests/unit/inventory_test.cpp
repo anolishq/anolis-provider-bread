@@ -19,6 +19,10 @@ TEST(StubInventoryTest, BuildsSeedInventoryForConfiguredDevices) {
   ASSERT_EQ(inventory_devices.size(), 2U);
 
   EXPECT_EQ(inventory_devices[0].descriptor.device_id(), "rlht0");
+  // [§5.1] Device.provider_name is the fixed ADPP identity, matching Hello —
+  // NOT config.provider_name (set to "bread-lab" above), which could diverge.
+  EXPECT_EQ(inventory_devices[0].descriptor.provider_name(),
+            "anolis-provider-bread");
   EXPECT_EQ(inventory_devices[0].descriptor.type_id(), "bread.rlht");
   EXPECT_EQ(inventory_devices[0].descriptor.address(), "0x08");
   EXPECT_EQ(inventory_devices[0].descriptor.tags().at("hw.bus_path"),

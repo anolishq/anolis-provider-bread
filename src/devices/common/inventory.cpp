@@ -391,7 +391,9 @@ InventoryDevice build_device(const ProviderConfig &config,
       normalize_capability_profile(type, probe.capability_profile);
 
   device.descriptor.set_device_id(device_id);
-  device.descriptor.set_provider_name(config.provider_name);
+  // [§5.1] Fixed provider identity, matching Hello — not config.provider_name
+  // (which could diverge from Hello's name).
+  device.descriptor.set_provider_name(kProviderName);
   device.descriptor.set_label(label);
   device.descriptor.set_address(formatted_address);
   device.descriptor.set_type_id(provider_type_id(type));
