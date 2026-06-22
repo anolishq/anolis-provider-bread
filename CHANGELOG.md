@@ -13,6 +13,34 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.2.11] - 2026-06-22
+
+### Added
+
+- **ADPP conformance level 2.** Declare `conformance_level = 2` in
+  `config/conformance.toml` (one waiver retained: `init_time_ms`, tracked in
+  #45). The provider satisfies the L2 clauses of the ADPP semantics:
+  - Reject a non-Hello request received before a successful Hello with
+    `CODE_FAILED_PRECONDITION` (§3.2).
+  - Enforce declared numeric bounds as `CODE_OUT_OF_RANGE` and reject non-finite
+    doubles (`NaN`/`±Inf`) with `CODE_INVALID_ARGUMENT` (§8.3).
+
+### Changed
+
+- Validate and encode a `Call`'s arguments before touching the hardware session,
+  so argument errors surface as `INVALID_ARGUMENT` / `OUT_OF_RANGE` regardless of
+  whether a hardware session is available (§8.3). Each adapter's `call()` is split
+  into `build_frame()` + `transmit()`.
+
+### CI
+
+- Add the ADPP `provider.conformance` lane: run the pinned
+  `anolis-adpp-conformance` harness against the built binary using the
+  provider-owned `config/conformance.toml` manifest.
+- Add a keyless dependency/CVE scan (`cve-bin-tool`) lane.
+- Routine dependency maintenance: refresh pinned GitHub Actions to the current
+  org-tracked revisions.
+
 ## [0.2.10] - 2026-06-16
 
 ### Changed
