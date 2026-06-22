@@ -64,6 +64,30 @@ require_device(const runtime::RuntimeState &state, const std::string &device_id,
 
 } // namespace
 
+// [§7.3] Best-effort min_timestamp. bread reads are always live, so any past
+// min_timestamp is already satisfied; a value older than the requested
+// min_timestamp (e.g. an unsatisfiable future timestamp) is flagged
+// QUALITY_STALE rather than reported fresh, per "return the best available
+// values and indicate staleness via quality".
+void apply_min_timestamp(
+    const anolis::deviceprovider::v1::ReadSignalsRequest &request,
+    anolis::deviceprovider::v1::ReadSignalsResponse &out) {
+  if (!request.has_min_timestamp()) {
+    return;
+  }
+  const auto &min_ts = request.min_timestamp();
+  for (auto &value : *out.mutable_values()) {
+    const auto &ts = value.timestamp();
+    const bool older =
+        ts.seconds() < min_ts.seconds() ||
+        (ts.seconds() == min_ts.seconds() && ts.nanos() < min_ts.nanos());
+    if (older) {
+      value.set_quality(
+          anolis::deviceprovider::v1::SignalValue::QUALITY_STALE);
+    }
+  }
+}
+
 void handle_hello(const HelloRequest &request, Response &response) {
   if (request.protocol_version() != "v1") {
     set_status(response, Status::CODE_FAILED_PRECONDITION,
@@ -173,6 +197,7 @@ void handle_read_signals(const ReadSignalsRequest &request,
   for (const auto &v : adapter_result.values) {
     *out->add_values() = v;
   }
+  apply_min_timestamp(request, *out);
   set_status_ok(response);
 }
 

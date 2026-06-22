@@ -47,4 +47,11 @@ void handle_get_health(
 void handle_unimplemented(anolis::deviceprovider::v1::Response &response,
                           const std::string &message);
 
+/** @brief [§7.3] Flag values older than ReadSignalsRequest.min_timestamp as
+ * QUALITY_STALE (best-effort freshness; live reads satisfy any past
+ * min_timestamp). Exposed for unit testing. */
+void apply_min_timestamp(
+    const anolis::deviceprovider::v1::ReadSignalsRequest &request,
+    anolis::deviceprovider::v1::ReadSignalsResponse &out);
+
 } // namespace anolis_provider_bread::handlers
