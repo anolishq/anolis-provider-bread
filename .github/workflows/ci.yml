@@ -168,9 +168,12 @@ jobs:
       - name: Checkout anolis-provider-bread
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Install clang-format
+        # Pin to clang-format-18 (18.1.8): the unversioned `clang-format` on
+        # ubuntu-24.04 resolves to an experimental 18.0 snapshot that formats
+        # some constructs differently, so the gate must match the stable release.
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-format
+          sudo apt-get install -y clang-format-18
       - name: Check formatting
         run: |
           set -euo pipefail
@@ -179,7 +182,7 @@ jobs:
             echo "No C++ files found"
             exit 1
           fi
-          echo "$FILES" | xargs clang-format --dry-run --Werror
+          echo "$FILES" | xargs clang-format-18 --dry-run --Werror
 
   ok:
     name: ok
