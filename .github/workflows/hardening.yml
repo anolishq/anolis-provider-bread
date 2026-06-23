@@ -62,7 +62,11 @@ jobs:
           set +e
           set -o pipefail
           export CTEST_PARALLEL_LEVEL=1
-          timeout 20m ctest --preset ci-tsan --timeout 300 -VV 2>&1 | tee tsan-output.log
+          # Unit tests only (the in-process data-race surface). The shell test
+          # spawns the full provider binary; running that binary under TSAN trips
+          # third-party static-init races (protobuf/abseil), and ezo doesn't TSAN
+          # its binary either. The shell test stays in the regular + Valgrind lanes.
+          timeout 20m ctest --preset ci-tsan -LE shell --timeout 300 -VV 2>&1 | tee tsan-output.log
           EXIT_CODE=${PIPESTATUS[0]}
 
           if ls tsan-report.* >/dev/null 2>&1; then
