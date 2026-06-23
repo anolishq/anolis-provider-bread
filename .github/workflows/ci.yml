@@ -167,20 +167,13 @@ jobs:
     steps:
       - name: Checkout anolis-provider-bread
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Install pinned clang-tools
+        # SHA-verified static LLVM 18.1.8 clang-format on PATH — the org source of
+        # truth, matching workstation-configs apps/clang-tools on dev boxes. See
+        # anolishq/.github#69.
+        uses: anolishq/.github/.github/actions/setup-clang-tools@43a0fe0a7feb87215f6e7677133be542ef6f1031 # setup-clang-tools
       - name: Check formatting
-        # Pin the EXACT clang-format via the PyPI wheel (byte-identical on every
-        # runner/distro). The apt packages drift: unversioned `clang-format` on
-        # ubuntu-24.04 is an experimental 18.0 snapshot, and `clang-format-18` is
-        # 18.1.3 there but 18.1.8 elsewhere — and 18.1.3 vs 18.1.8 wrap long
-        # operator chains differently. Match locally with the same spec.
-        run: |
-          set -euo pipefail
-          FILES=$(find src tests -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \))
-          if [ -z "$FILES" ]; then
-            echo "No C++ files found"
-            exit 1
-          fi
-          echo "$FILES" | xargs pipx run clang-format==18.1.8 --dry-run --Werror
+        run: git ls-files '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' | xargs clang-format --dry-run --Werror
 
   ok:
     name: ok
