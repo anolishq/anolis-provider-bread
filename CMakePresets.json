@@ -65,6 +65,16 @@
       }
     },
     {
+      "name": "ci-tsan",
+      "inherits": "ci-linux-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "VCPKG_TARGET_TRIPLET": "x64-linux-tsan",
+        "ENABLE_TSAN": "ON",
+        "ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS": "OFF"
+      }
+    },
+    {
       "name": "ci-linux-arm64-release",
       "inherits": "dev-release",
       "cacheVariables": {
@@ -103,6 +113,10 @@
     {
       "name": "ci-linux-release",
       "configurePreset": "ci-linux-release"
+    },
+    {
+      "name": "ci-tsan",
+      "configurePreset": "ci-tsan"
     },
     {
       "name": "ci-linux-arm64-release",
@@ -148,6 +162,13 @@
     {
       "name": "ci-linux-release",
       "configurePreset": "ci-linux-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-tsan",
+      "configurePreset": "ci-tsan",
       "output": {
         "outputOnFailure": true
       }

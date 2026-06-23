@@ -11,6 +11,33 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(CTest)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Warnings.cmake)
 
+# ThreadSanitizer (TSAN) — data-race detection. bread is single-threaded today
+# (inline-mutex crumbs::Session, synchronous i2c on the dispatch thread), so TSAN
+# finds little now; the lane is forward-looking for the planned worker-thread
+# i2c-serialization convergence. Deps are rebuilt with TSAN via x64-linux-tsan.
+option(ENABLE_TSAN "Enable ThreadSanitizer for data race detection" OFF)
+
+if(ENABLE_TSAN)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        if(NOT WIN32)
+            add_compile_options(-fsanitize=thread -g -fno-omit-frame-pointer)
+            add_link_options(-fsanitize=thread)
+            message(STATUS "ThreadSanitizer (TSAN) enabled for data race detection")
+        else()
+            message(WARNING "ThreadSanitizer not supported on Windows (Linux/macOS only)")
+        endif()
+    else()
+        message(WARNING "ThreadSanitizer requested but compiler not supported: ${CMAKE_CXX_COMPILER_ID}")
+    endif()
+# Fallback: detect TSAN triplet automatically.
+elseif(DEFINED VCPKG_TARGET_TRIPLET AND VCPKG_TARGET_TRIPLET MATCHES "tsan")
+    if(NOT WIN32)
+        message(STATUS "ThreadSanitizer auto-detected via triplet: ${VCPKG_TARGET_TRIPLET}")
+        add_compile_options(-fsanitize=thread -g -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=thread)
+    endif()
+endif()
+
 if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(_provider_triplet "${VCPKG_TARGET_TRIPLET}")
     if(NOT _provider_triplet OR _provider_triplet MATCHES "windows")
