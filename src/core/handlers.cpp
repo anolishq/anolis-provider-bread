@@ -33,262 +33,234 @@ using Status = anolis::deviceprovider::v1::Status;
 using WaitReadyRequest = anolis::deviceprovider::v1::WaitReadyRequest;
 
 void set_status_ok(Response &response) {
-  response.mutable_status()->set_code(Status::CODE_OK);
-  response.mutable_status()->set_message("ok");
+    response.mutable_status()->set_code(Status::CODE_OK);
+    response.mutable_status()->set_message("ok");
 }
 
-void set_status(Response &response, Status::Code code,
-                const std::string &message) {
-  response.mutable_status()->set_code(code);
-  response.mutable_status()->set_message(message);
+void set_status(Response &response, Status::Code code, const std::string &message) {
+    response.mutable_status()->set_code(code);
+    response.mutable_status()->set_message(message);
 }
 
-const inventory::InventoryDevice *
-require_device(const runtime::RuntimeState &state, const std::string &device_id,
-               Response &response) {
-  if (device_id.empty()) {
-    set_status(response, Status::CODE_INVALID_ARGUMENT,
-               "device_id is required");
-    return nullptr;
-  }
+const inventory::InventoryDevice *require_device(const runtime::RuntimeState &state, const std::string &device_id,
+                                                 Response &response) {
+    if (device_id.empty()) {
+        set_status(response, Status::CODE_INVALID_ARGUMENT, "device_id is required");
+        return nullptr;
+    }
 
-  const inventory::InventoryDevice *device =
-      inventory::find_device(state.devices, device_id);
-  if (!device) {
-    set_status(response, Status::CODE_NOT_FOUND, "unknown device_id");
-    return nullptr;
-  }
+    const inventory::InventoryDevice *device = inventory::find_device(state.devices, device_id);
+    if (!device) {
+        set_status(response, Status::CODE_NOT_FOUND, "unknown device_id");
+        return nullptr;
+    }
 
-  return device;
+    return device;
 }
 
-} // namespace
+}  // namespace
 
 // [§7.3] Best-effort min_timestamp. bread reads are always live, so any past
 // min_timestamp is already satisfied; a value older than the requested
 // min_timestamp (e.g. an unsatisfiable future timestamp) is flagged
 // QUALITY_STALE rather than reported fresh, per "return the best available
 // values and indicate staleness via quality".
-void apply_min_timestamp(
-    const anolis::deviceprovider::v1::ReadSignalsRequest &request,
-    anolis::deviceprovider::v1::ReadSignalsResponse &out) {
-  if (!request.has_min_timestamp()) {
-    return;
-  }
-  const auto &min_ts = request.min_timestamp();
-  for (auto &value : *out.mutable_values()) {
-    const auto &ts = value.timestamp();
-    const bool older =
-        ts.seconds() < min_ts.seconds() ||
-        (ts.seconds() == min_ts.seconds() && ts.nanos() < min_ts.nanos());
-    if (older) {
-      value.set_quality(
-          anolis::deviceprovider::v1::SignalValue::QUALITY_STALE);
+void apply_min_timestamp(const anolis::deviceprovider::v1::ReadSignalsRequest &request,
+                         anolis::deviceprovider::v1::ReadSignalsResponse &out) {
+    if (!request.has_min_timestamp()) {
+        return;
     }
-  }
+    const auto &min_ts = request.min_timestamp();
+    for (auto &value : *out.mutable_values()) {
+        const auto &ts = value.timestamp();
+        const bool older =
+            ts.seconds() < min_ts.seconds() || (ts.seconds() == min_ts.seconds() && ts.nanos() < min_ts.nanos());
+        if (older) {
+            value.set_quality(anolis::deviceprovider::v1::SignalValue::QUALITY_STALE);
+        }
+    }
 }
 
 void handle_hello(const HelloRequest &request, Response &response) {
-  if (request.protocol_version() != "v1") {
-    set_status(response, Status::CODE_FAILED_PRECONDITION,
-               "unsupported protocol_version; expected v1");
-    return;
-  }
+    if (request.protocol_version() != "v1") {
+        set_status(response, Status::CODE_FAILED_PRECONDITION, "unsupported protocol_version; expected v1");
+        return;
+    }
 
-  auto *hello = response.mutable_hello();
-  hello->set_protocol_version("v1");
-  hello->set_provider_name(kProviderName);
-  hello->set_provider_version(ANOLIS_PROVIDER_BREAD_VERSION);
-  (*hello->mutable_metadata())["transport"] = "stdio+uint32_le";
-  (*hello->mutable_metadata())["max_frame_bytes"] =
-      std::to_string(transport::kMaxFrameBytes);
-  (*hello->mutable_metadata())["supports_wait_ready"] = "true";
-  (*hello->mutable_metadata())["inventory_mode"] =
-      runtime::snapshot().inventory_mode;
-  set_status_ok(response);
+    auto *hello = response.mutable_hello();
+    hello->set_protocol_version("v1");
+    hello->set_provider_name(kProviderName);
+    hello->set_provider_version(ANOLIS_PROVIDER_BREAD_VERSION);
+    (*hello->mutable_metadata())["transport"] = "stdio+uint32_le";
+    (*hello->mutable_metadata())["max_frame_bytes"] = std::to_string(transport::kMaxFrameBytes);
+    (*hello->mutable_metadata())["supports_wait_ready"] = "true";
+    (*hello->mutable_metadata())["inventory_mode"] = runtime::snapshot().inventory_mode;
+    set_status_ok(response);
 }
 
 void handle_wait_ready(const WaitReadyRequest &, Response &response) {
-  auto *out = response.mutable_wait_ready();
-  health::populate_wait_ready(runtime::snapshot(), *out);
-  set_status_ok(response);
+    auto *out = response.mutable_wait_ready();
+    health::populate_wait_ready(runtime::snapshot(), *out);
+    set_status_ok(response);
 }
 
-void handle_list_devices(const ListDevicesRequest &request,
-                         Response &response) {
-  const runtime::RuntimeState state = runtime::snapshot();
-  auto *out = response.mutable_list_devices();
-  for (const auto &device : state.devices) {
-    *out->add_devices() = device.descriptor;
-  }
-  if (request.include_health()) {
-    for (const auto &health_entry : health::make_device_health(state)) {
-      *out->add_device_health() = health_entry;
+void handle_list_devices(const ListDevicesRequest &request, Response &response) {
+    const runtime::RuntimeState state = runtime::snapshot();
+    auto *out = response.mutable_list_devices();
+    for (const auto &device : state.devices) {
+        *out->add_devices() = device.descriptor;
     }
-  }
-  set_status_ok(response);
-}
-
-void handle_describe_device(const DescribeDeviceRequest &request,
-                            Response &response) {
-  const runtime::RuntimeState state = runtime::snapshot();
-  const inventory::InventoryDevice *device =
-      require_device(state, request.device_id(), response);
-  if (!device) {
-    return;
-  }
-
-  auto *out = response.mutable_describe_device();
-  *out->mutable_device() = device->descriptor;
-  *out->mutable_capabilities() = device->capabilities;
-  set_status_ok(response);
-}
-
-void handle_read_signals(const ReadSignalsRequest &request,
-                         Response &response) {
-  const runtime::RuntimeState state = runtime::snapshot();
-  const inventory::InventoryDevice *device =
-      require_device(state, request.device_id(), response);
-  if (!device) {
-    return;
-  }
-
-  for (const auto &signal_id : request.signal_ids()) {
-    if (!inventory::signal_exists(*device, signal_id)) {
-      set_status(response, Status::CODE_NOT_FOUND,
-                 "unknown signal_id '" + signal_id + "'");
-      return;
+    if (request.include_health()) {
+        for (const auto &health_entry : health::make_device_health(state)) {
+            *out->add_device_health() = health_entry;
+        }
     }
-  }
+    set_status_ok(response);
+}
 
-  crumbs::Session *session_ptr = runtime::session();
-  if (!session_ptr) {
-    set_status(
-        response, Status::CODE_UNAVAILABLE,
-        "no hardware session (provider not built with hardware support)");
-    return;
-  }
+void handle_describe_device(const DescribeDeviceRequest &request, Response &response) {
+    const runtime::RuntimeState state = runtime::snapshot();
+    const inventory::InventoryDevice *device = require_device(state, request.device_id(), response);
+    if (!device) {
+        return;
+    }
 
-  // Inventory validation happens before adapter dispatch so the adapter layer
-  // only sees signal IDs that are declared in the device capability surface.
-  const std::vector<std::string> signal_ids(request.signal_ids().begin(),
-                                            request.signal_ids().end());
+    auto *out = response.mutable_describe_device();
+    *out->mutable_device() = device->descriptor;
+    *out->mutable_capabilities() = device->capabilities;
+    set_status_ok(response);
+}
 
-  AdapterReadResult adapter_result;
-  if (device->type == DeviceType::Rlht) {
-    adapter_result = rlht::read_signals(*session_ptr, *device, signal_ids);
-  } else if (device->type == DeviceType::Dcmt) {
-    adapter_result = dcmt::read_signals(*session_ptr, *device, signal_ids);
-  } else {
-    set_status(response, Status::CODE_UNIMPLEMENTED, "unsupported device type");
-    return;
-  }
+void handle_read_signals(const ReadSignalsRequest &request, Response &response) {
+    const runtime::RuntimeState state = runtime::snapshot();
+    const inventory::InventoryDevice *device = require_device(state, request.device_id(), response);
+    if (!device) {
+        return;
+    }
 
-  if (!adapter_result.ok) {
-    logging::warning("read_signals device='" + request.device_id() +
-                     "' failed: " + adapter_result.error_message);
-    set_status(response, adapter_result.error_code,
-               adapter_result.error_message);
-    return;
-  }
+    for (const auto &signal_id : request.signal_ids()) {
+        if (!inventory::signal_exists(*device, signal_id)) {
+            set_status(response, Status::CODE_NOT_FOUND, "unknown signal_id '" + signal_id + "'");
+            return;
+        }
+    }
 
-  auto *out = response.mutable_read_signals();
-  out->set_device_id(request.device_id());
-  for (const auto &v : adapter_result.values) {
-    *out->add_values() = v;
-  }
-  apply_min_timestamp(request, *out);
-  set_status_ok(response);
+    crumbs::Session *session_ptr = runtime::session();
+    if (!session_ptr) {
+        set_status(response, Status::CODE_UNAVAILABLE,
+                   "no hardware session (provider not built with hardware support)");
+        return;
+    }
+
+    // Inventory validation happens before adapter dispatch so the adapter layer
+    // only sees signal IDs that are declared in the device capability surface.
+    const std::vector<std::string> signal_ids(request.signal_ids().begin(), request.signal_ids().end());
+
+    AdapterReadResult adapter_result;
+    if (device->type == DeviceType::Rlht) {
+        adapter_result = rlht::read_signals(*session_ptr, *device, signal_ids);
+    } else if (device->type == DeviceType::Dcmt) {
+        adapter_result = dcmt::read_signals(*session_ptr, *device, signal_ids);
+    } else {
+        set_status(response, Status::CODE_UNIMPLEMENTED, "unsupported device type");
+        return;
+    }
+
+    if (!adapter_result.ok) {
+        logging::warning("read_signals device='" + request.device_id() + "' failed: " + adapter_result.error_message);
+        set_status(response, adapter_result.error_code, adapter_result.error_message);
+        return;
+    }
+
+    auto *out = response.mutable_read_signals();
+    out->set_device_id(request.device_id());
+    for (const auto &v : adapter_result.values) {
+        *out->add_values() = v;
+    }
+    apply_min_timestamp(request, *out);
+    set_status_ok(response);
 }
 
 void handle_call(const CallRequest &request, Response &response) {
-  const runtime::RuntimeState state = runtime::snapshot();
-  const inventory::InventoryDevice *device =
-      require_device(state, request.device_id(), response);
-  if (!device) {
-    return;
-  }
-  if (request.function_id() == 0 && request.function_name().empty()) {
-    set_status(response, Status::CODE_INVALID_ARGUMENT,
-               "function_id or function_name is required");
-    return;
-  }
-  if (!inventory::function_exists(*device, request.function_id(),
-                                  request.function_name())) {
-    set_status(response, Status::CODE_NOT_FOUND,
-               "unknown function_id or function_name");
-    return;
-  }
-
-  // Name-based selectors resolve against the published capability surface so
-  // handlers and external callers share the same function ID mapping.
-  uint32_t fid = request.function_id();
-  if (fid == 0) {
-    for (const auto &fn : device->capabilities.functions()) {
-      if (fn.name() == request.function_name()) {
-        fid = fn.function_id();
-        break;
-      }
+    const runtime::RuntimeState state = runtime::snapshot();
+    const inventory::InventoryDevice *device = require_device(state, request.device_id(), response);
+    if (!device) {
+        return;
     }
-  }
-
-  // ADPP §8.3: validate and encode the request before touching hardware, so
-  // argument errors surface as INVALID_ARGUMENT / OUT_OF_RANGE regardless of
-  // whether a hardware session is available.
-  crumbs::RawFrame frame;
-  AdapterCallResult adapter_result;
-  if (device->type == DeviceType::Rlht) {
-    adapter_result = rlht::build_frame(fid, request.args(), frame);
-  } else if (device->type == DeviceType::Dcmt) {
-    adapter_result = dcmt::build_frame(fid, request.args(), frame);
-  } else {
-    set_status(response, Status::CODE_UNIMPLEMENTED, "unsupported device type");
-    return;
-  }
-
-  if (adapter_result.ok) {
-    crumbs::Session *session_ptr = runtime::session();
-    if (!session_ptr) {
-      set_status(
-          response, Status::CODE_UNAVAILABLE,
-          "no hardware session (provider not built with hardware support)");
-      return;
+    if (request.function_id() == 0 && request.function_name().empty()) {
+        set_status(response, Status::CODE_INVALID_ARGUMENT, "function_id or function_name is required");
+        return;
     }
-    adapter_result = (device->type == DeviceType::Rlht)
-                         ? rlht::transmit(*session_ptr, *device, frame)
-                         : dcmt::transmit(*session_ptr, *device, frame);
-  }
+    if (!inventory::function_exists(*device, request.function_id(), request.function_name())) {
+        set_status(response, Status::CODE_NOT_FOUND, "unknown function_id or function_name");
+        return;
+    }
 
-  if (!adapter_result.ok) {
-    const std::string fn_label = request.function_name().empty()
-                                     ? std::to_string(request.function_id())
-                                     : request.function_name();
-    logging::warning("call device='" + request.device_id() + "' fn='" +
-                     fn_label + "' failed: " + adapter_result.error_message);
-    set_status(response, adapter_result.error_code,
-               adapter_result.error_message);
-    return;
-  }
+    // Name-based selectors resolve against the published capability surface so
+    // handlers and external callers share the same function ID mapping.
+    uint32_t fid = request.function_id();
+    if (fid == 0) {
+        for (const auto &fn : device->capabilities.functions()) {
+            if (fn.name() == request.function_name()) {
+                fid = fn.function_id();
+                break;
+            }
+        }
+    }
 
-  auto *out = response.mutable_call();
-  out->set_device_id(request.device_id());
-  // ADPP §8: populate the declared `accepted` result on success.
-  (*out->mutable_results())["accepted"] = make_bool_val(true);
-  set_status_ok(response);
+    // ADPP §8.3: validate and encode the request before touching hardware, so
+    // argument errors surface as INVALID_ARGUMENT / OUT_OF_RANGE regardless of
+    // whether a hardware session is available.
+    crumbs::RawFrame frame;
+    AdapterCallResult adapter_result;
+    if (device->type == DeviceType::Rlht) {
+        adapter_result = rlht::build_frame(fid, request.args(), frame);
+    } else if (device->type == DeviceType::Dcmt) {
+        adapter_result = dcmt::build_frame(fid, request.args(), frame);
+    } else {
+        set_status(response, Status::CODE_UNIMPLEMENTED, "unsupported device type");
+        return;
+    }
+
+    if (adapter_result.ok) {
+        crumbs::Session *session_ptr = runtime::session();
+        if (!session_ptr) {
+            set_status(response, Status::CODE_UNAVAILABLE,
+                       "no hardware session (provider not built with hardware support)");
+            return;
+        }
+        adapter_result = (device->type == DeviceType::Rlht) ? rlht::transmit(*session_ptr, *device, frame)
+                                                            : dcmt::transmit(*session_ptr, *device, frame);
+    }
+
+    if (!adapter_result.ok) {
+        const std::string fn_label =
+            request.function_name().empty() ? std::to_string(request.function_id()) : request.function_name();
+        logging::warning("call device='" + request.device_id() + "' fn='" + fn_label +
+                         "' failed: " + adapter_result.error_message);
+        set_status(response, adapter_result.error_code, adapter_result.error_message);
+        return;
+    }
+
+    auto *out = response.mutable_call();
+    out->set_device_id(request.device_id());
+    // ADPP §8: populate the declared `accepted` result on success.
+    (*out->mutable_results())["accepted"] = make_bool_val(true);
+    set_status_ok(response);
 }
 
 void handle_get_health(const GetHealthRequest &, Response &response) {
-  const runtime::RuntimeState state = runtime::snapshot();
-  auto *out = response.mutable_get_health();
-  *out->mutable_provider() = health::make_provider_health(state);
-  for (const auto &device_health : health::make_device_health(state)) {
-    *out->add_devices() = device_health;
-  }
-  set_status_ok(response);
+    const runtime::RuntimeState state = runtime::snapshot();
+    auto *out = response.mutable_get_health();
+    *out->mutable_provider() = health::make_provider_health(state);
+    for (const auto &device_health : health::make_device_health(state)) {
+        *out->add_devices() = device_health;
+    }
+    set_status_ok(response);
 }
 
 void handle_unimplemented(Response &response, const std::string &message) {
-  set_status(response, Status::CODE_UNIMPLEMENTED, message);
+    set_status(response, Status::CODE_UNIMPLEMENTED, message);
 }
 
-} // namespace anolis_provider_bread::handlers
+}  // namespace anolis_provider_bread::handlers

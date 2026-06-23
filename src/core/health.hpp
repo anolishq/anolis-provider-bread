@@ -27,13 +27,11 @@ ProviderHealth make_provider_health(const runtime::RuntimeState &state);
  * @brief Build per-device health from the current inventory and
  * missing-expected list.
  */
-std::vector<DeviceHealth>
-make_device_health(const runtime::RuntimeState &state);
+std::vector<DeviceHealth> make_device_health(const runtime::RuntimeState &state);
 
 /**
  * @brief Populate the ADPP WaitReady response with startup diagnostics.
  */
-void populate_wait_ready(const runtime::RuntimeState &state,
-                         WaitReadyResponse &response);
+void populate_wait_ready(const runtime::RuntimeState &state, WaitReadyResponse &response);
 
-} // namespace anolis_provider_bread::health
+}  // namespace anolis_provider_bread::health

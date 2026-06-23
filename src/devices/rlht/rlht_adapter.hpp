@@ -28,8 +28,7 @@ namespace anolis_provider_bread::rlht {
  * Callers are expected to validate requested signal identifiers against the
  * device capabilities before invoking this helper.
  */
-AdapterReadResult read_signals(crumbs::Session &session,
-                               const inventory::InventoryDevice &device,
+AdapterReadResult read_signals(crumbs::Session &session, const inventory::InventoryDevice &device,
                                const std::vector<std::string> &signal_ids);
 
 /**
@@ -41,14 +40,12 @@ AdapterReadResult read_signals(crumbs::Session &session,
  * availability. `function_id` must already be resolved from the device
  * capability metadata.
  */
-AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args,
-                              crumbs::RawFrame &frame);
+AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args, crumbs::RawFrame &frame);
 
 /**
  * @brief Transmit an already-encoded RLHT frame over the session.
  */
-AdapterCallResult transmit(crumbs::Session &session,
-                           const inventory::InventoryDevice &device,
+AdapterCallResult transmit(crumbs::Session &session, const inventory::InventoryDevice &device,
                            const crumbs::RawFrame &frame);
 
 /**
@@ -60,8 +57,7 @@ AdapterCallResult transmit(crumbs::Session &session,
  * `function_id` must already be resolved from the device capability metadata.
  * This helper does not perform name-based selector resolution.
  */
-AdapterCallResult call(crumbs::Session &session,
-                       const inventory::InventoryDevice &device,
-                       uint32_t function_id, const ValueMap &args);
+AdapterCallResult call(crumbs::Session &session, const inventory::InventoryDevice &device, uint32_t function_id,
+                       const ValueMap &args);
 
-} // namespace anolis_provider_bread::rlht
+}  // namespace anolis_provider_bread::rlht

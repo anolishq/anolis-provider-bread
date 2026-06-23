@@ -25,8 +25,7 @@ namespace anolis_provider_bread::dcmt {
  * surface. If `signal_ids` is empty all supported signals are returned;
  * otherwise only the requested subset is emitted.
  */
-AdapterReadResult read_signals(crumbs::Session &session,
-                               const inventory::InventoryDevice &device,
+AdapterReadResult read_signals(crumbs::Session &session, const inventory::InventoryDevice &device,
                                const std::vector<std::string> &signal_ids);
 
 /**
@@ -38,14 +37,12 @@ AdapterReadResult read_signals(crumbs::Session &session,
  * availability. `function_id` must already be resolved from the device
  * capability metadata.
  */
-AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args,
-                              crumbs::RawFrame &frame);
+AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args, crumbs::RawFrame &frame);
 
 /**
  * @brief Transmit an already-encoded DCMT frame over the session.
  */
-AdapterCallResult transmit(crumbs::Session &session,
-                           const inventory::InventoryDevice &device,
+AdapterCallResult transmit(crumbs::Session &session, const inventory::InventoryDevice &device,
                            const crumbs::RawFrame &frame);
 
 /**
@@ -56,8 +53,7 @@ AdapterCallResult transmit(crumbs::Session &session,
  * Preconditions:
  * `function_id` must already be resolved from the device capability metadata.
  */
-AdapterCallResult call(crumbs::Session &session,
-                       const inventory::InventoryDevice &device,
-                       uint32_t function_id, const ValueMap &args);
+AdapterCallResult call(crumbs::Session &session, const inventory::InventoryDevice &device, uint32_t function_id,
+                       const ValueMap &args);
 
-} // namespace anolis_provider_bread::dcmt
+}  // namespace anolis_provider_bread::dcmt
