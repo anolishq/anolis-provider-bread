@@ -167,20 +167,11 @@ jobs:
     steps:
       - name: Checkout anolis-provider-bread
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Check formatting
-        # Pin the EXACT clang-format via the PyPI wheel (byte-identical on every
-        # runner/distro). The apt packages drift: unversioned `clang-format` on
-        # ubuntu-24.04 is an experimental 18.0 snapshot, and `clang-format-18` is
-        # 18.1.3 there but 18.1.8 elsewhere — and 18.1.3 vs 18.1.8 wrap long
-        # operator chains differently. Match locally with the same spec.
-        run: |
-          set -euo pipefail
-          FILES=$(find src tests -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \))
-          if [ -z "$FILES" ]; then
-            echo "No C++ files found"
-            exit 1
-          fi
-          echo "$FILES" | xargs pipx run clang-format==18.1.8 --dry-run --Werror
+      - name: Check formatting (pinned pre-commit)
+        # The pinned formatter source of truth is `.pre-commit-config.yaml`
+        # (mirrors-clang-format@v18.1.8 — the byte-identical PyPI wheel). Devs run
+        # the same hooks via `pre-commit install` / `just hooks`. See anolishq/.github#69.
+        run: pipx run pre-commit run --all-files --show-diff-on-failure
 
   ok:
     name: ok
