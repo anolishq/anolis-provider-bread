@@ -16,23 +16,23 @@ namespace anolis_provider_bread::inventory {
  * @brief Outcome of probing one BREAD address for provider compatibility.
  */
 enum class ProbeStatus {
-  Supported,
-  UnsupportedType,
-  VersionReadFailed,
-  IncompatibleCrumbsVersion,
-  IncompatibleModuleMajor,
-  IncompatibleModuleMinor,
-  TypeMismatch,
+    Supported,
+    UnsupportedType,
+    VersionReadFailed,
+    IncompatibleCrumbsVersion,
+    IncompatibleModuleMajor,
+    IncompatibleModuleMinor,
+    TypeMismatch,
 };
 
 /**
  * @brief Version metadata reported by a probed BREAD module.
  */
 struct ModuleVersion {
-  uint16_t crumbs_version = 0;
-  uint8_t module_major = 0;
-  uint8_t module_minor = 0;
-  uint8_t module_patch = 0;
+    uint16_t crumbs_version = 0;
+    uint8_t module_major = 0;
+    uint8_t module_minor = 0;
+    uint8_t module_patch = 0;
 };
 
 /** @brief Convert a raw BREAD type identifier into a supported provider device
@@ -60,11 +60,10 @@ std::string provider_type_id(DeviceType type);
  * is non-null it receives a human-readable explanation suitable for logs or
  * probe diagnostics.
  */
-ProbeStatus evaluate_version_compatibility(uint8_t type_id,
-                                           const ModuleVersion &version,
+ProbeStatus evaluate_version_compatibility(uint8_t type_id, const ModuleVersion &version,
                                            std::string *detail = nullptr);
 
 /** @brief Convert a probe status enum to its stable diagnostic string form. */
 std::string to_string(ProbeStatus status);
 
-} // namespace anolis_provider_bread::inventory
+}  // namespace anolis_provider_bread::inventory

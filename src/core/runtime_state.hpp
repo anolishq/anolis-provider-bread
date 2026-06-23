@@ -17,7 +17,7 @@
 // crumbs/session.hpp themselves.
 namespace anolis_provider_bread::crumbs {
 class Session;
-} // namespace anolis_provider_bread::crumbs
+}  // namespace anolis_provider_bread::crumbs
 
 namespace anolis_provider_bread::runtime {
 
@@ -30,15 +30,15 @@ namespace anolis_provider_bread::runtime {
  * handlers need without exposing session ownership details.
  */
 struct RuntimeState {
-  ProviderConfig config;
-  std::vector<inventory::InventoryDevice> devices;
-  bool ready = false;
-  std::string startup_message;
-  std::chrono::system_clock::time_point started_at;
-  // Discovery diagnostics
-  std::string inventory_mode;
-  int unsupported_probe_count = 0;
-  std::vector<std::string> missing_expected_ids;
+    ProviderConfig config;
+    std::vector<inventory::InventoryDevice> devices;
+    bool ready = false;
+    std::string startup_message;
+    std::chrono::system_clock::time_point started_at;
+    // Discovery diagnostics
+    std::string inventory_mode;
+    int unsupported_probe_count = 0;
+    std::vector<std::string> missing_expected_ids;
 };
 
 /** @brief Reset runtime state and destroy any live session/transport pair. */
@@ -61,4 +61,4 @@ RuntimeState snapshot();
  */
 crumbs::Session *session();
 
-} // namespace anolis_provider_bread::runtime
+}  // namespace anolis_provider_bread::runtime

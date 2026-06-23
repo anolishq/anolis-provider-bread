@@ -31,49 +31,47 @@ namespace anolis_provider_bread::crumbs {
  */
 class LinuxTransport final : public Transport {
 public:
-  /** @brief Open the configured I2C bus and initialize the CRUMBS controller
-   * context. */
-  SessionStatus open(const SessionOptions &options) override;
+    /** @brief Open the configured I2C bus and initialize the CRUMBS controller
+     * context. */
+    SessionStatus open(const SessionOptions &options) override;
 
-  /** @brief Close the Linux transport and release any live controller
-   * resources. */
-  void close() noexcept override;
+    /** @brief Close the Linux transport and release any live controller
+     * resources. */
+    void close() noexcept override;
 
-  /** @brief Report whether the Linux transport currently owns an open
-   * controller. */
-  bool is_open() const override;
+    /** @brief Report whether the Linux transport currently owns an open
+     * controller. */
+    bool is_open() const override;
 
-  /** @brief Scan the configured bus for CRUMBS devices and their type
-   * identifiers. */
-  SessionStatus scan(const ScanOptions &options,
-                     std::vector<ScanResult> &out) override;
+    /** @brief Scan the configured bus for CRUMBS devices and their type
+     * identifiers. */
+    SessionStatus scan(const ScanOptions &options, std::vector<ScanResult> &out) override;
 
-  /** @brief Send one encoded CRUMBS frame to the target address. */
-  SessionStatus send(uint8_t address, const RawFrame &frame) override;
+    /** @brief Send one encoded CRUMBS frame to the target address. */
+    SessionStatus send(uint8_t address, const RawFrame &frame) override;
 
-  /** @brief Read and decode one CRUMBS reply frame from the target address. */
-  SessionStatus read(uint8_t address, RawFrame &frame,
-                     uint32_t timeout_us) override;
+    /** @brief Read and decode one CRUMBS reply frame from the target address. */
+    SessionStatus read(uint8_t address, RawFrame &frame, uint32_t timeout_us) override;
 
-  /** @brief Sleep through the platform-specific delay hook expected by some
-   * BREAD helpers. */
-  void delay_us(uint32_t delay_us) override;
+    /** @brief Sleep through the platform-specific delay hook expected by some
+     * BREAD helpers. */
+    void delay_us(uint32_t delay_us) override;
 
-  /**
-   * @brief Build a C ABI device handle bound to this transport's live context.
-   *
-   * The returned handle borrows transport-owned state and becomes invalid
-   * after `close()`.
-   */
-  crumbs_device_t bind_device(uint8_t address);
+    /**
+     * @brief Build a C ABI device handle bound to this transport's live context.
+     *
+     * The returned handle borrows transport-owned state and becomes invalid
+     * after `close()`.
+     */
+    crumbs_device_t bind_device(uint8_t address);
 
 private:
-  crumbs_context_t ctx_{};
-  crumbs_linux_i2c_t i2c_{};
-  uint32_t timeout_us_ = 0u;
-  bool open_ = false;
+    crumbs_context_t ctx_{};
+    crumbs_linux_i2c_t i2c_{};
+    uint32_t timeout_us_ = 0u;
+    bool open_ = false;
 };
 
-} // namespace anolis_provider_bread::crumbs
+}  // namespace anolis_provider_bread::crumbs
 
-#endif // defined(__linux__)
+#endif  // defined(__linux__)

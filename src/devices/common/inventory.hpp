@@ -18,7 +18,7 @@ namespace anolis_provider_bread {
 // Device.provider_name so the two can never diverge (which would break the
 // {provider_name, device_id} identity). Not config-driven.
 inline constexpr const char *kProviderName = "anolis-provider-bread";
-} // namespace anolis_provider_bread
+}  // namespace anolis_provider_bread
 
 namespace anolis_provider_bread::inventory {
 
@@ -29,63 +29,63 @@ using CapabilitySet = anolis::deviceprovider::v1::CapabilitySet;
  * @brief How a device entered the runtime inventory.
  */
 enum class InventorySource {
-  ConfigSeeded,
-  Manual,
-  Discovered,
+    ConfigSeeded,
+    Manual,
+    Discovered,
 };
 
 /**
  * @brief Origin of the capability flags used to expose a device contract.
  */
 enum class CapabilitySource {
-  Seeded,
-  Queried,
-  BaselineFallback,
+    Seeded,
+    Queried,
+    BaselineFallback,
 };
 
 /**
  * @brief Normalized capability metadata for one inventory device.
  */
 struct CapabilityProfile {
-  uint8_t schema = 0;
-  uint8_t level = 0;
-  uint32_t flags = 0;
-  CapabilitySource source = CapabilitySource::Seeded;
+    uint8_t schema = 0;
+    uint8_t level = 0;
+    uint32_t flags = 0;
+    CapabilitySource source = CapabilitySource::Seeded;
 };
 
 /**
  * @brief Raw per-address discovery result captured during probing.
  */
 struct ProbeRecord {
-  int address = 0;
-  uint8_t type_id = 0;
-  ProbeStatus status = ProbeStatus::UnsupportedType;
-  ModuleVersion version;
-  CapabilityProfile capability_profile;
-  std::string detail;
+    int address = 0;
+    uint8_t type_id = 0;
+    ProbeStatus status = ProbeStatus::UnsupportedType;
+    ModuleVersion version;
+    CapabilityProfile capability_profile;
+    std::string detail;
 };
 
 /**
  * @brief Supported device entry published into the runtime inventory.
  */
 struct InventoryDevice {
-  Device descriptor;
-  CapabilitySet capabilities;
-  DeviceType type = DeviceType::Rlht;
-  int address = 0;
-  InventorySource source = InventorySource::ConfigSeeded;
-  bool expected = false;
-  ModuleVersion version;
-  CapabilityProfile capability_profile;
+    Device descriptor;
+    CapabilitySet capabilities;
+    DeviceType type = DeviceType::Rlht;
+    int address = 0;
+    InventorySource source = InventorySource::ConfigSeeded;
+    bool expected = false;
+    ModuleVersion version;
+    CapabilityProfile capability_profile;
 };
 
 /**
  * @brief Inventory assembly output including excluded or missing devices.
  */
 struct InventoryBuildResult {
-  std::vector<InventoryDevice> supported_devices;
-  std::vector<ProbeRecord> unsupported_probes;
-  std::vector<std::string> missing_expected_ids;
+    std::vector<InventoryDevice> supported_devices;
+    std::vector<ProbeRecord> unsupported_probes;
+    std::vector<std::string> missing_expected_ids;
 };
 
 /** @brief Build synthetic probe records for config-seeded no-hardware
@@ -96,10 +96,8 @@ std::vector<ProbeRecord> build_seed_probes(const ProviderConfig &config);
  * @brief Build supported inventory from probe records and expected config
  * entries.
  */
-InventoryBuildResult
-build_inventory_from_probes(const ProviderConfig &config,
-                            const std::vector<ProbeRecord> &probes,
-                            InventorySource source);
+InventoryBuildResult build_inventory_from_probes(const ProviderConfig &config, const std::vector<ProbeRecord> &probes,
+                                                 InventorySource source);
 
 /** @brief Build config-seeded inventory without touching live hardware. */
 std::vector<InventoryDevice> build_seed_inventory(const ProviderConfig &config);
@@ -119,8 +117,7 @@ std::string to_string(InventorySource source);
 std::string to_string(CapabilitySource source);
 
 /** @brief Find one device in the inventory by provider-local device ID. */
-const InventoryDevice *find_device(const std::vector<InventoryDevice> &devices,
-                                   const std::string &device_id);
+const InventoryDevice *find_device(const std::vector<InventoryDevice> &devices, const std::string &device_id);
 
 /** @brief Report whether a device exposes the named signal in its capabilities.
  */
@@ -129,7 +126,6 @@ bool signal_exists(const InventoryDevice &device, const std::string &signal_id);
 /**
  * @brief Report whether a device exposes the requested function selector.
  */
-bool function_exists(const InventoryDevice &device, uint32_t function_id,
-                     const std::string &function_name);
+bool function_exists(const InventoryDevice &device, uint32_t function_id, const std::string &function_name);
 
-} // namespace anolis_provider_bread::inventory
+}  // namespace anolis_provider_bread::inventory

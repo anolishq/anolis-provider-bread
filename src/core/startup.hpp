@@ -20,10 +20,10 @@ namespace anolis_provider_bread::startup {
  * @brief Inventory result returned from one startup discovery pass.
  */
 struct DiscoveryResult {
-  std::vector<inventory::InventoryDevice> devices;
-  std::vector<inventory::ProbeRecord> unsupported_probes;
-  std::vector<std::string> missing_expected_ids;
-  std::string inventory_mode;
+    std::vector<inventory::InventoryDevice> devices;
+    std::vector<inventory::ProbeRecord> unsupported_probes;
+    std::vector<std::string> missing_expected_ids;
+    std::string inventory_mode;
 };
 
 /**
@@ -42,7 +42,6 @@ inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address);
  * Throws `std::runtime_error` only when the bus-wide scan operation fails in
  * scan mode. Unsupported or missing devices are reported in the result.
  */
-DiscoveryResult run_discovery(crumbs::Session &session,
-                              const ProviderConfig &config);
+DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &config);
 
-} // namespace anolis_provider_bread::startup
+}  // namespace anolis_provider_bread::startup

@@ -158,6 +158,29 @@ jobs:
       python-version: '3.12'
       working-directory: '.'
 
+  cpp-format:
+    name: C++ Formatting (clang-format)
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout anolis-provider-bread
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+      - name: Check formatting
+        run: |
+          set -euo pipefail
+          FILES=$(find src tests -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \))
+          if [ -z "$FILES" ]; then
+            echo "No C++ files found"
+            exit 1
+          fi
+          echo "$FILES" | xargs clang-format --dry-run --Werror
+
   ok:
     name: ok
     if: always()
@@ -166,6 +189,7 @@ jobs:
       - no-hardware-linux
       - no-hardware-windows
       - provider-conformance
+      - cpp-format
       - version-sync
     runs-on: ubuntu-latest
     timeout-minutes: 5
