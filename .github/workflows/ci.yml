@@ -167,14 +167,12 @@ jobs:
     steps:
       - name: Checkout anolis-provider-bread
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Install clang-format
-        # Pin to clang-format-18 (18.1.8): the unversioned `clang-format` on
-        # ubuntu-24.04 resolves to an experimental 18.0 snapshot that formats
-        # some constructs differently, so the gate must match the stable release.
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format-18
       - name: Check formatting
+        # Pin the EXACT clang-format via the PyPI wheel (byte-identical on every
+        # runner/distro). The apt packages drift: unversioned `clang-format` on
+        # ubuntu-24.04 is an experimental 18.0 snapshot, and `clang-format-18` is
+        # 18.1.3 there but 18.1.8 elsewhere — and 18.1.3 vs 18.1.8 wrap long
+        # operator chains differently. Match locally with the same spec.
         run: |
           set -euo pipefail
           FILES=$(find src tests -type f \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \))
@@ -182,7 +180,7 @@ jobs:
             echo "No C++ files found"
             exit 1
           fi
-          echo "$FILES" | xargs clang-format-18 --dry-run --Werror
+          echo "$FILES" | xargs pipx run clang-format==18.1.8 --dry-run --Werror
 
   ok:
     name: ok
