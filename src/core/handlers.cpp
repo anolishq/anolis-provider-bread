@@ -14,9 +14,8 @@
 #include "core/health.hpp"
 #include "core/runtime_state.hpp"
 #include "core/transport/framed_stdio.hpp"
+#include "devices/common/device_adapter.hpp"
 #include "devices/common/inventory.hpp"
-#include "devices/dcmt/dcmt_adapter.hpp"
-#include "devices/rlht/rlht_adapter.hpp"
 #include "logging/logger.hpp"
 
 namespace anolis_provider_bread::handlers {
@@ -156,15 +155,7 @@ void handle_read_signals(const ReadSignalsRequest &request, Response &response) 
     // only sees signal IDs that are declared in the device capability surface.
     const std::vector<std::string> signal_ids(request.signal_ids().begin(), request.signal_ids().end());
 
-    AdapterReadResult adapter_result;
-    if (device->type == DeviceType::Rlht) {
-        adapter_result = rlht::read_signals(*session_ptr, *device, signal_ids);
-    } else if (device->type == DeviceType::Dcmt) {
-        adapter_result = dcmt::read_signals(*session_ptr, *device, signal_ids);
-    } else {
-        set_status(response, Status::CODE_UNIMPLEMENTED, "unsupported device type");
-        return;
-    }
+    const AdapterReadResult adapter_result = adapter_for(device->type).read_signals(*session_ptr, *device, signal_ids);
 
     if (!adapter_result.ok) {
         logging::warning("read_signals device='" + request.device_id() + "' failed: " + adapter_result.error_message);
@@ -208,30 +199,11 @@ void handle_call(const CallRequest &request, Response &response) {
         }
     }
 
-    // ADPP §8.3: validate and encode the request before touching hardware, so
-    // argument errors surface as INVALID_ARGUMENT / OUT_OF_RANGE regardless of
-    // whether a hardware session is available.
-    crumbs::RawFrame frame;
-    AdapterCallResult adapter_result;
-    if (device->type == DeviceType::Rlht) {
-        adapter_result = rlht::build_frame(fid, request.args(), frame);
-    } else if (device->type == DeviceType::Dcmt) {
-        adapter_result = dcmt::build_frame(fid, request.args(), frame);
-    } else {
-        set_status(response, Status::CODE_UNIMPLEMENTED, "unsupported device type");
-        return;
-    }
-
-    if (adapter_result.ok) {
-        crumbs::Session *session_ptr = runtime::session();
-        if (!session_ptr) {
-            set_status(response, Status::CODE_UNAVAILABLE,
-                       "no hardware session (provider not built with hardware support)");
-            return;
-        }
-        adapter_result = (device->type == DeviceType::Rlht) ? rlht::transmit(*session_ptr, *device, frame)
-                                                            : dcmt::transmit(*session_ptr, *device, frame);
-    }
+    // ADPP §8.3: call() validates and encodes the request before touching
+    // hardware, so argument errors surface as INVALID_ARGUMENT / OUT_OF_RANGE
+    // regardless of whether a hardware session is available (session may be null).
+    const AdapterCallResult adapter_result =
+        call(adapter_for(device->type), runtime::session(), *device, fid, request.args());
 
     if (!adapter_result.ok) {
         const std::string fn_label =
