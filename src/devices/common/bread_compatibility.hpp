@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <string>
 
-#include "config/provider_config.hpp"
+#include "devices/common/device_type.hpp"
 
 namespace anolis_provider_bread::inventory {
 

@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "devices/common/device_type.hpp"
+
 namespace anolis_provider_bread {
 
 /**
@@ -17,14 +19,6 @@ namespace anolis_provider_bread {
 enum class DiscoveryMode {
     Scan,
     Manual,
-};
-
-/**
- * @brief Supported BREAD device families exposed by this provider.
- */
-enum class DeviceType {
-    Rlht,
-    Dcmt,
 };
 
 /**
