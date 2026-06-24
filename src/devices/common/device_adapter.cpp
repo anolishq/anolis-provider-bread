@@ -40,8 +40,8 @@ const DeviceAdapter &adapter_for(DeviceType type) {
     return kUnknownAdapter;
 }
 
-AdapterCallResult call(const DeviceAdapter &adapter, crumbs::Session *session,
-                       const inventory::InventoryDevice &device, uint32_t function_id, const ValueMap &args) {
+AdapterCallResult call(const DeviceAdapter &adapter, crumbs::Session *session, const inventory::InventoryDevice &device,
+                       uint32_t function_id, const ValueMap &args) {
     // ADPP §8.3: validate + encode before touching hardware.
     crumbs::RawFrame frame;
     AdapterCallResult result = adapter.build_frame(function_id, args, frame);
@@ -49,8 +49,7 @@ AdapterCallResult call(const DeviceAdapter &adapter, crumbs::Session *session,
         return result;
     }
     if (session == nullptr) {
-        return {false, Status::CODE_UNAVAILABLE,
-                "no hardware session (provider not built with hardware support)"};
+        return {false, Status::CODE_UNAVAILABLE, "no hardware session (provider not built with hardware support)"};
     }
     return adapter.transmit(*session, device, frame);
 }
