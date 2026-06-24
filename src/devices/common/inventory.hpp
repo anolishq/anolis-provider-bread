@@ -11,6 +11,7 @@
 
 #include "config/provider_config.hpp"
 #include "devices/common/bread_compatibility.hpp"
+#include "devices/common/device_type.hpp"
 #include "protocol.pb.h"
 
 namespace anolis_provider_bread {
