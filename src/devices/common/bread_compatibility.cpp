@@ -20,6 +20,7 @@ namespace {
 
 std::pair<uint8_t, uint8_t> expected_module_version(uint8_t type_id) {
     switch (type_id) {
+        // NOLINTNEXTLINE(bugprone-branch-clone): RLHT/DCMT are distinct device types.
         case RLHT_TYPE_ID:
             return {RLHT_MODULE_VER_MAJOR, RLHT_MODULE_VER_MINOR};
         case DCMT_TYPE_ID:

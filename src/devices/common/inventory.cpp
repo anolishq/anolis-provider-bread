@@ -409,6 +409,7 @@ std::vector<ProbeRecord> build_seed_probes(const ProviderConfig &config) {
         probe.status = ProbeStatus::Supported;
         probe.version.crumbs_version = CRUMBS_VERSION;
         switch (spec.type) {
+            // NOLINTNEXTLINE(bugprone-branch-clone): RLHT/DCMT are distinct device types.
             case DeviceType::Rlht:
                 probe.version.module_major = RLHT_MODULE_VER_MAJOR;
                 probe.version.module_minor = RLHT_MODULE_VER_MINOR;

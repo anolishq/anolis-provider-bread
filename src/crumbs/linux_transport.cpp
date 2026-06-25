@@ -131,7 +131,7 @@ SessionStatus LinuxTransport::send(uint8_t address, const RawFrame &frame) {
         return SessionStatus::failure(SessionErrorCode::NotOpen, "CRUMBS Linux transport is not open");
     }
 
-    const SessionStatus validation = validate_frame(frame);
+    SessionStatus validation = validate_frame(frame);
     if (!validation) {
         return validation;
     }

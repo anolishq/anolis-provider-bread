@@ -85,7 +85,7 @@ SessionStatus Session::open() {
         return SessionStatus::failure(SessionErrorCode::AlreadyOpen, "CRUMBS session is already open");
     }
 
-    const SessionStatus validation = validate_open_options();
+    SessionStatus validation = validate_open_options();
     if (!validation) {
         return validation;
     }
@@ -109,7 +109,7 @@ void Session::close() noexcept {
 SessionStatus Session::scan(const ScanOptions &options, std::vector<ScanResult> &out) {
     std::lock_guard<std::mutex> lock(mutex_);
 
-    const SessionStatus validation = validate_scan_options(options);
+    SessionStatus validation = validate_scan_options(options);
     if (!validation) {
         return validation;
     }
@@ -124,11 +124,11 @@ SessionStatus Session::scan(const ScanOptions &options, std::vector<ScanResult> 
 SessionStatus Session::send(uint8_t address, const RawFrame &frame) {
     std::lock_guard<std::mutex> lock(mutex_);
 
-    const SessionStatus address_status = validate_address(address);
+    SessionStatus address_status = validate_address(address);
     if (!address_status) {
         return address_status;
     }
-    const SessionStatus frame_status = validate_frame(frame);
+    SessionStatus frame_status = validate_frame(frame);
     if (!frame_status) {
         return frame_status;
     }
@@ -142,7 +142,7 @@ SessionStatus Session::send(uint8_t address, const RawFrame &frame) {
 SessionStatus Session::read(uint8_t address, RawFrame &frame) {
     std::lock_guard<std::mutex> lock(mutex_);
 
-    const SessionStatus address_status = validate_address(address);
+    SessionStatus address_status = validate_address(address);
     if (!address_status) {
         return address_status;
     }
@@ -158,7 +158,7 @@ SessionStatus Session::read(uint8_t address, RawFrame &frame) {
 SessionStatus Session::query_read(uint8_t address, uint8_t reply_opcode, RawFrame &out) {
     std::lock_guard<std::mutex> lock(mutex_);
 
-    const SessionStatus address_status = validate_address(address);
+    SessionStatus address_status = validate_address(address);
     if (!address_status) {
         return address_status;
     }
