@@ -90,6 +90,7 @@ void initialize(const ProviderConfig &config) {
         state.unsupported_probe_count = static_cast<int>(discovery.unsupported_probes.size());
         state.missing_expected_ids = std::move(discovery.missing_expected_ids);
         state.ready = true;
+        state.ready_at = std::chrono::system_clock::now();
         state.startup_message =
             build_startup_message(static_cast<int>(state.devices.size()), state.unsupported_probe_count,
                                   state.missing_expected_ids, state.inventory_mode);
@@ -118,6 +119,7 @@ void initialize(const ProviderConfig &config) {
     state.inventory_mode = inventory::to_string(inventory::InventorySource::ConfigSeeded);
     state.unsupported_probe_count = 0;
     state.ready = true;
+    state.ready_at = std::chrono::system_clock::now();
     state.startup_message = "config-seeded inventory (mock mode)";
 
     std::lock_guard<std::mutex> lock(g_mutex);

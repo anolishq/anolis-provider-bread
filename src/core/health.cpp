@@ -91,6 +91,11 @@ void populate_wait_ready(const runtime::RuntimeState &state, WaitReadyResponse &
     response.mutable_diagnostics()->insert({"provider_version", ANOLIS_PROVIDER_BREAD_VERSION});
     response.mutable_diagnostics()->insert({"device_count", std::to_string(state.devices.size())});
     response.mutable_diagnostics()->insert({"ready", state.ready ? "true" : "false"});
+    // Genuine elapsed time from runtime init to ready (ms); when not yet ready,
+    // report elapsed-so-far rather than a placeholder.
+    const auto ready_point = state.ready ? state.ready_at : std::chrono::system_clock::now();
+    const auto init_ms = std::chrono::duration_cast<std::chrono::milliseconds>(ready_point - state.started_at).count();
+    response.mutable_diagnostics()->insert({"init_time_ms", std::to_string(init_ms < 0 ? 0 : init_ms)});
     response.mutable_diagnostics()->insert({"degraded", degraded ? "true" : "false"});
     response.mutable_diagnostics()->insert({"inventory_mode", state.inventory_mode});
     response.mutable_diagnostics()->insert({"discovery_mode", to_string(state.config.discovery_mode)});

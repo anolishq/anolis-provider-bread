@@ -6,9 +6,3 @@
 provider_name = "anolis-provider-bread"
 has_mock_devices = true
 conformance_level = 2
-
-[waivers]
-# Executable-profile gap only (never core/transport): bread's WaitReady response
-# omits the init_time_ms diagnostic. Tracked in anolishq/anolis-provider-bread#45;
-# remove this waiver when init_time_ms is added.
-test_wait_ready_reports_init_time_ms = "bread WaitReady omits init_time_ms (anolishq/anolis-provider-bread#45)"

@@ -35,6 +35,8 @@ struct RuntimeState {
     bool ready = false;
     std::string startup_message;
     std::chrono::system_clock::time_point started_at;
+    // Set when the provider first becomes ready; init_time_ms = ready_at - started_at.
+    std::chrono::system_clock::time_point ready_at;
     // Discovery diagnostics
     std::string inventory_mode;
     int unsupported_probe_count = 0;
