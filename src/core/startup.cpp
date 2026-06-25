@@ -184,7 +184,7 @@ DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &co
         source = inventory::InventorySource::Manual;
     }
 
-    const inventory::InventoryBuildResult build = inventory::build_inventory_from_probes(config, probes, source);
+    inventory::InventoryBuildResult build = inventory::build_inventory_from_probes(config, probes, source);
 
     if (!build.unsupported_probes.empty()) {
         logging::warning(std::to_string(build.unsupported_probes.size()) +

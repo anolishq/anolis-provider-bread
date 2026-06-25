@@ -9,6 +9,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <filesystem>
+#include <format>
 #include <iomanip>
 #include <regex>
 #include <set>
@@ -32,7 +33,7 @@ void reject_unknown_keys(const YAML::Node &node, const std::string &field_name,
     for (const auto &entry : node) {
         const std::string key = entry.first.as<std::string>();
         if (allowed_keys.find(key) == allowed_keys.end()) {
-            throw std::runtime_error("Unknown " + field_name + " key: '" + key + "'");
+            throw std::runtime_error(std::format("Unknown {} key: '{}'", field_name, key));
         }
     }
 }

@@ -283,7 +283,7 @@ AdapterCallResult transmit(crumbs::Session &session, const inventory::InventoryD
 AdapterCallResult call(crumbs::Session &session, const inventory::InventoryDevice &device, uint32_t function_id,
                        const ValueMap &args) {
     crumbs::RawFrame frame;
-    const AdapterCallResult built = build_frame(function_id, args, frame);
+    AdapterCallResult built = build_frame(function_id, args, frame);
     if (!built.ok) {
         return built;
     }
