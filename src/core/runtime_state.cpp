@@ -16,7 +16,9 @@
 #include <utility>
 
 #include "core/startup.hpp"
+#include "crumbs/mock_transport.hpp"
 #include "crumbs/session.hpp"
+#include "devices/common/bread_compatibility.hpp"
 #include "logging/logger.hpp"
 
 #if defined(__linux__)
@@ -122,8 +124,30 @@ void initialize(const ProviderConfig &config) {
     state.ready_at = std::chrono::system_clock::now();
     state.startup_message = "config-seeded inventory (mock mode)";
 
-    std::lock_guard<std::mutex> lock(g_mutex);
-    g_state = std::move(state);
+    // Stand up an in-memory mock CRUMBS session so reads/calls exercise the live
+    // adapter path (returning real declared data) instead of CODE_UNAVAILABLE.
+    // Inventory stays config-seeded above; this only backs the live session.
+    auto transport = std::make_unique<crumbs::MockTransport>();
+    for (const auto &device : state.devices) {
+        transport->add_device(static_cast<uint8_t>(device.address), inventory::bread_type_id(device.type));
+    }
+    auto sess = std::make_unique<crumbs::Session>(*transport, crumbs::make_session_options(config));
+    const crumbs::SessionStatus open_status = sess->open();
+    if (!open_status) {
+        throw std::runtime_error("failed to open mock CRUMBS bus '" + config.bus_path + "': " + open_status.message);
+    }
+
+    std::unique_ptr<crumbs::Session> old_session;
+    std::unique_ptr<crumbs::Transport> old_transport;
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_state = std::move(state);
+        old_session = std::move(g_session);
+        old_transport = std::move(g_transport);
+        g_session = std::move(sess);
+        g_transport = std::move(transport);
+    }
+    // Old session/transport destroyed here, outside the lock.
 }
 
 RuntimeState snapshot() {

@@ -355,19 +355,24 @@ TEST(ShellTest, SupportsHelloInventoryAndHealth) {
     }
 
     {
-        SCOPED_TRACE("read_signals_unimplemented");
+        SCOPED_TRACE("read_signals_mock_backend");
+        // mock:// mode is backed by an in-memory CRUMBS session, so reads return
+        // the device's declared signals with synthetic values (here t1_c = 25.0 C).
         anolis::deviceprovider::v1::Request read_signals;
         read_signals.set_request_id(7);
         read_signals.mutable_read_signals()->set_device_id("rlht0");
         read_signals.mutable_read_signals()->add_signal_ids("t1_c");
         const auto response = session.send(read_signals);
-        EXPECT_EQ(response.status().code(), anolis::deviceprovider::v1::Status::CODE_UNAVAILABLE);
+        ASSERT_EQ(response.status().code(), anolis::deviceprovider::v1::Status::CODE_OK);
+        ASSERT_EQ(response.read_signals().values_size(), 1);
+        EXPECT_EQ(response.read_signals().values(0).signal_id(), "t1_c");
+        EXPECT_DOUBLE_EQ(response.read_signals().values(0).value().double_value(), 25.0);
     }
 
     {
-        SCOPED_TRACE("call_unimplemented");
-        // Well-formed call: passes argument validation, then fails at the hardware
-        // session check because this mock shell has no backing transport.
+        SCOPED_TRACE("call_mock_backend");
+        // Well-formed call: passes argument validation, then the mock session
+        // accepts the transmitted frame and the declared `accepted` result is set.
         anolis::deviceprovider::v1::Request call;
         call.set_request_id(8);
         call.mutable_call()->set_device_id("dcmt0");
@@ -378,7 +383,8 @@ TEST(ShellTest, SupportsHelloInventoryAndHealth) {
             args[key].set_int64_value(0);
         }
         const auto response = session.send(call);
-        EXPECT_EQ(response.status().code(), anolis::deviceprovider::v1::Status::CODE_UNAVAILABLE);
+        ASSERT_EQ(response.status().code(), anolis::deviceprovider::v1::Status::CODE_OK);
+        EXPECT_TRUE(response.call().results().at("accepted").bool_value());
     }
 
     {

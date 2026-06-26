@@ -230,6 +230,7 @@ add_library(anolis_provider_bread_core STATIC
     src/core/runtime_state.cpp
     src/core/startup.cpp
     src/core/transport/framed_stdio.cpp
+    src/crumbs/mock_transport.cpp
     src/devices/common/bread_compatibility.cpp
     src/devices/common/device_adapter.cpp
     src/devices/common/inventory.cpp
