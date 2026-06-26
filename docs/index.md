@@ -33,7 +33,7 @@ A family-wide abstraction layer is not included; it would be speculative given t
 
 This provider depends on:
 
-- `anolis-protocol` — ADPP proto contracts, consumed as the repo-local submodule at `external/anolis-protocol`
+- `anolis-protocol` — ADPP proto contracts, consumed via CMake FetchContent (pinned in `CMakeLists.txt`)
 - `CRUMBS` — bus transport and Linux HAL, consumed as a sibling source dependency
 - `bread-crumbs-contracts` — BREAD wire contracts, type IDs, and compatibility rules, consumed as a sibling source dependency
 

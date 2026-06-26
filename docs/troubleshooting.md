@@ -35,7 +35,7 @@ A valid config prints `[INFO] Config valid: ...` and exits with code 0.
 
 ### Bus open failure
 
-Hardware builds only (`ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=ON`).
+Applies only when `hardware.bus_path` is a real device node (not a `mock://...` path).
 The provider exits with code 1 after loading config.
 
 ```text
@@ -51,21 +51,17 @@ sudo setfacl -m u:$USER:rw /dev/i2c-1  # or run as root temporarily during dev
 
 Confirm `hardware.bus_path` in your config matches the actual device node.
 
-### Required live session on no-hardware build
+### Live bus cannot be opened
 
-If config sets `hardware.require_live_session: true` but the provider binary was built with
-`ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF`, startup fails immediately:
+If `hardware.bus_path` is a real device node (not a `mock://...` path) and the bus cannot be
+opened, startup fails immediately rather than silently falling back to a config-seeded inventory:
 
 ```text
-[ERROR] hardware.require_live_session=true but provider was built without hardware support ...
+[ERROR] open failed code=TransportError ... message="failed to open Linux I2C bus '/dev/i2c-1'"
 ```
 
-Fix by rebuilding with a Linux hardware preset:
-
-```bash
-cmake --preset dev-linux-hardware-release
-cmake --build --preset dev-linux-hardware-release
-```
+Fix by correcting the bus path and permissions (see [Bus open failure](#bus-open-failure) above),
+or set `hardware.bus_path` to a `mock://...` value to run without hardware.
 
 ---
 
@@ -246,4 +242,4 @@ provider.metrics["unsupported_probe_count"] — probes excluded at startup
 provider.metrics["inventory_mode"]         — "hardware" or "config-seeded"
 ```
 
-In no-hardware builds (`ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF`), `inventory_mode` will be `config-seeded` and no I2C activity occurs. All probe-related warnings and errors are hardware-path only.
+With a `mock://...` `hardware.bus_path`, `inventory_mode` will be `config-seeded` and no I2C activity occurs. All probe-related warnings and errors are hardware-path only.

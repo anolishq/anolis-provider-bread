@@ -66,9 +66,8 @@ cmake --build --preset dev-debug --parallel
 ctest --preset dev-debug
 ```
 
-Linux hardware build:
-
-```bash
-cmake --preset dev-linux-hardware-release
-cmake --build --preset dev-linux-hardware-release --parallel
-```
+Hardware support is always compiled into the Linux binary — there is no separate
+hardware build. Whether the provider talks to real hardware is decided at runtime
+by `hardware.bus_path` in the config: `mock://...` produces a config-seeded
+inventory with no hardware, while a real path (e.g. `/dev/i2c-1`) opens a live
+CRUMBS session.
