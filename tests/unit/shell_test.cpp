@@ -321,6 +321,18 @@ TEST(ShellTest, SupportsHelloInventoryAndHealth) {
         // [§5.1] Device.provider_name MUST equal the Hello provider_name (the fixed
         // identity), regardless of the config's provider.name (bread-ci-test here).
         EXPECT_EQ(response.list_devices().devices(0).provider_name(), "anolis-provider-bread");
+        // SDK#9: live devices carry the restored per-device metrics + last_seen.
+        const anolis::deviceprovider::v1::DeviceHealth *rlht_health = nullptr;
+        for (const auto &dh : response.list_devices().device_health()) {
+            if (dh.device_id() == "rlht0") {
+                rlht_health = &dh;
+            }
+        }
+        ASSERT_NE(rlht_health, nullptr);
+        EXPECT_EQ(rlht_health->metrics().at("type_id"), "bread.rlht");
+        EXPECT_EQ(rlht_health->metrics().at("inventory"), "config_seeded");
+        EXPECT_FALSE(rlht_health->metrics().at("address").empty());
+        EXPECT_TRUE(rlht_health->has_last_seen());
     }
 
     {
@@ -348,6 +360,17 @@ TEST(ShellTest, SupportsHelloInventoryAndHealth) {
         // after the provider-SDK health-metrics thinning (tracked in anolis-provider-sdk#9).
         EXPECT_EQ(response.get_health().provider().metrics().at("impl"), "bread");
         EXPECT_EQ(response.get_health().provider().metrics().at("startup_configured_devices"), "2");
+        // SDK#9: per-device metrics + last_seen also surface on get_health.
+        const anolis::deviceprovider::v1::DeviceHealth *gh_rlht = nullptr;
+        for (const auto &dh : response.get_health().devices()) {
+            if (dh.device_id() == "rlht0") {
+                gh_rlht = &dh;
+            }
+        }
+        ASSERT_NE(gh_rlht, nullptr);
+        EXPECT_EQ(gh_rlht->metrics().at("type_id"), "bread.rlht");
+        EXPECT_EQ(gh_rlht->metrics().at("inventory"), "config_seeded");
+        EXPECT_TRUE(gh_rlht->has_last_seen());
     }
 
     {

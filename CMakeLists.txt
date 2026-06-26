@@ -63,8 +63,8 @@ include(FetchContent)
 # tarball); local dev overrides with -DFETCHCONTENT_SOURCE_DIR_ANOLIS_PROVIDER_SDK=<path>.
 FetchContent_Declare(
     anolis_provider_sdk
-    URL https://github.com/anolishq/anolis-provider-sdk/releases/download/v0.1.0/anolis-provider-sdk-0.1.0-source.tar.gz
-    URL_HASH SHA256=f9ced03a9ebc94998b9212298eff7b254ee9e2e33cc9ad6d8585eec83e11fd4e
+    URL https://github.com/anolishq/anolis-provider-sdk/releases/download/v0.1.1/anolis-provider-sdk-0.1.1-source.tar.gz
+    URL_HASH SHA256=8106cbfde2100ce3cfa0ff30a5b8660d35195c74f01ade65be97ebd603266381
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(anolis_provider_sdk)

@@ -22,6 +22,16 @@ namespace {
 namespace adpp = anolis::deviceprovider::v1;
 namespace sdk = anolis::provider_sdk;
 
+google::protobuf::Timestamp to_timestamp(const std::chrono::system_clock::time_point& time_point) {
+    using namespace std::chrono;
+    const auto seconds = time_point_cast<std::chrono::seconds>(time_point);
+    const auto nanos = duration_cast<nanoseconds>(time_point - seconds);
+    google::protobuf::Timestamp timestamp;
+    timestamp.set_seconds(seconds.time_since_epoch().count());
+    timestamp.set_nanos(static_cast<int>(nanos.count()));
+    return timestamp;
+}
+
 }  // namespace
 
 sdk::ProviderMetadata BreadProviderRuntime::metadata() const {
@@ -70,6 +80,33 @@ sdk::ReadinessReport BreadProviderRuntime::readiness() const {
     diag["missing_expected_count"] = std::to_string(state.missing_expected_ids.size());
     diag["startup_message"] = state.startup_message;
     return r;
+}
+
+sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& device_id) const {
+    // Restore bread's pre-migration per-device health (SDK#9) from one snapshot.
+    // last_seen is the startup constant to_timestamp(started_at) — bread has no real
+    // per-device heartbeat yet (tracked in anolis-provider-bread#87).
+    const runtime::RuntimeState state = runtime::snapshot();
+    sdk::DeviceHealthExtra extra;
+    if (const inventory::InventoryDevice* device = inventory::find_device(state.devices, device_id)) {
+        extra.metrics["address"] = device->descriptor.address();
+        extra.metrics["type_id"] = device->descriptor.type_id();
+        extra.metrics["inventory"] = state.inventory_mode;
+        extra.last_seen = to_timestamp(state.started_at);
+        return extra;
+    }
+    // Missing-expected devices surface on get_health (readiness() maps them to
+    // failed_devices); they are NOT in the live inventory, so branch on the
+    // missing-expected set rather than a find_device lookup (which returns null).
+    for (const auto& missing_id : state.missing_expected_ids) {
+        if (missing_id == device_id) {
+            extra.metrics["inventory"] = state.inventory_mode;
+            extra.metrics["missing"] = "true";
+            extra.last_seen = to_timestamp(state.started_at);
+            break;
+        }
+    }
+    return extra;
 }
 
 std::vector<std::string> BreadProviderRuntime::list_device_ids() const {
