@@ -342,7 +342,12 @@ TEST(ShellTest, SupportsHelloInventoryAndHealth) {
         const auto response = session.send(get_health);
         ASSERT_EQ(response.status().code(), anolis::deviceprovider::v1::Status::CODE_OK);
         EXPECT_EQ(response.get_health().devices_size(), 2);
-        EXPECT_EQ(response.get_health().provider().metrics().at("inventory_mode"), "config_seeded");
+        // Provider-level health metrics carry the SDK's lifecycle set (impl + startup
+        // counts/policy). bread's richer diagnostics (inventory_mode, device_count, …)
+        // now surface via WaitReady diagnostics (asserted above), not GetHealth metrics,
+        // after the provider-SDK health-metrics thinning (tracked in anolis-provider-sdk#9).
+        EXPECT_EQ(response.get_health().provider().metrics().at("impl"), "bread");
+        EXPECT_EQ(response.get_health().provider().metrics().at("startup_configured_devices"), "2");
     }
 
     {
