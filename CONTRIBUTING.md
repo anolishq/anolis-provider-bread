@@ -46,15 +46,13 @@ cmake --build --preset dev-windows-debug
 ctest --preset dev-windows-debug
 ```
 
-### Linux hardware path
+### Running against real hardware
 
-```bash
-cmake --preset dev-linux-hardware-debug
-cmake --build --preset dev-linux-hardware-debug
-ctest --preset dev-linux-hardware-debug
-```
-
-This requires the sibling `linux-wire` repo and a real I2C bus.
+Hardware support is always compiled into the Linux binary, so the `dev-debug`
+build above is also the hardware build. To talk to a real I2C bus, point
+`hardware.bus_path` at a real device node (e.g. `/dev/i2c-1`) instead of a
+`mock://...` path; any non-`mock://` path opens a live CRUMBS session. This
+requires the sibling `linux-wire` repo and a real I2C bus.
 
 ### Validating a config without running the provider
 
@@ -128,7 +126,7 @@ Changes that touch `bread-crumbs-contracts` and this provider together:
 3. Update any compatibility constants, adapter code, or capability handling in this repo.
 4. If the contracts change bumps a module major version, treat the provider change as a major version bump.
 
-The `external/anolis-protocol` submodule should only be advanced if the consuming runtime (anolis) has already adopted the new protocol version.
+The `anolis-protocol` FetchContent pin (in `CMakeLists.txt`) should only be advanced if the consuming runtime (anolis) has already adopted the new protocol version.
 
 ---
 
@@ -150,5 +148,5 @@ To watch logs while piping the provider into a runtime or test harness:
 
 For hardware path issues, match the `[WARN]` / `[ERROR]` probe lines against [docs/troubleshooting.md](docs/troubleshooting.md).
 
-The no-hardware build (`ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF`) runs without I2C hardware.
-If a hardware-path behavior is hard to reproduce, first verify the same path through the no-hardware build with a config-seeded inventory before debugging hardware specifically.
+A `mock://...` `bus_path` runs the provider without I2C hardware (config-seeded inventory).
+If a hardware-path behavior is hard to reproduce, first verify the same path through a `mock://` config-seeded inventory before debugging hardware specifically.

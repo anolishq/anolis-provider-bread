@@ -12,7 +12,7 @@ repos_feast/
 |- linux-wire/
 ```
 
-`anolis-protocol` is expected as the repo-local submodule at `external/anolis-protocol`.
+`anolis-protocol` is fetched automatically via CMake FetchContent (pinned in `CMakeLists.txt`); it is not a sibling checkout or submodule.
 
 ## Prerequisites
 
@@ -60,10 +60,15 @@ $env:VCPKG_ROOT = [Environment]::GetEnvironmentVariable("VCPKG_ROOT", "User")
 Test-Path "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
 ```
 
-## No-Hardware Configure
+## Configure And Build
 
-Use this when you want to build and test without real hardware. Works on all platforms,
-covers config loading, CRUMBS session logic, BREAD inventory, and ADPP handler dispatch.
+One binary per platform covers both hardware and no-hardware operation. Hardware
+support is always compiled into the Linux binary; whether the provider touches
+real hardware is decided at runtime by `hardware.bus_path` in the config (see
+[Running The Provider Manually](#running-the-provider-manually)), not by a build
+flag. The presets below build and test without real hardware on all platforms,
+covering config loading, CRUMBS session logic, BREAD inventory, and ADPP handler
+dispatch.
 
 On Windows with MSVC:
 
@@ -84,22 +89,18 @@ ctest --preset dev-debug
 If you use MinGW on Windows, select an explicit MinGW vcpkg triplet such as `x64-mingw-dynamic`
 instead of the default MSVC triplet.
 
-## Linux Hardware Configure
+## Running Against Real Hardware
 
-Use this on the real Linux host when working against CRUMBS and BREAD hardware:
+There is no separate hardware preset or build flag. The `dev-debug` / `dev-release`
+builds above already include hardware capability on Linux (`linux-wire` is always
+compiled in, alongside the sibling `CRUMBS` and `bread-crumbs-contracts` repos).
+To work against real CRUMBS and BREAD hardware, run that same binary with a config
+whose `hardware.bus_path` points at a real device node (e.g. `/dev/i2c-1`); any
+non-`mock://` path opens a live CRUMBS session.
 
-```bash
-cmake --preset dev-linux-hardware-debug
-cmake --build --preset dev-linux-hardware-debug
-ctest --preset dev-linux-hardware-debug
-```
-
-This preset enables `ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=ON` and expects sibling repos for
-`CRUMBS`, `bread-crumbs-contracts`, and `linux-wire`.
-
-On ARM hosts (for example Raspberry Pi), the preset now uses vcpkg's host-default triplet.
-If you need an explicit override, pass `-DVCPKG_TARGET_TRIPLET=<triplet>` (and optionally
-`-DVCPKG_HOST_TRIPLET=<triplet>`) on configure.
+On ARM hosts (for example Raspberry Pi), the default preset uses vcpkg's host-default
+triplet. If you need an explicit override, pass `-DVCPKG_TARGET_TRIPLET=<triplet>`
+(and optionally `-DVCPKG_HOST_TRIPLET=<triplet>`) on configure.
 
 ## Running The Provider Manually
 
@@ -118,8 +119,9 @@ Start the provider for ADPP clients:
 The committed sample config seeds one RLHT and one DCMT device so `Hello`, `WaitReady`,
 `ListDevices`, `DescribeDevice`, and `GetHealth` are testable without real hardware.
 
-If a config sets `hardware.require_live_session: true`, no-hardware builds fail fast at startup.
-Use this for Linux hardware validation profiles to avoid silent config-seeded fallback.
+To exercise the config-seeded inventory without hardware, set `hardware.bus_path` to a
+`mock://...` value (as in `config/ci.test.yaml`). A real bus path that cannot be opened
+makes startup fail fast rather than silently falling back to a seeded inventory.
 
 ## Test Taxonomy
 
@@ -131,7 +133,8 @@ Two test executables are produced by every build:
 | `provider_shell_tests` | `shell` | ADPP framing and handler dispatch via provider subprocess | No |
 
 Both executables run without hardware. Hardware-backed validation (real I2C bus, real RLHT/DCMT
-devices) is performed manually using the `dev-linux-hardware-*` presets and is not automated in CI.
+devices) is performed manually by running the provider with a real `hardware.bus_path`, and is
+not automated in CI.
 
 To run only unit tests locally:
 
@@ -147,29 +150,23 @@ ctest --preset dev-debug
 
 ## CI Lanes
 
-| Preset | Hardware | Warnings as errors | Purpose |
-|---|---|---|---|
-| `ci-linux-release` | No | Yes | Automated CI on every push and PR (Linux) |
-| `ci-windows-release` | No | Yes | Automated CI on every push and PR (Windows) |
-| `ci-linux-hardware-release` | Yes | Yes | Manual validation on real hardware host |
+| Preset | Warnings as errors | Purpose |
+|---|---|---|
+| `ci-linux-release` | Yes | Automated CI on every push and PR (Linux) |
+| `ci-windows-release` | Yes | Automated CI on every push and PR (Windows) |
 
 The `ci-linux-release` and `ci-windows-release` lanes run automatically via GitHub Actions
 (`.github/workflows/ci.yml`). They check out `CRUMBS` and `bread-crumbs-contracts` as sibling
-directories and configure with `ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE=OFF`.
+directories and exercise the provider against a `mock://` bus (no I2C hardware).
 
-The hardware lane is not automated. Run it manually on the Linux host with the real CRUMBS bus:
-
-```bash
-cmake --preset ci-linux-hardware-release
-cmake --build --preset ci-linux-hardware-release
-ctest --preset ci-linux-hardware-release
-```
+There is no automated hardware lane. Real-hardware validation is performed manually by running
+the released binary on the Linux host with a real `hardware.bus_path` pointing at the CRUMBS bus.
 
 ## Notes
 
 - `CRUMBS` and `bread-crumbs-contracts` are first-class source dependencies for all builds.
-- Hardware integration is gated behind `ANOLIS_PROVIDER_BREAD_ENABLE_HARDWARE`.
-- When hardware integration is enabled, the parent build should add `linux-wire` before `CRUMBS`.
+- Hardware vs config-seeded operation is selected at runtime by `hardware.bus_path` (`mock://...` vs a real path), not by a build flag.
+- On Linux, `linux-wire` is always compiled into the provider and is added before `CRUMBS`.
 - The CRUMBS session layer (`src/crumbs/`) owns scan/send/read/query-read behavior only.
 - Inventory and compatibility code (`src/devices/common/`) uses `bread-crumbs-contracts` for type
   IDs, baseline capability profiles, and compatibility rules.

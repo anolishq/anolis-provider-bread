@@ -6,7 +6,7 @@ The provider is versioned via CMake project version and exposed as the compile-t
 
 | Field | Value |
 |-------|-------|
-| Current version | `0.1.0` |
+| Current version | `0.2.11` |
 | Scheme | [Semantic Versioning](https://semver.org) |
 
 ### What Requires A Version Bump
@@ -24,7 +24,7 @@ Hardware behavior changes (new capability flags, updated BREAD firmware expectat
 
 ## ADPP Protocol Compatibility
 
-The provider implements the ADPP protocol defined in `external/anolis-protocol`.
+The provider implements the ADPP protocol defined in `anolis-protocol`, consumed via CMake FetchContent.
 
 | Field | Value |
 |-------|-------|
@@ -33,8 +33,8 @@ The provider implements the ADPP protocol defined in `external/anolis-protocol`.
 
 The `v1` package identifier is the stable protocol generation.
 A change to a different package (e.g. `v2`) would require explicit provider support and a major version bump.
-The current `external/anolis-protocol` submodule pin is the supported revision.
-Do not advance the submodule without verifying that the runtime consuming this provider supports the same revision.
+The current `anolis-protocol` FetchContent pin (set in `CMakeLists.txt`) is the supported revision.
+Do not advance the pin without verifying that the runtime consuming this provider supports the same revision.
 
 ---
 
@@ -95,7 +95,7 @@ but not the version string directly. The version is printed to stderr at startup
 ```
 
 The full version string is embedded in the binary as `ANOLIS_PROVIDER_BREAD_VERSION`
-(`0.1.0` in the current build). Device firmware versions are logged per-device during probe:
+(`0.2.11` in the current build). Device firmware versions are logged per-device during probe:
 
 ```text
 [INFO] probe 0x08 type=0x01 crumbs=1200 module=1.0.0 caps_source=Queried
