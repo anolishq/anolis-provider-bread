@@ -53,11 +53,25 @@ jobs:
               - '.clang-tidy'
 
   no-hardware-linux:
-    name: Linux Build and Test (no hardware)
+    name: ${{ matrix.name }}
     needs: [changes]
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux Build and Test (no hardware)
+            os: ubuntu-24.04
+            preset: ci-linux-release
+            triplet: x64-linux-static
+          # arm64 is the Pi deployment arch — run the unit tests natively so
+          # arch/filesystem quirks surface at PR time. See anolishq/.github#104.
+          - name: Linux ARM64 Build and Test (no hardware)
+            os: ubuntu-24.04-arm
+            preset: ci-linux-arm64-release
+            triplet: arm64-linux
 
     steps:
       - name: Checkout anolis-provider-bread
@@ -73,19 +87,19 @@ jobs:
       - name: Setup vcpkg
         uses: anolishq/.github/.github/actions/setup-vcpkg@a9b3d134acbcc7dcd6da02c1a345a1fbdca15064 # v2.4
         with:
-          triplet: x64-linux-static
+          triplet: ${{ matrix.triplet }}
 
       - name: Configure
         working-directory: anolis-provider-bread
-        run: cmake --preset ci-linux-release
+        run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
         working-directory: anolis-provider-bread
-        run: cmake --build --preset ci-linux-release --parallel
+        run: cmake --build --preset ${{ matrix.preset }} --parallel
 
       - name: Test
         working-directory: anolis-provider-bread
-        run: ctest --preset ci-linux-release
+        run: ctest --preset ${{ matrix.preset }}
 
   no-hardware-windows:
     name: Windows Build and Test (no hardware)
