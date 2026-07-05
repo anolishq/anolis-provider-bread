@@ -13,6 +13,38 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-04
+
+### Added
+
+- **Migrated onto `anolis-provider-sdk`.** The provider now builds on the shared
+  SDK's `ProviderRuntime` + run-loop and device-model framework rather than a
+  private copy, pinned to SDK v0.1.2. (#86, #88, #89)
+- **Per-device health metrics + `last_seen`** — health enrichment surfaced per
+  device (SDK#9). (#88)
+- **Mock bus backend** — live mock-mode reads and calls without hardware, for
+  bench/CI. (#81)
+- Genuine `init_time_ms` reported in `WaitReady`; the prior waiver is dropped.
+  (#78)
+- Curated default signal set (#54); `CallResponse.results` populated (#53);
+  `min_timestamp` honored best-effort on reads (#56).
+
+### Changed
+
+- Device-model refactors toward the SDK: `DeviceType` moved into the devices
+  layer; `DeviceAdapter` descriptor + guarded `adapter_for` switch; C++20
+  `std::format` adopted for diagnostics.
+
+### Fixed
+
+- `Device.provider_name` now matches the value declared in Hello. (#55)
+
+### CI
+
+- Native arm64 unit-test lane; TSAN + Valgrind parity with ezo; clang-tidy diff
+  gate promoted to blocking; pinned clang-format / clang-tools; routine
+  dependency maintenance.
+
 ## [0.2.11] - 2026-06-22
 
 ### Added
