@@ -13,6 +13,35 @@ commit messages only.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Regression since 0.2.9 — live CRUMBS reads stopped decoding on Linux.** Every
+  hardware read failed as `code=read_failed native_code=-1 "failed to decode
+  CRUMBS reply"`, no device entered the inventory, and the runtime aborted with
+  `No devices could be registered from provider bread0`.
+
+  `LinuxTransport::read` has always handed `crumbs_decode_message()` the *raw read
+  length*. On Linux that is the buffer size, not the frame size: an I2C controller
+  must request a fixed byte count up front, a CRUMBS peripheral writes only its
+  actual frame (`Wire.write(frame, frame_len)`), and the bus then floats high — so
+  the tail of the read is `0xFF` padding.
+
+  CRUMBS `v0.12.2` tolerated that: its decoder ignored trailing bytes and decoded
+  the prefix, so live reads worked. **CRUMBS `v0.12.4` (2026-06-10) tightened
+  `crumbs_decode_message()` to enforce the documented exact-frame-length contract
+  — trailing bytes now return `-1`.** bread `0.2.9` (2026-06-11) bumped the CRUMBS
+  pin `v0.12.2 → v0.12.4`, and live reads have failed ever since. The transport was
+  always violating the contract; 0.12.4 began enforcing it.
+
+  The read is now trimmed to the frame length its header declares before decoding.
+  The CRC is still validated, over the trimmed span. The computation is extracted
+  as `crumbs_reply_frame_length()` so it is unit-testable without a live bus.
+
+  CI did not catch the regression because every automated surface uses `mock://`,
+  which returns exact frames with no bus padding — only real Linux i2c-dev
+  reproduces it. Caught on a Raspberry Pi against live Slice_RLHT / Slice_DCMT
+  boards (anolishq/anolis#138).
+
 ## [0.3.0] - 2026-07-04
 
 ### Added
