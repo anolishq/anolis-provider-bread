@@ -4,6 +4,7 @@ add_executable(provider_unit_tests
     crumbs_session_test.cpp
     dcmt_adapter_test.cpp
     inventory_test.cpp
+    linux_transport_test.cpp
     provider_config_test.cpp
     rlht_adapter_test.cpp
     startup_discovery_test.cpp
