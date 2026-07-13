@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-13
+
 ### Fixed
 
 - **Regression since 0.2.9 — live CRUMBS reads stopped decoding on Linux.** Every
