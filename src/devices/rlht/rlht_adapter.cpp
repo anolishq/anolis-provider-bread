@@ -18,21 +18,11 @@ namespace anolis_provider_bread::rlht {
 namespace {
 
 // ---------------------------------------------------------------------------
-// RLHT GET_STATE payload layout (19 bytes minimum)
-//   [0]     mode       u8
-//   [1]     flags      u8
-//   [2-3]   t1_deci_c  i16 LE
-//   [4-5]   t2_deci_c  i16 LE
-//   [6-7]   sp1_deci_c i16 LE
-//   [8-9]   sp2_deci_c i16 LE
-//   [10-11] on1_ms     u16 LE  (not exposed as signal)
-//   [12-13] on2_ms     u16 LE  (not exposed as signal)
-//   [14-15] period1_ms u16 LE
-//   [16-17] period2_ms u16 LE
-//   [18]    tc_select  u8      (not exposed as signal)
+// RLHT GET_STATE wire layout is owned by bread-crumbs-contracts
+// (rlht_parse_state_payload). The adapter maps the parsed state onto the
+// stable ADPP signal surface; on-time and thermocouple-select fields are
+// parsed but not exposed as signals.
 // ---------------------------------------------------------------------------
-
-constexpr std::size_t kMinStatePayloadBytes = 19u;
 
 constexpr const char *kSigMode = "mode";
 constexpr const char *kSigT1 = "t1_c";
@@ -57,16 +47,20 @@ struct RlhtState {
 };
 
 bool parse_state(const std::vector<uint8_t> &payload, RlhtState &out) {
-    if (payload.size() < kMinStatePayloadBytes) return false;
-    if (!read_u8(payload, 0u, out.mode)) return false;
-    if (!read_u8(payload, 1u, out.flags)) return false;
-    if (!read_i16_le(payload, 2u, out.t1_dc)) return false;
-    if (!read_i16_le(payload, 4u, out.t2_dc)) return false;
-    if (!read_i16_le(payload, 6u, out.sp1_dc)) return false;
-    if (!read_i16_le(payload, 8u, out.sp2_dc)) return false;
-    // skip on1_ms[10-11] and on2_ms[12-13]
-    if (!read_u16_le(payload, 14u, out.period1)) return false;
-    if (!read_u16_le(payload, 16u, out.period2)) return false;
+    rlht_state_result_t raw{};
+    if (payload.size() > UINT8_MAX ||
+        rlht_parse_state_payload(payload.data(), static_cast<uint8_t>(payload.size()), &raw) != 0) {
+        return false;
+    }
+
+    out.mode = raw.mode;
+    out.flags = raw.flags;
+    out.t1_dc = raw.t1_deci_c;
+    out.t2_dc = raw.t2_deci_c;
+    out.sp1_dc = raw.sp1_deci_c;
+    out.sp2_dc = raw.sp2_deci_c;
+    out.period1 = raw.period1_ms;
+    out.period2 = raw.period2_ms;
     return true;
 }
 
