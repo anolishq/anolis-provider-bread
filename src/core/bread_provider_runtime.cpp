@@ -8,6 +8,7 @@
 #include "anolis/provider_sdk/result.hpp"
 #include "config/provider_config.hpp"
 #include "core/runtime_state.hpp"
+#include "crumbs/session.hpp"
 #include "devices/common/device_adapter.hpp"
 #include "devices/common/inventory.hpp"
 #include "protocol.pb.h"
@@ -83,26 +84,37 @@ sdk::ReadinessReport BreadProviderRuntime::readiness() const {
 }
 
 sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& device_id) const {
-    // Restore bread's pre-migration per-device health (SDK#9) from one snapshot.
-    // last_seen is the startup constant to_timestamp(started_at) — bread has no real
-    // per-device heartbeat yet (tracked in anolis-provider-bread#87).
+    // Per-device health (#87): last_seen is the wall-clock time of the last
+    // successful CRUMBS operation against the device's address, and the io_*
+    // metrics expose the session's cumulative counters — including retries
+    // that eventually succeeded, so intermittent bus trouble is visible here
+    // instead of hiding behind the retry policy.
     const runtime::RuntimeState state = runtime::snapshot();
     sdk::DeviceHealthExtra extra;
     if (const inventory::InventoryDevice* device = inventory::find_device(state.devices, device_id)) {
         extra.metrics["address"] = device->descriptor.address();
         extra.metrics["type_id"] = device->descriptor.type_id();
         extra.metrics["inventory"] = state.inventory_mode;
-        extra.last_seen = to_timestamp(state.started_at);
+        if (crumbs::Session* session = runtime::session()) {
+            const crumbs::AddressStats stats = session->stats_for(static_cast<uint8_t>(device->address));
+            extra.metrics["io_ok"] = std::to_string(stats.ok);
+            extra.metrics["io_failed"] = std::to_string(stats.failed);
+            extra.metrics["io_retried_attempts"] = std::to_string(stats.retried_attempts);
+            if (stats.has_success) {
+                extra.last_seen = to_timestamp(stats.last_success);
+            }
+        }
+        // No successful contact yet -> last_seen stays unset (never fabricated).
         return extra;
     }
     // Missing-expected devices surface on get_health (readiness() maps them to
     // failed_devices); they are NOT in the live inventory, so branch on the
     // missing-expected set rather than a find_device lookup (which returns null).
+    // There has been no contact with a missing device, so last_seen stays unset.
     for (const auto& missing_id : state.missing_expected_ids) {
         if (missing_id == device_id) {
             extra.metrics["inventory"] = state.inventory_mode;
             extra.metrics["missing"] = "true";
-            extra.last_seen = to_timestamp(state.started_at);
             break;
         }
     }

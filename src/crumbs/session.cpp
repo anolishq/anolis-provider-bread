@@ -136,7 +136,10 @@ SessionStatus Session::send(uint8_t address, const RawFrame &frame) {
         return SessionStatus::failure(SessionErrorCode::NotOpen, "CRUMBS session is not open");
     }
 
-    return execute_with_retry(options_, "send", address, [&]() { return transport_.send(address, frame); });
+    SessionStatus status =
+        execute_with_retry(options_, "send", address, [&]() { return transport_.send(address, frame); });
+    record_outcome(address, status);
+    return status;
 }
 
 SessionStatus Session::read(uint8_t address, RawFrame &frame) {
@@ -152,7 +155,10 @@ SessionStatus Session::read(uint8_t address, RawFrame &frame) {
 
     const uint32_t timeout_us = options_.timeout_ms > (UINT32_MAX / 1000u) ? UINT32_MAX : options_.timeout_ms * 1000u;
 
-    return execute_with_retry(options_, "read", address, [&]() { return transport_.read(address, frame, timeout_us); });
+    SessionStatus status =
+        execute_with_retry(options_, "read", address, [&]() { return transport_.read(address, frame, timeout_us); });
+    record_outcome(address, status);
+    return status;
 }
 
 SessionStatus Session::query_read(uint8_t address, uint8_t reply_opcode, RawFrame &out) {
@@ -175,15 +181,37 @@ SessionStatus Session::query_read(uint8_t address, uint8_t reply_opcode, RawFram
 
     // Hold the session lock across send → delay → read so the SET_REPLY query
     // sequence cannot interleave with another caller on the shared bus.
-    return execute_with_retry(options_, "query_read", address, [&]() {
-        SessionStatus status = transport_.send(address, query);
-        if (!status) {
-            return status;
+    SessionStatus status = execute_with_retry(options_, "query_read", address, [&]() {
+        SessionStatus attempt = transport_.send(address, query);
+        if (!attempt) {
+            return attempt;
         }
 
         transport_.delay_us(options_.query_delay_us);
         return transport_.read(address, out, timeout_us);
     });
+    record_outcome(address, status);
+    return status;
+}
+
+AddressStats Session::stats_for(uint8_t address) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto it = stats_.find(address);
+    return it == stats_.end() ? AddressStats{} : it->second;
+}
+
+void Session::record_outcome(uint8_t address, const SessionStatus &status) {
+    AddressStats &stats = stats_[address];
+    if (status.attempts > 1) {
+        stats.retried_attempts += static_cast<uint64_t>(status.attempts - 1);
+    }
+    if (status.ok()) {
+        ++stats.ok;
+        stats.has_success = true;
+        stats.last_success = std::chrono::system_clock::now();
+    } else {
+        ++stats.failed;
+    }
 }
 
 SessionStatus Session::validate_open_options() const {

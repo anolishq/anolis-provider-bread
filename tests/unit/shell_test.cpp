@@ -332,7 +332,12 @@ TEST(ShellTest, SupportsHelloInventoryAndHealth) {
         EXPECT_EQ(rlht_health->metrics().at("type_id"), "bread.rlht");
         EXPECT_EQ(rlht_health->metrics().at("inventory"), "config_seeded");
         EXPECT_FALSE(rlht_health->metrics().at("address").empty());
-        EXPECT_TRUE(rlht_health->has_last_seen());
+        // #87: last_seen is a real contact timestamp now. Config-seeded mock
+        // inventory has had NO device I/O yet, so it must be unset (never the
+        // old started_at fabrication), and the io counters must read zero.
+        EXPECT_FALSE(rlht_health->has_last_seen());
+        EXPECT_EQ(rlht_health->metrics().at("io_ok"), "0");
+        EXPECT_EQ(rlht_health->metrics().at("io_failed"), "0");
     }
 
     {
@@ -370,7 +375,8 @@ TEST(ShellTest, SupportsHelloInventoryAndHealth) {
         ASSERT_NE(gh_rlht, nullptr);
         EXPECT_EQ(gh_rlht->metrics().at("type_id"), "bread.rlht");
         EXPECT_EQ(gh_rlht->metrics().at("inventory"), "config_seeded");
-        EXPECT_TRUE(gh_rlht->has_last_seen());
+        // Still no device I/O at this point — last_seen stays unset (#87).
+        EXPECT_FALSE(gh_rlht->has_last_seen());
     }
 
     {
@@ -395,6 +401,31 @@ TEST(ShellTest, SupportsHelloInventoryAndHealth) {
         ASSERT_EQ(response.read_signals().values_size(), 1);
         EXPECT_EQ(response.read_signals().values(0).signal_id(), "t1_c");
         EXPECT_DOUBLE_EQ(response.read_signals().values(0).value().double_value(), 25.0);
+    }
+
+    {
+        SCOPED_TRACE("get_health_after_read");
+        // #87: the successful read above is real device contact — last_seen must
+        // now be set and the io_ok counter must have moved, for rlht0 only.
+        anolis::deviceprovider::v1::Request get_health;
+        get_health.set_request_id(7);
+        get_health.mutable_get_health();
+        const auto response = session.send(get_health);
+        ASSERT_EQ(response.status().code(), anolis::deviceprovider::v1::Status::CODE_OK);
+        const anolis::deviceprovider::v1::DeviceHealth *rlht = nullptr;
+        const anolis::deviceprovider::v1::DeviceHealth *dcmt = nullptr;
+        for (const auto &dh : response.get_health().devices()) {
+            if (dh.device_id() == "rlht0") rlht = &dh;
+            if (dh.device_id() == "dcmt0") dcmt = &dh;
+        }
+        ASSERT_NE(rlht, nullptr);
+        ASSERT_NE(dcmt, nullptr);
+        EXPECT_TRUE(rlht->has_last_seen());
+        EXPECT_NE(rlht->metrics().at("io_ok"), "0");
+        EXPECT_EQ(rlht->metrics().at("io_failed"), "0");
+        // dcmt0 has still had no contact.
+        EXPECT_FALSE(dcmt->has_last_seen());
+        EXPECT_EQ(dcmt->metrics().at("io_ok"), "0");
     }
 
     {

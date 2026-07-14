@@ -209,5 +209,101 @@ TEST(CrumbsSessionTest, RejectsOversizedPayloadBeforeTransportCall) {
     EXPECT_EQ(transport.send_calls, 0);
 }
 
+// ---------------------------------------------------------------------------
+// Per-address I/O statistics (#87) — the counters behind DeviceHealth.
+// ---------------------------------------------------------------------------
+
+TEST(CrumbsSessionStats, SuccessSetsLastSeenAndCountsOk) {
+    FakeTransport transport;
+    Session session(transport, SessionOptions{"/dev/i2c-1", 10000u, 100u, 2});
+    ASSERT_TRUE(session.open());
+
+    // Never-contacted address starts zeroed with no last_success.
+    AddressStats before = session.stats_for(0x08u);
+    EXPECT_EQ(before.ok, 0U);
+    EXPECT_FALSE(before.has_success);
+
+    transport.read_actions.push_back({SessionStatus::success(), RawFrame{0x01, 0x80, {0x11}}});
+    RawFrame reply;
+    ASSERT_TRUE(session.query_read(0x08u, 0x80u, reply));
+
+    const AddressStats after = session.stats_for(0x08u);
+    EXPECT_EQ(after.ok, 1U);
+    EXPECT_EQ(after.failed, 0U);
+    EXPECT_EQ(after.retried_attempts, 0U);
+    EXPECT_TRUE(after.has_success);
+    EXPECT_GT(after.last_success.time_since_epoch().count(), 0);
+}
+
+TEST(CrumbsSessionStats, MaskedRetryStaysVisibleInRetriedAttempts) {
+    FakeTransport transport;
+    Session session(transport, SessionOptions{"/dev/i2c-1", 10000u, 100u, 2});
+    ASSERT_TRUE(session.open());
+
+    // Attempt 1 fails on the wire, attempt 2 succeeds — the operation reports
+    // success, but the flakiness must not vanish from the stats.
+    transport.send_actions.push_back(SessionStatus::failure(SessionErrorCode::WriteFailed, "temporary NACK"));
+    transport.send_actions.push_back(SessionStatus::success());
+    transport.read_actions.push_back({SessionStatus::success(), RawFrame{0x01, 0x80, {0x11}}});
+
+    RawFrame reply;
+    ASSERT_TRUE(session.query_read(0x08u, 0x80u, reply));
+
+    const AddressStats stats = session.stats_for(0x08u);
+    EXPECT_EQ(stats.ok, 1U);
+    EXPECT_EQ(stats.failed, 0U);
+    EXPECT_EQ(stats.retried_attempts, 1U);
+    EXPECT_TRUE(stats.has_success);
+}
+
+TEST(CrumbsSessionStats, ExhaustedRetriesCountOneFailure) {
+    FakeTransport transport;
+    Session session(transport, SessionOptions{"/dev/i2c-1", 10000u, 100u, 1});
+    ASSERT_TRUE(session.open());
+
+    transport.send_actions.push_back(SessionStatus::failure(SessionErrorCode::WriteFailed, "NACK"));
+    transport.send_actions.push_back(SessionStatus::failure(SessionErrorCode::WriteFailed, "NACK"));
+
+    RawFrame frame{0x01, 0x02, {0xAA}};
+    EXPECT_FALSE(session.send(0x08u, frame));
+
+    const AddressStats stats = session.stats_for(0x08u);
+    EXPECT_EQ(stats.ok, 0U);
+    EXPECT_EQ(stats.failed, 1U);
+    EXPECT_EQ(stats.retried_attempts, 1U);
+    EXPECT_FALSE(stats.has_success);
+}
+
+TEST(CrumbsSessionStats, ValidationFailuresAreNotIo) {
+    FakeTransport transport;
+    Session session(transport, SessionOptions{"/dev/i2c-1", 10000u, 100u, 1});
+    ASSERT_TRUE(session.open());
+
+    RawFrame oversized;
+    oversized.payload.resize(kMaxPayloadBytes + 1u, 0xAAu);
+    EXPECT_FALSE(session.send(0x08u, oversized));
+
+    const AddressStats stats = session.stats_for(0x08u);
+    EXPECT_EQ(stats.ok, 0U);
+    EXPECT_EQ(stats.failed, 0U);
+}
+
+TEST(CrumbsSessionStats, StatsAreTrackedPerAddress) {
+    FakeTransport transport;
+    Session session(transport, SessionOptions{"/dev/i2c-1", 10000u, 100u, 1});
+    ASSERT_TRUE(session.open());
+
+    RawFrame frame{0x01, 0x02, {0xAA}};
+    ASSERT_TRUE(session.send(0x08u, frame));
+    transport.send_actions.push_back(SessionStatus::failure(SessionErrorCode::WriteFailed, "NACK"));
+    transport.send_actions.push_back(SessionStatus::failure(SessionErrorCode::WriteFailed, "NACK"));
+    EXPECT_FALSE(session.send(0x09u, frame));
+
+    EXPECT_EQ(session.stats_for(0x08u).ok, 1U);
+    EXPECT_EQ(session.stats_for(0x08u).failed, 0U);
+    EXPECT_EQ(session.stats_for(0x09u).ok, 0U);
+    EXPECT_EQ(session.stats_for(0x09u).failed, 1U);
+}
+
 }  // namespace
 }  // namespace anolis_provider_bread::crumbs

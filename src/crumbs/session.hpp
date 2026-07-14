@@ -6,8 +6,10 @@
  * provider.
  */
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -86,6 +88,25 @@ struct ScanResult {
     uint8_t address = 0;
     bool has_type_id = false;
     uint8_t type_id = 0;
+};
+
+/**
+ * @brief Cumulative per-address I/O statistics kept by `Session`.
+ *
+ * Counters are attempt-aware: `retried_attempts` counts every attempt beyond
+ * an operation's first, so failures that a later retry masks stay visible in
+ * health output instead of disappearing into a success. Only operations that
+ * reached the transport are counted; argument/state validation failures are
+ * not I/O.
+ */
+struct AddressStats {
+    uint64_t ok = 0;
+    uint64_t failed = 0;
+    uint64_t retried_attempts = 0;
+    bool has_success = false;
+    /** @brief Wall-clock time of the last successful operation; meaningful only
+     * when `has_success` is true. */
+    std::chrono::system_clock::time_point last_success{};
 };
 
 /**
@@ -184,15 +205,29 @@ public:
      */
     SessionStatus query_read(uint8_t address, uint8_t reply_opcode, RawFrame &out);
 
+    /**
+     * @brief Return a copy of the cumulative I/O statistics for one address.
+     *
+     * Feeds per-device health (`DeviceHealth.last_seen` and the io_* metrics,
+     * anolis-provider-bread#87). Returns zeroed stats for an address this
+     * session has never performed I/O against.
+     */
+    AddressStats stats_for(uint8_t address) const;
+
 private:
     SessionStatus validate_open_options() const;
     SessionStatus validate_scan_options(const ScanOptions &options) const;
     SessionStatus validate_address(uint8_t address) const;
     SessionStatus validate_frame(const RawFrame &frame) const;
 
+    /** @brief Record one completed transport operation. Caller must hold
+     * `mutex_`. */
+    void record_outcome(uint8_t address, const SessionStatus &status);
+
     Transport &transport_;
     SessionOptions options_;
     mutable std::mutex mutex_;
+    std::map<uint8_t, AddressStats> stats_;
 };
 
 /** @brief Build session transport options from resolved provider config. */
