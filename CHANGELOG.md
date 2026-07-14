@@ -13,6 +13,23 @@ commit messages only.
 
 ## [Unreleased]
 
+### Added
+
+- Real per-device health (#87): `DeviceHealth.last_seen` is now the wall-clock
+  time of the last successful CRUMBS operation against the device's address
+  (probes included), and three new per-device metrics expose the session's
+  cumulative I/O counters — `io_ok`, `io_failed`, and `io_retried_attempts`.
+  The retry counter records every attempt beyond an operation's first, so
+  intermittent bus trouble that the retry policy masks stays visible in health
+  output instead of silently disappearing (the mechanism that hid a ~30%
+  per-transaction failure rate for weeks, see feastorg/Slice_DCMT#3).
+
+### Changed
+
+- `last_seen` is no longer fabricated: devices with no successful contact yet
+  (including missing-expected devices) leave it unset, replacing the previous
+  provider-start-time constant stamped on every device.
+
 ## [0.3.2] - 2026-07-14
 
 ### Changed
