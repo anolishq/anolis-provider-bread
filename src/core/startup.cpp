@@ -31,6 +31,28 @@ std::string hex_byte(uint8_t value) {
     return out.str();
 }
 
+// Query a staged reply, re-issuing the whole SET_REPLY round-trip when the
+// device serves a frame for a different opcode (#103). A stale staged reply is
+// an expected transient: an ungracefully interrupted master leaves its last
+// requested_opcode staged on the peripheral, and the next query can read that
+// old frame back before the new SET_REPLY takes effect. Re-staging recovers
+// it, so a stale reply must not permanently exclude the device.
+crumbs::SessionStatus query_reply(crumbs::Session &session, uint8_t address, uint8_t reply_opcode,
+                                  crumbs::RawFrame &frame) {
+    constexpr int kStaleReplyAttempts = 3;
+    crumbs::SessionStatus status;
+    for (int attempt = 1; attempt <= kStaleReplyAttempts; ++attempt) {
+        status = session.query_read(address, reply_opcode, frame);
+        if (!status || frame.opcode == reply_opcode) {
+            return status;
+        }
+        logging::warning("probe " + format_i2c_address(static_cast<int>(address)) + " reply opcode " +
+                         hex_byte(frame.opcode) + " does not match requested " + hex_byte(reply_opcode) +
+                         " (stale staged reply), re-querying");
+    }
+    return status;
+}
+
 }  // namespace
 
 inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address) {
@@ -42,7 +64,7 @@ inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address) {
     // modules early, and the caps query refines the capability surface when it
     // succeeds.
     crumbs::RawFrame version_frame;
-    const crumbs::SessionStatus version_status = session.query_read(address, 0x00, version_frame);
+    const crumbs::SessionStatus version_status = query_reply(session, address, 0x00, version_frame);
 
     if (!version_status) {
         probe.status = inventory::ProbeStatus::VersionReadFailed;
@@ -112,7 +134,7 @@ inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address) {
     // Capability discovery is best-effort. A failed caps read does not remove a
     // supported module from inventory; it falls back to the type baseline.
     crumbs::RawFrame caps_frame;
-    const crumbs::SessionStatus caps_status = session.query_read(address, BREAD_OP_GET_CAPS, caps_frame);
+    const crumbs::SessionStatus caps_status = query_reply(session, address, BREAD_OP_GET_CAPS, caps_frame);
 
     if (!caps_status || caps_frame.opcode != BREAD_OP_GET_CAPS) {
         probe.capability_profile = inventory::make_baseline_capability_profile(device_type);
@@ -199,7 +221,9 @@ DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &co
         logging::warning(std::to_string(build.missing_expected_ids.size()) +
                          " expected device(s) not found in inventory");
         for (const auto &id : build.missing_expected_ids) {
-            logging::warning("  missing expected device id=" + id);
+            const auto detail = build.missing_expected_details.find(id);
+            logging::warning("  missing expected device id=" + id +
+                             (detail == build.missing_expected_details.end() ? "" : " (" + detail->second + ")"));
         }
     }
 
@@ -207,6 +231,7 @@ DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &co
     result.devices = std::move(build.supported_devices);
     result.unsupported_probes = std::move(build.unsupported_probes);
     result.missing_expected_ids = std::move(build.missing_expected_ids);
+    result.missing_expected_details = std::move(build.missing_expected_details);
     result.inventory_mode = inventory::to_string(source);
     return result;
 }

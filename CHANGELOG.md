@@ -13,6 +13,15 @@ commit messages only.
 
 ## [Unreleased]
 
+### Fixed
+
+- Startup probes re-issue the SET_REPLY round-trip (up to 3 times) when a
+  device serves a reply for a different opcode (#103). A stale staged reply
+  is an expected transient after an ungracefully interrupted master — its
+  dying poll leaves `requested_opcode` staged on the peripheral — and
+  previously excluded the device from inventory until the next restart.
+  Observed twice on the #138 bench with a different victim each restart.
+
 ### Added
 
 - Real per-device health (#87): `DeviceHealth.last_seen` is now the wall-clock
@@ -23,6 +32,12 @@ commit messages only.
   intermittent bus trouble that the retry policy masks stays visible in health
   output instead of silently disappearing (the mechanism that hid a ~30%
   per-transaction failure rate for weeks, see feastorg/Slice_DCMT#3).
+- Missing-expected devices whose configured address was probed and failed now
+  carry the probe failure into health output (#104): the readiness
+  `failed_devices` reason and a `missing_detail` health metric report WHY the
+  device is absent (e.g. `probe failed (version_read_failed): unexpected
+  opcode in version reply: 0x80`) instead of the generic "not found during
+  startup".
 
 ### Changed
 

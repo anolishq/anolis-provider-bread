@@ -6,6 +6,7 @@
  * inventory.
  */
 
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -23,6 +24,9 @@ struct DiscoveryResult {
     std::vector<inventory::InventoryDevice> devices;
     std::vector<inventory::ProbeRecord> unsupported_probes;
     std::vector<std::string> missing_expected_ids;
+    // Probe-failure detail per missing-expected id (#104); see
+    // InventoryBuildResult::missing_expected_details.
+    std::map<std::string, std::string> missing_expected_details;
     std::string inventory_mode;
 };
 

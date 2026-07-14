@@ -56,8 +56,14 @@ sdk::ReadinessReport BreadProviderRuntime::readiness() const {
         r.successful_device_ids.push_back(device.descriptor.device_id());
     }
     // Expected-but-missing devices remain visible as STATE_UNREACHABLE health.
+    // When the address was probed and failed, the reason carries the probe
+    // failure so operators see WHY without reading the provider log (#104).
     for (const auto& missing_id : state.missing_expected_ids) {
-        r.failed_devices.push_back({missing_id, "", "expected device not found during startup"});
+        const auto detail = state.missing_expected_details.find(missing_id);
+        r.failed_devices.push_back({missing_id, "",
+                                    detail == state.missing_expected_details.end()
+                                        ? "expected device not found during startup"
+                                        : detail->second});
     }
     r.startup_policy = "degraded";  // bread serves discovered devices, flags missing-expected
     r.provider_impl = "bread";
@@ -115,6 +121,10 @@ sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& de
         if (missing_id == device_id) {
             extra.metrics["inventory"] = state.inventory_mode;
             extra.metrics["missing"] = "true";
+            const auto detail = state.missing_expected_details.find(device_id);
+            if (detail != state.missing_expected_details.end()) {
+                extra.metrics["missing_detail"] = detail->second;
+            }
             break;
         }
     }

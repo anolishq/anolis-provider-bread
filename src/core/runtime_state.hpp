@@ -7,6 +7,7 @@
  */
 
 #include <chrono>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -41,6 +42,8 @@ struct RuntimeState {
     std::string inventory_mode;
     int unsupported_probe_count = 0;
     std::vector<std::string> missing_expected_ids;
+    // Probe-failure detail per missing-expected id (#104), when known.
+    std::map<std::string, std::string> missing_expected_details;
 };
 
 /** @brief Reset runtime state and destroy any live session/transport pair. */
