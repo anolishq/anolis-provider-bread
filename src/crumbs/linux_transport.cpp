@@ -13,12 +13,6 @@
 namespace anolis_provider_bread::crumbs {
 namespace {
 
-// CRUMBS wire frame: [type_id][opcode][data_len] payload... [crc8]
-constexpr std::size_t kHeaderLen = 3;
-constexpr std::size_t kCrcLen = 1;
-constexpr std::size_t kDataLenOffset = 2;
-constexpr int kMinFrameLen = static_cast<int>(kHeaderLen + kCrcLen);
-
 SessionStatus failure_from_errno(SessionErrorCode code, const std::string &message, int native_code, int saved_errno) {
     std::ostringstream out;
     out << message;
@@ -157,29 +151,6 @@ SessionStatus LinuxTransport::send(uint8_t address, const RawFrame &frame) {
     return SessionStatus::success();
 }
 
-SessionStatus crumbs_reply_frame_length(const uint8_t *buffer, std::size_t bytes_read, std::size_t &frame_len) {
-    if (buffer == nullptr || bytes_read < static_cast<std::size_t>(kMinFrameLen)) {
-        return SessionStatus::failure(SessionErrorCode::ReadFailed, "short CRUMBS frame read",
-                                      static_cast<int>(bytes_read));
-    }
-
-    const std::size_t data_len = buffer[kDataLenOffset];
-    if (data_len > CRUMBS_MAX_PAYLOAD) {
-        return SessionStatus::failure(SessionErrorCode::DecodeFailed,
-                                      "CRUMBS reply declares an out-of-range payload length",
-                                      static_cast<int>(data_len));
-    }
-
-    const std::size_t declared = kHeaderLen + data_len + kCrcLen;
-    if (bytes_read < declared) {
-        return SessionStatus::failure(SessionErrorCode::ReadFailed, "truncated CRUMBS frame",
-                                      static_cast<int>(bytes_read));
-    }
-
-    frame_len = declared;
-    return SessionStatus::success();
-}
-
 SessionStatus LinuxTransport::read(uint8_t address, RawFrame &frame, uint32_t timeout_us) {
     if (!open_) {
         return SessionStatus::failure(SessionErrorCode::NotOpen, "CRUMBS Linux transport is not open");
@@ -197,21 +168,16 @@ SessionStatus LinuxTransport::read(uint8_t address, RawFrame &frame, uint32_t ti
                                   "failed to read CRUMBS frame from " + format_i2c_address(static_cast<int>(address)),
                                   bytes_read, saved_errno);
     }
-    if (bytes_read < kMinFrameLen) {
-        return SessionStatus::failure(SessionErrorCode::ReadFailed,
-                                      "short CRUMBS frame read from " + format_i2c_address(static_cast<int>(address)),
-                                      bytes_read);
-    }
 
-    // The raw read is the buffer size, not the frame size — see
-    // crumbs_reply_frame_length(). Trim before decoding, or every valid reply is
-    // rejected as "extra bytes after complete frame".
+    // A raw i2c-dev read returns the requested count with bus padding after
+    // the frame; trim to the header-declared length before the exact-length
+    // decode. CRUMBS owns the frame geometry (crumbs_frame_length rejects
+    // short reads, garbage headers, and truncated frames).
     std::size_t frame_len = 0;
-    const SessionStatus trimmed = crumbs_reply_frame_length(buffer, static_cast<std::size_t>(bytes_read), frame_len);
-    if (!trimmed.ok()) {
-        return SessionStatus::failure(trimmed.code,
-                                      trimmed.message + " from " + format_i2c_address(static_cast<int>(address)),
-                                      trimmed.native_code);
+    if (crumbs_frame_length(buffer, static_cast<std::size_t>(bytes_read), &frame_len) != 0) {
+        return SessionStatus::failure(
+            SessionErrorCode::ReadFailed,
+            "invalid or truncated CRUMBS frame from " + format_i2c_address(static_cast<int>(address)), bytes_read);
     }
 
     crumbs_message_t message{};
@@ -229,18 +195,5 @@ SessionStatus LinuxTransport::read(uint8_t address, RawFrame &frame, uint32_t ti
 }
 
 void LinuxTransport::delay_us(uint32_t delay_us) { crumbs_linux_delay_us(delay_us); }
-
-crumbs_device_t LinuxTransport::bind_device(uint8_t address) {
-    crumbs_device_t device{};
-    // This handle is intentionally non-owning: the surrounding Session keeps
-    // the controller and transport alive for as long as BREAD helper calls run.
-    device.ctx = &ctx_;
-    device.addr = address;
-    device.write_fn = crumbs_linux_i2c_write;
-    device.read_fn = crumbs_linux_read;
-    device.delay_fn = crumbs_linux_delay_us;
-    device.io = &i2c_;
-    return device;
-}
 
 }  // namespace anolis_provider_bread::crumbs

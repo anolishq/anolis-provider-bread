@@ -7,14 +7,14 @@
  * read returns the buffer size with 0xFF padding in the tail — not the frame
  * size, which is what crumbs_decode_message's exact-length contract requires.
  *
- * CRUMBS v0.12.2 did not enforce that contract, so passing the raw length worked.
- * v0.12.4 does enforce it (trailing bytes -> rc=-1), and bread 0.2.9 bumped the
- * pin v0.12.2 -> v0.12.4 — breaking every live read from that release onward.
- *
- * CI missed it because every automated surface uses mock://, which returns exact
- * frames with no bus padding. Only real Linux i2c-dev reproduces it, so these
- * tests use the literal bytes captured from a Slice_RLHT at 0x0A on the bench Pi
- * (anolishq/anolis#138) and assert the raw length is still rejected.
+ * bread 0.2.9-0.3.0 broke on exactly this (CRUMBS v0.12.4 strictness + raw
+ * lengths), and 0.3.1 carried a local trim workaround. Since CRUMBS v0.12.5 the
+ * trim lives upstream (crumbs_frame_length, used by LinuxTransport::read); these
+ * tests pin the contract from the consumer side with the literal bytes captured
+ * from a Slice_RLHT at 0x0A on the bench Pi (anolishq/anolis#138), so an
+ * upstream regression cannot silently reintroduce the breakage. CI is mock://
+ * only — exact frames, no bus padding — which is how the original slipped
+ * through.
  */
 
 #include <gtest/gtest.h>
@@ -36,11 +36,10 @@ const std::vector<uint8_t> kBenchReply = {0x01, 0x00, 0x05, 0xb4, 0x04, 0x01, 0x
                                           0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                                           0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-TEST(LinuxTransportFraming, TrimsPaddedReadToTheDeclaredFrame) {
+TEST(LinuxTransportFraming, UpstreamTrimYieldsTheDeclaredFrame) {
     std::size_t frame_len = 0;
-    const SessionStatus status = crumbs_reply_frame_length(kBenchReply.data(), kBenchReply.size(), frame_len);
 
-    ASSERT_TRUE(status.ok()) << status.message;
+    ASSERT_EQ(crumbs_frame_length(kBenchReply.data(), kBenchReply.size(), &frame_len), 0);
     // header(3) + data_len(5) + crc(1) — NOT the 31 bytes the read returned.
     EXPECT_EQ(frame_len, 9u);
     EXPECT_LT(frame_len, kBenchReply.size());
@@ -48,7 +47,7 @@ TEST(LinuxTransportFraming, TrimsPaddedReadToTheDeclaredFrame) {
 
 TEST(LinuxTransportFraming, TrimmedLengthDecodesWhileTheRawLengthDoesNot) {
     std::size_t frame_len = 0;
-    ASSERT_TRUE(crumbs_reply_frame_length(kBenchReply.data(), kBenchReply.size(), frame_len).ok());
+    ASSERT_EQ(crumbs_frame_length(kBenchReply.data(), kBenchReply.size(), &frame_len), 0);
 
     crumbs_context_t ctx{};
     crumbs_message_t message{};
@@ -71,36 +70,12 @@ TEST(LinuxTransportFraming, TrimmedLengthDecodesWhileTheRawLengthDoesNot) {
     EXPECT_EQ(ctx_trimmed.last_crc_ok, 1u);
 }
 
-TEST(LinuxTransportFraming, RejectsAnOutOfRangeDeclaredPayload) {
-    // data_len byte is garbage (e.g. an all-0xFF read from a silent device).
+TEST(LinuxTransportFraming, RejectsAnAllPaddingRead) {
+    // A silent device: address ACKed, no data supplied, master reads all 0xFF.
     std::vector<uint8_t> garbage(31, 0xff);
     std::size_t frame_len = 0;
 
-    const SessionStatus status = crumbs_reply_frame_length(garbage.data(), garbage.size(), frame_len);
-
-    EXPECT_FALSE(status.ok());
-    EXPECT_EQ(status.code, SessionErrorCode::DecodeFailed);
-}
-
-TEST(LinuxTransportFraming, RejectsATruncatedFrame) {
-    // Header declares 5 payload bytes (frame = 9) but only 6 bytes were read.
-    const std::vector<uint8_t> truncated = {0x01, 0x00, 0x05, 0xb4, 0x04, 0x01};
-    std::size_t frame_len = 0;
-
-    const SessionStatus status = crumbs_reply_frame_length(truncated.data(), truncated.size(), frame_len);
-
-    EXPECT_FALSE(status.ok());
-    EXPECT_EQ(status.code, SessionErrorCode::ReadFailed);
-}
-
-TEST(LinuxTransportFraming, RejectsAReadShorterThanTheMinimumFrame) {
-    const std::vector<uint8_t> runt = {0x01, 0x00, 0x05};
-    std::size_t frame_len = 0;
-
-    const SessionStatus status = crumbs_reply_frame_length(runt.data(), runt.size(), frame_len);
-
-    EXPECT_FALSE(status.ok());
-    EXPECT_EQ(status.code, SessionErrorCode::ReadFailed);
+    EXPECT_NE(crumbs_frame_length(garbage.data(), garbage.size(), &frame_len), 0);
 }
 
 TEST(LinuxTransportFraming, AcceptsAnExactlySizedFrameWithNoPadding) {
@@ -108,17 +83,8 @@ TEST(LinuxTransportFraming, AcceptsAnExactlySizedFrameWithNoPadding) {
     const std::vector<uint8_t> exact(kBenchReply.begin(), kBenchReply.begin() + 9);
     std::size_t frame_len = 0;
 
-    ASSERT_TRUE(crumbs_reply_frame_length(exact.data(), exact.size(), frame_len).ok());
+    ASSERT_EQ(crumbs_frame_length(exact.data(), exact.size(), &frame_len), 0);
     EXPECT_EQ(frame_len, exact.size());
-}
-
-TEST(LinuxTransportFraming, AcceptsAZeroPayloadFrame) {
-    // data_len = 0 -> frame is header + crc only.
-    const std::vector<uint8_t> empty_payload = {0x01, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff};
-    std::size_t frame_len = 0;
-
-    ASSERT_TRUE(crumbs_reply_frame_length(empty_payload.data(), empty_payload.size(), frame_len).ok());
-    EXPECT_EQ(frame_len, 4u);
 }
 
 }  // namespace

@@ -13,6 +13,32 @@ commit messages only.
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped dependency pins: CRUMBS `0.12.4` → `0.12.5` (upstream fix for
+  feastorg/CRUMBS#15 — host read paths now trim padded reads before the
+  exact-length decode) and bread-crumbs-contracts `0.4.3` → `0.4.4`
+  (new `dcmt_parse_state_payload` / `rlht_parse_state_payload`).
+- `LinuxTransport::read` now trims padded reads with CRUMBS'
+  `crumbs_frame_length()`; the local `crumbs_reply_frame_length` workaround
+  from 0.3.1 and its hand-rolled frame geometry are deleted.
+- DCMT and RLHT adapters parse GET_STATE payloads through the contracts'
+  new parsers instead of hand-rolled per-field extraction; wire layout
+  knowledge now lives only in bread-crumbs-contracts. The RLHT parser
+  requires the full 19-byte payload (previously bytes 18+ were ignored),
+  matching what the firmware has always sent.
+- Frame-header validation failures on the read path (garbage or truncated
+  headers, e.g. an all-`0xFF` read from a silent device) are now uniformly
+  classified `read_failed`; previously an out-of-range declared payload
+  length surfaced as `decode_failed`. CRC mismatches remain `decode_failed`.
+
+### Removed
+
+- Removed the unused `LinuxTransport::bind_device()` bridge. The contracts'
+  `_get_*` round-trip helpers are deliberately not used by this provider —
+  they hardcode the query delay and carry no locking or retry, which
+  `Session` provides.
+
 ## [0.3.1] - 2026-07-13
 
 ### Fixed

@@ -18,31 +18,14 @@ extern "C" {
 namespace anolis_provider_bread::crumbs {
 
 /**
- * @brief Length of the CRUMBS frame contained in a raw I2C read, per its header.
- *
- * A Linux I2C controller must request a fixed byte count up front, but a CRUMBS
- * peripheral writes only its actual frame (`Wire.write(frame, frame_len)`) and
- * the bus then floats high — so a raw read yields the *buffer* size, with 0xFF
- * padding in the tail, not the *frame* size.
- *
- * CRUMBS documents an exact-frame-length contract for `crumbs_decode_message()`.
- * v0.12.2 did not enforce it (trailing bytes were ignored); v0.12.4 does, and
- * returns -1 for them. Reads must therefore be trimmed to this length before
- * decoding — passing the raw length rejects every otherwise-valid reply.
- *
- * @param buffer      Bytes returned by the raw read.
- * @param bytes_read  Number of bytes the read returned.
- * @param frame_len   Set to the declared frame length on success.
- */
-SessionStatus crumbs_reply_frame_length(const uint8_t *buffer, std::size_t bytes_read, std::size_t &frame_len);
-
-/**
  * @brief Concrete transport that binds the generic session API to
  * `crumbs_linux`.
  *
  * Responsibilities:
- * Owns the Linux I2C controller state, converts transport failures into
- * `SessionStatus`, and provides the C ABI handle used by BREAD helper calls.
+ * Owns the Linux I2C controller state and converts transport failures into
+ * `SessionStatus`. Raw reads are trimmed to the header-declared frame length
+ * via CRUMBS' `crumbs_frame_length()` before decoding (a fixed-count i2c-dev
+ * read returns bus padding after the frame).
  *
  * Threading:
  * This transport is not internally synchronized. Callers are expected to
@@ -75,14 +58,6 @@ public:
     /** @brief Sleep through the platform-specific delay hook expected by some
      * BREAD helpers. */
     void delay_us(uint32_t delay_us) override;
-
-    /**
-     * @brief Build a C ABI device handle bound to this transport's live context.
-     *
-     * The returned handle borrows transport-owned state and becomes invalid
-     * after `close()`.
-     */
-    crumbs_device_t bind_device(uint8_t address);
 
 private:
     crumbs_context_t ctx_{};
