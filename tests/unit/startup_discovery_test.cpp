@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <deque>
 #include <map>
 
 #include "config/provider_config.hpp"
@@ -40,6 +41,10 @@ public:
     std::map<uint8_t, std::map<uint8_t, ScriptedReply>> replies;
     // Scripted failures: read_errors[address][opcode]
     std::map<uint8_t, std::map<uint8_t, crumbs::SessionErrorCode>> read_errors;
+    // Stale staged replies (#103): served (and consumed) ahead of the normal
+    // script, regardless of the requested opcode — models a peripheral whose
+    // staged reply predates the current SET_REPLY.
+    std::map<uint8_t, std::deque<ScriptedReply>> stale_replies;
 
     void add_reply(uint8_t address, uint8_t opcode, uint8_t type_id, std::vector<uint8_t> payload) {
         replies[address][opcode] = {type_id, opcode, std::move(payload)};
@@ -47,6 +52,10 @@ public:
 
     void add_read_error(uint8_t address, uint8_t opcode, crumbs::SessionErrorCode code) {
         read_errors[address][opcode] = code;
+    }
+
+    void add_stale_reply(uint8_t address, uint8_t stale_opcode, uint8_t type_id) {
+        stale_replies[address].push_back({type_id, stale_opcode, {0x00}});
     }
 
     // --- Transport interface -------------------------------------------------
@@ -75,6 +84,18 @@ public:
     }
 
     crumbs::SessionStatus read(uint8_t address, crumbs::RawFrame &frame, uint32_t /*timeout_us*/) override {
+        // Stale staged replies take precedence: the device answers with the
+        // old frame no matter what the last SET_REPLY requested.
+        auto stale_it = stale_replies.find(address);
+        if (stale_it != stale_replies.end() && !stale_it->second.empty()) {
+            const ScriptedReply stale = stale_it->second.front();
+            stale_it->second.pop_front();
+            frame.type_id = stale.type_id;
+            frame.opcode = stale.opcode;
+            frame.payload = stale.payload;
+            return crumbs::SessionStatus::success();
+        }
+
         // Check for a scripted failure first.
         auto err_it = read_errors.find(address);
         if (err_it != read_errors.end()) {
@@ -280,6 +301,49 @@ TEST(StartupDiscoveryTest, ManualModeTracksUnrespondingExpectedDevice) {
 
     ASSERT_EQ(result.missing_expected_ids.size(), 1u);
     EXPECT_EQ(result.missing_expected_ids[0], "rlht1");
+    // #104: the failed probe's reason travels with the missing-device report.
+    ASSERT_EQ(result.missing_expected_details.count("rlht1"), 1u);
+    EXPECT_NE(result.missing_expected_details.at("rlht1").find("version query failed"), std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// 4b. Stale staged replies (#103): recovered by re-querying; only a
+// persistently wrong reply excludes the device.
+// ---------------------------------------------------------------------------
+
+TEST(StartupDiscoveryTest, ProbeRecoversFromStaleStagedReply) {
+    ScriptedTransport transport;
+
+    // The device still has GET_STATE (0x80) staged from a previous master's
+    // dying poll; the first version query reads that frame back. The re-query
+    // then reaches the scripted version reply.
+    transport.add_stale_reply(0x0A, 0x80, RLHT_TYPE_ID);
+    transport.add_reply(
+        0x0A, 0x00, RLHT_TYPE_ID,
+        make_version_payload(CRUMBS_VERSION, RLHT_MODULE_VER_MAJOR, RLHT_MODULE_VER_MINOR, RLHT_MODULE_VER_PATCH));
+    transport.add_reply(0x0A, BREAD_OP_GET_CAPS, RLHT_TYPE_ID,
+                        make_caps_payload(BREAD_CAPS_SCHEMA_V1, RLHT_CAP_LEVEL_1, RLHT_CAP_BASELINE_FLAGS));
+
+    auto session = make_session(transport);
+    const inventory::ProbeRecord probe = probe_device(*session, 0x0A);
+
+    EXPECT_EQ(probe.status, inventory::ProbeStatus::Supported);
+}
+
+TEST(StartupDiscoveryTest, ProbeExcludesDeviceOnPersistentlyStaleReply) {
+    ScriptedTransport transport;
+
+    // More stale frames than the probe's re-query budget: the device never
+    // serves the version reply, so exclusion is correct.
+    for (int i = 0; i < 5; ++i) {
+        transport.add_stale_reply(0x0A, 0x80, RLHT_TYPE_ID);
+    }
+
+    auto session = make_session(transport);
+    const inventory::ProbeRecord probe = probe_device(*session, 0x0A);
+
+    EXPECT_EQ(probe.status, inventory::ProbeStatus::VersionReadFailed);
+    EXPECT_NE(probe.detail.find("unexpected opcode"), std::string::npos);
 }
 
 // ---------------------------------------------------------------------------

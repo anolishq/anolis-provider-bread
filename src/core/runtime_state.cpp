@@ -91,6 +91,7 @@ void initialize(const ProviderConfig &config) {
         state.inventory_mode = discovery.inventory_mode;
         state.unsupported_probe_count = static_cast<int>(discovery.unsupported_probes.size());
         state.missing_expected_ids = std::move(discovery.missing_expected_ids);
+        state.missing_expected_details = std::move(discovery.missing_expected_details);
         state.ready = true;
         state.ready_at = std::chrono::system_clock::now();
         state.startup_message =

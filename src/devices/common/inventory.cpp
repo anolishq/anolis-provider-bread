@@ -493,8 +493,19 @@ InventoryBuildResult build_inventory_from_probes(const ProviderConfig &config, c
     }
 
     for (std::size_t i = 0; i < config.devices.size(); ++i) {
-        if (!matched[i]) {
-            result.missing_expected_ids.push_back(config.devices[i].id);
+        if (matched[i]) {
+            continue;
+        }
+        result.missing_expected_ids.push_back(config.devices[i].id);
+        // When the configured address was probed and failed, carry the probe
+        // failure into the missing-device report so health output can say WHY
+        // the device is absent instead of the generic "not found" (#104).
+        for (const ProbeRecord &probe : result.unsupported_probes) {
+            if (probe.address == config.devices[i].address) {
+                result.missing_expected_details[config.devices[i].id] =
+                    "probe failed (" + to_string(probe.status) + "): " + probe.detail;
+                break;
+            }
         }
     }
 

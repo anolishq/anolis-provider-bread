@@ -6,6 +6,7 @@
  * BREAD devices.
  */
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -87,6 +88,10 @@ struct InventoryBuildResult {
     std::vector<InventoryDevice> supported_devices;
     std::vector<ProbeRecord> unsupported_probes;
     std::vector<std::string> missing_expected_ids;
+    // Probe-failure detail per missing-expected id, when the configured
+    // address was probed and failed (#104). Absent for devices whose address
+    // was never probed at all.
+    std::map<std::string, std::string> missing_expected_details;
 };
 
 /** @brief Build synthetic probe records for config-seeded no-hardware
