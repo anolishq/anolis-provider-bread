@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-07-14
+
 ### Fixed
 
 - Startup probes re-issue the SET_REPLY round-trip (up to 3 times) when a
