@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-07-14
+
 ### Changed
 
 - Bumped dependency pins: CRUMBS `0.12.4` → `0.12.5` (upstream fix for
