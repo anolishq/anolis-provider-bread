@@ -155,8 +155,8 @@ SessionStatus Session::read(uint8_t address, RawFrame &frame) {
 
     const uint32_t timeout_us = options_.timeout_ms > (UINT32_MAX / 1000u) ? UINT32_MAX : options_.timeout_ms * 1000u;
 
-    SessionStatus status = execute_with_retry(options_, "read", address,
-                                              [&]() { return transport_.read(address, frame, timeout_us); });
+    SessionStatus status =
+        execute_with_retry(options_, "read", address, [&]() { return transport_.read(address, frame, timeout_us); });
     record_outcome(address, status);
     return status;
 }
