@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-07-15
+
 ### Fixed
 
 - RLHT sentinel temperatures no longer surface as fabricated readings (#109).

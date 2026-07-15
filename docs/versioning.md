@@ -6,7 +6,7 @@ The provider is versioned via CMake project version and exposed as the compile-t
 
 | Field | Value |
 |-------|-------|
-| Current version | `0.3.3` |
+| Current version | `0.3.4` |
 | Scheme | [Semantic Versioning](https://semver.org) |
 
 ### What Requires A Version Bump
@@ -95,7 +95,7 @@ but not the version string directly. The version is printed to stderr at startup
 ```
 
 The full version string is embedded in the binary as `ANOLIS_PROVIDER_BREAD_VERSION`
-(`0.3.3` in the current build). Device firmware versions are logged per-device during probe:
+(`0.3.4` in the current build). Device firmware versions are logged per-device during probe:
 
 ```text
 [INFO] probe 0x08 type=0x01 crumbs=1200 module=1.0.0 caps_source=Queried
