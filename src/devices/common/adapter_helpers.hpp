@@ -171,13 +171,14 @@ inline anolis::deviceprovider::v1::Value make_string_val(const std::string &s) {
     return v;
 }
 
-inline anolis::deviceprovider::v1::SignalValue make_signal_value(const std::string &id,
-                                                                 const anolis::deviceprovider::v1::Value &val) {
+inline anolis::deviceprovider::v1::SignalValue make_signal_value(
+    const std::string &id, const anolis::deviceprovider::v1::Value &val,
+    anolis::deviceprovider::v1::SignalValue::Quality quality = anolis::deviceprovider::v1::SignalValue::QUALITY_OK) {
     anolis::deviceprovider::v1::SignalValue sv;
     sv.set_signal_id(id);
     *sv.mutable_value() = val;
     *sv.mutable_timestamp() = (google::protobuf::util::TimeUtil::GetCurrentTime)();
-    sv.set_quality(anolis::deviceprovider::v1::SignalValue::QUALITY_OK);
+    sv.set_quality(quality);
     return sv;
 }
 

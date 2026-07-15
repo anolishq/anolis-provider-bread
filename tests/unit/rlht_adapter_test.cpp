@@ -255,6 +255,37 @@ TEST_F(RlhtAdapterTest, ReadSignals_NegativeTemperature_ParsedCorrectly) {
     EXPECT_NEAR(result.values.at(0).value().double_value(), -45.3, 0.01);
 }
 
+TEST_F(RlhtAdapterTest, ReadSignals_OpenThermocoupleSentinel_FaultQualityNotFabricatedTemp) {
+    // Firmware sends BREAD_INVALID_I16 for an open thermocouple (isnan on the
+    // slice). The adapter must not divide the sentinel into -3276.8 C with
+    // quality OK (#109): the signal carries QUALITY_FAULT and a placeholder 0.
+    script_state_reply(make_state_payload(RLHT_MODE_CLOSED_LOOP, 0x00, 2505,
+                                          BREAD_INVALID_I16,  // t2: open thermocouple
+                                          2000, 2010, 500, 600, 5000, 6000, 0x00));
+
+    const auto result = read_signals(session, device, {"t1_c", "t2_c"});
+
+    ASSERT_TRUE(result.ok) << result.error_message;
+    ASSERT_EQ(result.values.size(), 2u);
+
+    const auto find = [&](const std::string &id) -> const anolis::deviceprovider::v1::SignalValue * {
+        for (const auto &sv : result.values) {
+            if (sv.signal_id() == id) return &sv;
+        }
+        return nullptr;
+    };
+
+    const auto *t1 = find("t1_c");
+    ASSERT_NE(t1, nullptr);
+    EXPECT_EQ(t1->quality(), anolis::deviceprovider::v1::SignalValue::QUALITY_OK);
+    EXPECT_DOUBLE_EQ(t1->value().double_value(), 250.5);
+
+    const auto *t2 = find("t2_c");
+    ASSERT_NE(t2, nullptr);
+    EXPECT_EQ(t2->quality(), anolis::deviceprovider::v1::SignalValue::QUALITY_FAULT);
+    EXPECT_DOUBLE_EQ(t2->value().double_value(), 0.0);
+}
+
 TEST_F(RlhtAdapterTest, ReadSignals_SessionReadFails_ReturnsUnavailable) {
     transport.read_error = crumbs::SessionErrorCode::ReadFailed;
 
