@@ -182,6 +182,24 @@ jobs:
             anolis-provider-bread/anolis-provider-bread-*-linux-arm64.tar.gz
             anolis-provider-bread/manifest-linux-arm64.json
 
+
+  aggregate-checksums:
+    name: Aggregate checksums
+    runs-on: ubuntu-24.04
+    needs: [release-linux-x86_64, release-linux-arm64]
+    steps:
+      - name: Regenerate SHA256SUMS across all release tarballs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Each build job uploads its own tarball; the x86_64 job's SHA256SUMS
+        # never covered the arm64 asset (#102). Rebuild the checksum file from
+        # everything actually attached to the release, then replace it.
+        run: |
+          gh release download "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --pattern '*.tar.gz'
+          sha256sum *.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+          gh release upload "${GITHUB_REF_NAME}" SHA256SUMS --clobber --repo "${GITHUB_REPOSITORY}"
+
   upload-metrics:
     name: Upload metrics to release
     runs-on: ubuntu-24.04
