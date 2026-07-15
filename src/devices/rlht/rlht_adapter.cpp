@@ -112,13 +112,23 @@ AdapterReadResult read_signals(crumbs::Session &session, const inventory::Invent
     result.ok = true;
     auto &vals = result.values;
 
+    // Sentinel-eligible deci-C fields: the firmware sends BREAD_INVALID_I16
+    // for an open thermocouple (isnan on the slice). Dividing the sentinel
+    // yields -3276.8 C with quality OK (#109) — emit QUALITY_FAULT with a
+    // placeholder 0.0 instead, so consumers keyed on quality never act on a
+    // fabricated temperature.
+    const auto deci_c_signal = [](const char *id, int16_t deci_c) {
+        if (!BREAD_IS_VALID_I16(deci_c)) {
+            return make_signal_value(id, make_double_val(0.0), anolis::deviceprovider::v1::SignalValue::QUALITY_FAULT);
+        }
+        return make_signal_value(id, make_double_val(deci_c / 10.0));
+    };
+
     if (should_include(signal_ids, kSigMode)) vals.push_back(make_signal_value(kSigMode, make_string_val(mode_str)));
-    if (should_include(signal_ids, kSigT1)) vals.push_back(make_signal_value(kSigT1, make_double_val(s.t1_dc / 10.0)));
-    if (should_include(signal_ids, kSigT2)) vals.push_back(make_signal_value(kSigT2, make_double_val(s.t2_dc / 10.0)));
-    if (should_include(signal_ids, kSigSp1))
-        vals.push_back(make_signal_value(kSigSp1, make_double_val(s.sp1_dc / 10.0)));
-    if (should_include(signal_ids, kSigSp2))
-        vals.push_back(make_signal_value(kSigSp2, make_double_val(s.sp2_dc / 10.0)));
+    if (should_include(signal_ids, kSigT1)) vals.push_back(deci_c_signal(kSigT1, s.t1_dc));
+    if (should_include(signal_ids, kSigT2)) vals.push_back(deci_c_signal(kSigT2, s.t2_dc));
+    if (should_include(signal_ids, kSigSp1)) vals.push_back(deci_c_signal(kSigSp1, s.sp1_dc));
+    if (should_include(signal_ids, kSigSp2)) vals.push_back(deci_c_signal(kSigSp2, s.sp2_dc));
     if (should_include(signal_ids, kSigPeriod1))
         vals.push_back(make_signal_value(kSigPeriod1, make_uint64_val(s.period1)));
     if (should_include(signal_ids, kSigPeriod2))

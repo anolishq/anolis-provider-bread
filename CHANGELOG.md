@@ -13,6 +13,15 @@ commit messages only.
 
 ## [Unreleased]
 
+### Fixed
+
+- RLHT sentinel temperatures no longer surface as fabricated readings (#109).
+  The firmware sends `BREAD_INVALID_I16` for an open thermocouple, and the
+  adapter divided the sentinel into **-3276.8 °C with quality OK** on
+  `t1_c`/`t2_c` (and sentinel setpoints alike). Sentinel-eligible deci-C
+  signals now emit `QUALITY_FAULT` with a placeholder `0.0`, so consumers
+  keyed on the quality field never act on a fabricated temperature.
+
 ## [0.3.3] - 2026-07-14
 
 ### Fixed
