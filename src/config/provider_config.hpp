@@ -32,6 +32,9 @@ struct DeviceSpec {
     DeviceType type = DeviceType::Rlht;
     std::string label;
     int address = 0;
+    // Firmware command-watchdog timeout (BREAD_OP_SET_WATCHDOG); 0 = never arm.
+    // Armed only when the probed capability flags advertise support.
+    int command_watchdog_ms = 0;
 };
 
 /**

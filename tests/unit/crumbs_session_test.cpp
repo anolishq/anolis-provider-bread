@@ -305,5 +305,48 @@ TEST(CrumbsSessionStats, StatsAreTrackedPerAddress) {
     EXPECT_EQ(session.stats_for(0x09u).failed, 1U);
 }
 
+TEST(CrumbsSessionRecovery, SuccessAfterFailureSetsRecoveryOnce) {
+    FakeTransport transport;
+    Session session(transport, SessionOptions{"/dev/i2c-1", 10000u, 100u, 0});
+    ASSERT_TRUE(session.open());
+
+    RawFrame frame{0x01, 0x02, {0xAA}};
+
+    // Success with no prior failure is not a recovery.
+    ASSERT_TRUE(session.send(0x14u, frame));
+    EXPECT_FALSE(session.take_recovery(0x14u));
+
+    // Two consecutive failures then a success -> exactly one recovery.
+    transport.send_actions.push_back(SessionStatus::failure(SessionErrorCode::WriteFailed, "NACK"));
+    transport.send_actions.push_back(SessionStatus::failure(SessionErrorCode::WriteFailed, "NACK"));
+    EXPECT_FALSE(session.send(0x14u, frame));
+    EXPECT_FALSE(session.send(0x14u, frame));
+    EXPECT_FALSE(session.take_recovery(0x14u));
+
+    ASSERT_TRUE(session.send(0x14u, frame));
+    EXPECT_TRUE(session.take_recovery(0x14u));
+    EXPECT_FALSE(session.take_recovery(0x14u));
+
+    // Further successes do not re-flag.
+    ASSERT_TRUE(session.send(0x14u, frame));
+    EXPECT_FALSE(session.take_recovery(0x14u));
+}
+
+TEST(CrumbsSessionRecovery, RecoveryIsTrackedPerAddress) {
+    FakeTransport transport;
+    Session session(transport, SessionOptions{"/dev/i2c-1", 10000u, 100u, 0});
+    ASSERT_TRUE(session.open());
+
+    RawFrame frame{0x01, 0x02, {0xAA}};
+    transport.send_actions.push_back(SessionStatus::failure(SessionErrorCode::WriteFailed, "NACK"));
+    EXPECT_FALSE(session.send(0x14u, frame));
+    ASSERT_TRUE(session.send(0x15u, frame));
+
+    EXPECT_FALSE(session.take_recovery(0x15u));
+
+    ASSERT_TRUE(session.send(0x14u, frame));
+    EXPECT_TRUE(session.take_recovery(0x14u));
+}
+
 }  // namespace
 }  // namespace anolis_provider_bread::crumbs

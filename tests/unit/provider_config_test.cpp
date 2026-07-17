@@ -107,6 +107,42 @@ devices:
     EXPECT_EQ(parsed.devices[1].type, DeviceType::Dcmt);
     EXPECT_EQ(parsed.devices[1].label, "dcmt0");
     EXPECT_EQ(parsed.devices[1].address, 0x09);
+    // command_watchdog_ms defaults to 0 (never arm) when absent.
+    EXPECT_EQ(parsed.devices[0].command_watchdog_ms, 0);
+    EXPECT_EQ(parsed.devices[1].command_watchdog_ms, 0);
+}
+
+TEST(ProviderConfigTest, ParsesDeviceCommandWatchdogMs) {
+    const TempConfigFile config(R"(
+hardware:
+  bus_path: /dev/i2c-1
+discovery:
+  mode: scan
+devices:
+  - id: dcmt0
+    type: dcmt
+    address: 0x14
+    command_watchdog_ms: 5000
+)");
+
+    const ProviderConfig parsed = load_config(config.path().string());
+    ASSERT_EQ(parsed.devices.size(), 1U);
+    EXPECT_EQ(parsed.devices[0].command_watchdog_ms, 5000);
+}
+
+TEST(ProviderConfigTest, RejectsCommandWatchdogMsBeyondU16) {
+    expect_config_error(R"(
+hardware:
+  bus_path: /dev/i2c-1
+discovery:
+  mode: scan
+devices:
+  - id: dcmt0
+    type: dcmt
+    address: 0x14
+    command_watchdog_ms: 70000
+)",
+                        "command_watchdog_ms");
 }
 
 TEST(ProviderConfigTest, RejectsMissingHardwareBusPath) {

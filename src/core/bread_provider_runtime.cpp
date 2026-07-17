@@ -11,6 +11,8 @@
 #include "crumbs/session.hpp"
 #include "devices/common/device_adapter.hpp"
 #include "devices/common/inventory.hpp"
+#include "devices/common/watchdog.hpp"
+#include "logging/logger.hpp"
 #include "protocol.pb.h"
 
 #ifndef ANOLIS_PROVIDER_BREAD_VERSION
@@ -22,6 +24,19 @@ namespace {
 
 namespace adpp = anolis::deviceprovider::v1;
 namespace sdk = anolis::provider_sdk;
+
+// After a successful operation, consume the session's address-recovery signal
+// and re-apply per-device session state that a device reboot resets — today
+// the firmware command watchdog (#112). Covers e-stop wirings that power-cycle
+// the backplane: the board reboots disarmed and is re-armed on first contact.
+void handle_recovery(crumbs::Session* session, const inventory::InventoryDevice& device) {
+    if (session == nullptr || !session->take_recovery(static_cast<uint8_t>(device.address))) {
+        return;
+    }
+    logging::info("device " + device.descriptor.device_id() + " (" + format_i2c_address(device.address) +
+                  ") recovered after I/O failures");
+    watchdog::arm_if_configured(*session, device, "recovery");
+}
 
 google::protobuf::Timestamp to_timestamp(const std::chrono::system_clock::time_point& time_point) {
     using namespace std::chrono;
@@ -109,6 +124,18 @@ sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& de
             if (stats.has_success) {
                 extra.last_seen = to_timestamp(stats.last_success);
             }
+            // Watchdog status is a live bus query (there is no passive source
+            // for trip state); only devices configured to arm pay for it, and
+            // a failed query just omits the metrics rather than failing health.
+            if (device->command_watchdog_ms > 0 && watchdog::capability_supported(*device)) {
+                watchdog::WatchdogStatus wd;
+                if (watchdog::query_status(*session, *device, wd)) {
+                    extra.metrics["watchdog_armed"] = wd.armed ? "true" : "false";
+                    extra.metrics["watchdog_timeout_ms"] = std::to_string(wd.timeout_ms);
+                    extra.metrics["watchdog_tripped"] = wd.tripped ? "true" : "false";
+                    extra.metrics["watchdog_trip_count"] = std::to_string(wd.trip_count);
+                }
+            }
         }
         // No successful contact yet -> last_seen stays unset (never fabricated).
         return extra;
@@ -176,6 +203,9 @@ sdk::AdapterReadResult BreadProviderRuntime::read(const std::string& device_id,
     // Pass signal_ids THROUGH — the §7.2 default-set expansion lives inside the
     // adapter (should_include / is_default_signal), not here.
     AdapterReadResult br = adapter_for(device->type).read_signals(*session, *device, signal_ids);
+    if (br.ok) {
+        handle_recovery(session, *device);
+    }
     sdk::AdapterReadResult out;
     out.ok = br.ok;
     out.error_code = br.error_code;
@@ -202,6 +232,9 @@ sdk::AdapterCallResult BreadProviderRuntime::call(const std::string& device_id, 
     // bad args and CODE_UNAVAILABLE only on valid-but-no-hardware.
     AdapterCallResult br =
         anolis_provider_bread::call(adapter_for(device->type), runtime::session(), *device, function_id, args);
+    if (br.ok) {
+        handle_recovery(runtime::session(), *device);
+    }
     return {br.ok, br.error_code, std::move(br.error_message)};
 }
 

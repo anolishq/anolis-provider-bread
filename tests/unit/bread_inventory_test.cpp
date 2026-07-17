@@ -106,6 +106,41 @@ TEST(BreadInventoryTest, ManualInventoryPreservesConfiguredIdentityAndTracksMiss
     EXPECT_EQ(result.missing_expected_ids[0], "drive-main");
 }
 
+TEST(BreadInventoryTest, MatchedConfigCarriesCommandWatchdogMsIntoInventory) {
+    ProviderConfig config = make_base_config();
+    config.discovery_mode = DiscoveryMode::Manual;
+    config.manual_addresses = {0x14, 0x15};
+    DeviceSpec configured{"drive-main", DeviceType::Dcmt, "Main Drive", 0x14};
+    configured.command_watchdog_ms = 5000;
+    config.devices = {configured};
+
+    std::vector<ProbeRecord> probes = {
+        ProbeRecord{0x14,
+                    DCMT_TYPE_ID,
+                    ProbeStatus::Supported,
+                    {CRUMBS_VERSION, 1, 0, 0},
+                    make_seeded_capability_profile(DeviceType::Dcmt),
+                    "ok"},
+        // Unmatched probe at 0x15: no config entry, watchdog stays 0.
+        ProbeRecord{0x15,
+                    DCMT_TYPE_ID,
+                    ProbeStatus::Supported,
+                    {CRUMBS_VERSION, 1, 0, 0},
+                    make_seeded_capability_profile(DeviceType::Dcmt),
+                    "ok"},
+    };
+
+    const InventoryBuildResult result = build_inventory_from_probes(config, probes, InventorySource::Manual);
+    ASSERT_EQ(result.supported_devices.size(), 2U);
+    for (const auto &device : result.supported_devices) {
+        if (device.descriptor.device_id() == "drive-main") {
+            EXPECT_EQ(device.command_watchdog_ms, 5000);
+        } else {
+            EXPECT_EQ(device.command_watchdog_ms, 0);
+        }
+    }
+}
+
 TEST(BreadInventoryTest, BaselineFallbackCapsGateDcmtFunctionsAndTypeMismatchIsUnsupported) {
     ProviderConfig config = make_base_config();
     config.discovery_mode = DiscoveryMode::Manual;

@@ -391,7 +391,7 @@ CapabilityProfile make_seeded_capability_profile(DeviceType type) {
         case DeviceType::Dcmt:
             profile.level = DCMT_CAP_LEVEL_3;
             profile.flags = DCMT_CAP_OPEN_LOOP_CONTROL | DCMT_CAP_BRAKE_CONTROL | DCMT_CAP_CLOSED_LOOP_POSITION |
-                            DCMT_CAP_CLOSED_LOOP_SPEED | DCMT_CAP_PID_TUNING;
+                            DCMT_CAP_CLOSED_LOOP_SPEED | DCMT_CAP_PID_TUNING | DCMT_CAP_CMD_WATCHDOG;
             break;
     }
 
@@ -490,6 +490,9 @@ InventoryBuildResult build_inventory_from_probes(const ProviderConfig &config, c
 
         probe.capability_profile = normalize_capability_profile(type, probe.capability_profile);
         result.supported_devices.push_back(build_device(config, probe, type, source, expected, device_id, label));
+        if (match_index.has_value()) {
+            result.supported_devices.back().command_watchdog_ms = config.devices[*match_index].command_watchdog_ms;
+        }
     }
 
     for (std::size_t i = 0; i < config.devices.size(); ++i) {

@@ -142,8 +142,8 @@ if(DEFINED BREAD_CONTRACTS_DIR AND NOT BREAD_CONTRACTS_DIR STREQUAL "")
 else()
     FetchContent_Declare(
         bread_crumbs_contracts
-        URL https://github.com/feastorg/bread-crumbs-contracts/releases/download/v0.4.4/bread-crumbs-contracts-0.4.4-source.tar.gz
-        URL_HASH SHA256=b2b0132865c0f3124c2ee4d90a1a392883e998dba69de50d566951fe9ba40477
+        URL https://github.com/feastorg/bread-crumbs-contracts/releases/download/v0.4.5/bread-crumbs-contracts-0.4.5-source.tar.gz
+        URL_HASH SHA256=918a1049a49ef48eaee1e6ca448fbd861135b4803a61fc79a4a2ed4218a42a72
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
     FetchContent_MakeAvailable(bread_crumbs_contracts)
@@ -193,6 +193,7 @@ add_library(anolis_provider_bread_core STATIC
     src/devices/common/bread_compatibility.cpp
     src/devices/common/device_adapter.cpp
     src/devices/common/inventory.cpp
+    src/devices/common/watchdog.cpp
     src/devices/rlht/rlht_adapter.cpp
     src/devices/dcmt/dcmt_adapter.cpp
 )
