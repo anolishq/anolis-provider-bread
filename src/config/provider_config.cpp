@@ -234,7 +234,8 @@ ProviderConfig load_config(const std::string &path) {
                 throw std::runtime_error("devices[" + std::to_string(i) + "] must be a map");
             }
 
-            reject_unknown_keys(device_node, "devices[" + std::to_string(i) + "]", {"id", "type", "label", "address"});
+            reject_unknown_keys(device_node, "devices[" + std::to_string(i) + "]",
+                                {"id", "type", "label", "address", "command_watchdog_ms"});
 
             if (!device_node["id"]) {
                 throw std::runtime_error("devices[" + std::to_string(i) + "].id is required");
@@ -255,6 +256,14 @@ ProviderConfig load_config(const std::string &path) {
                              ? require_scalar(device_node["label"], "devices[" + std::to_string(i) + "].label")
                              : spec.id;
             spec.address = parse_address_value(device_node["address"], "devices[" + std::to_string(i) + "].address");
+            if (device_node["command_watchdog_ms"]) {
+                const std::string field = "devices[" + std::to_string(i) + "].command_watchdog_ms";
+                spec.command_watchdog_ms = parse_int_value(device_node["command_watchdog_ms"], field, true);
+                // The wire field is u16 milliseconds.
+                if (spec.command_watchdog_ms > 65535) {
+                    throw std::runtime_error(field + " must be at most 65535");
+                }
+            }
 
             // IDs and addresses are unique within one provider config because
             // startup diagnostics and health output key off those identities.

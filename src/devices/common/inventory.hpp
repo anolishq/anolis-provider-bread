@@ -79,6 +79,9 @@ struct InventoryDevice {
     bool expected = false;
     ModuleVersion version;
     CapabilityProfile capability_profile;
+    // Configured firmware command-watchdog timeout (devices[].command_watchdog_ms);
+    // 0 = never arm. Only honored when capability flags advertise support.
+    int command_watchdog_ms = 0;
 };
 
 /**

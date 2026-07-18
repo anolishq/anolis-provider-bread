@@ -14,6 +14,7 @@
 
 extern "C" {
 #include <bread/bread_caps.h>
+#include <bread/bread_watchdog.h>
 #include <bread/dcmt_ops.h>
 #include <bread/rlht_ops.h>
 }
@@ -78,6 +79,7 @@ SessionStatus MockTransport::open(const SessionOptions & /*options*/) {
 void MockTransport::close() noexcept {
     open_ = false;
     pending_reply_opcode_.clear();
+    watchdog_timeout_ms_.clear();
 }
 
 bool MockTransport::is_open() const { return open_; }
@@ -97,6 +99,12 @@ SessionStatus MockTransport::send(uint8_t address, const RawFrame &frame) {
     // other frame is a control write, which the simulator simply accepts.
     if (frame.opcode == kSetReplyOpcode && !frame.payload.empty()) {
         pending_reply_opcode_[address] = frame.payload[0];
+    }
+    // Simulate the firmware command watchdog's arming state so mock sessions
+    // exercise the arm/query path end-to-end (trips never happen in mock).
+    if (frame.opcode == BREAD_OP_SET_WATCHDOG && frame.payload.size() >= 2) {
+        watchdog_timeout_ms_[address] =
+            static_cast<uint16_t>(frame.payload[0] | (static_cast<uint16_t>(frame.payload[1]) << 8));
     }
     return SessionStatus::success();
 }
@@ -124,6 +132,18 @@ SessionStatus MockTransport::read(uint8_t address, RawFrame &frame, uint32_t /*t
         frame.type_id = DCMT_TYPE_ID;
         frame.opcode = DCMT_OP_GET_STATE;
         frame.payload = build_dcmt_state_payload();
+        return SessionStatus::success();
+    }
+    if (reply_opcode == BREAD_OP_GET_WATCHDOG) {
+        const auto wd = watchdog_timeout_ms_.find(address);
+        const uint16_t timeout_ms = wd == watchdog_timeout_ms_.end() ? 0 : wd->second;
+        frame.type_id = type_id;
+        frame.opcode = BREAD_OP_GET_WATCHDOG;
+        frame.payload.clear();
+        append_u8(frame.payload, timeout_ms != 0 ? 1 : 0);
+        append_u16_le(frame.payload, timeout_ms);
+        append_u8(frame.payload, 0);  // tripped
+        append_u8(frame.payload, 0);  // trip_count
         return SessionStatus::success();
     }
 

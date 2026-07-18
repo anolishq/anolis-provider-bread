@@ -209,9 +209,23 @@ void Session::record_outcome(uint8_t address, const SessionStatus &status) {
         ++stats.ok;
         stats.has_success = true;
         stats.last_success = std::chrono::system_clock::now();
+        // A success directly after one or more failures marks the address as
+        // recovered (e.g. back from an e-stop power cut). Consumers pick this
+        // up via take_recovery() to re-apply per-device session state such as
+        // the firmware command watchdog, which a reboot resets.
+        if (last_op_failed_.count(address) != 0) {
+            last_op_failed_.erase(address);
+            recovery_pending_.insert(address);
+        }
     } else {
         ++stats.failed;
+        last_op_failed_.insert(address);
     }
+}
+
+bool Session::take_recovery(uint8_t address) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return recovery_pending_.erase(address) != 0;
 }
 
 SessionStatus Session::validate_open_options() const {

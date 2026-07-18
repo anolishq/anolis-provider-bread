@@ -13,6 +13,21 @@ commit messages only.
 
 ## [Unreleased]
 
+### Added
+
+- Firmware command-watchdog support (#112, feastorg/Slice_DCMT#6): new
+  per-device config `devices[].command_watchdog_ms` (0/absent = never arm)
+  arms the slice's bus-liveness watchdog at startup via
+  `BREAD_OP_SET_WATCHDOG`, gated on the probed `CMD_WATCHDOG` capability
+  flag so old firmware never sees the opcode. The session now flags
+  failure→success transitions per address (`Session::take_recovery`), and
+  the provider re-arms on device recovery — covering e-stop wirings that
+  power-cycle the backplane, where the board reboots disarmed.
+  `device_health()` reports `watchdog_armed` / `watchdog_timeout_ms` /
+  `watchdog_tripped` / `watchdog_trip_count` from a live
+  `BREAD_OP_GET_WATCHDOG` query beside the io counters. Mock transport
+  simulates arming state; contracts pin bumped to 0.4.5.
+
 ## [0.3.4] - 2026-07-15
 
 ### Fixed

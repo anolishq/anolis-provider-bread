@@ -19,6 +19,7 @@
 #include "crumbs/mock_transport.hpp"
 #include "crumbs/session.hpp"
 #include "devices/common/bread_compatibility.hpp"
+#include "devices/common/watchdog.hpp"
 #include "logging/logger.hpp"
 
 #if defined(__linux__)
@@ -87,6 +88,12 @@ void initialize(const ProviderConfig &config) {
 
         startup::DiscoveryResult discovery = startup::run_discovery(*sess, config);
 
+        // Arm configured firmware command watchdogs once the roster is known
+        // (#112). Capability gating and failure logging live in the helper.
+        for (const auto &device : discovery.devices) {
+            watchdog::arm_if_configured(*sess, device, "startup");
+        }
+
         state.devices = std::move(discovery.devices);
         state.inventory_mode = discovery.inventory_mode;
         state.unsupported_probe_count = static_cast<int>(discovery.unsupported_probes.size());
@@ -136,6 +143,12 @@ void initialize(const ProviderConfig &config) {
     const crumbs::SessionStatus open_status = sess->open();
     if (!open_status) {
         throw std::runtime_error("failed to open mock CRUMBS bus '" + config.bus_path + "': " + open_status.message);
+    }
+
+    // Mirror the hardware path so mock rehearsals exercise watchdog arming
+    // (MockTransport simulates the arming state for GET_WATCHDOG queries).
+    for (const auto &device : state.devices) {
+        watchdog::arm_if_configured(*sess, device, "startup");
     }
 
     std::unique_ptr<crumbs::Session> old_session;

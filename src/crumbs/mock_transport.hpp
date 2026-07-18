@@ -50,6 +50,8 @@ private:
     std::unordered_map<uint8_t, uint8_t> device_type_ids_;
     // address -> reply opcode requested by the most recent SET_REPLY query.
     std::unordered_map<uint8_t, uint8_t> pending_reply_opcode_;
+    // address -> simulated command-watchdog timeout (0/absent = disarmed).
+    std::unordered_map<uint8_t, uint16_t> watchdog_timeout_ms_;
 };
 
 }  // namespace anolis_provider_bread::crumbs

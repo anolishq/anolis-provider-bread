@@ -20,3 +20,7 @@ devices:
     type: dcmt
     label: Conveyor Drive
     address: 0x09
+    # Arm the firmware command watchdog (auto-brake when the bus goes silent
+    # for this long). 0 or absent = never arm; requires firmware that
+    # advertises the CMD_WATCHDOG capability.
+    command_watchdog_ms: 5000

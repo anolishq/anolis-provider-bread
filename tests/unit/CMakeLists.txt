@@ -8,6 +8,7 @@ add_executable(provider_unit_tests
     provider_config_test.cpp
     rlht_adapter_test.cpp
     startup_discovery_test.cpp
+    watchdog_test.cpp
 )
 
 target_include_directories(provider_unit_tests PRIVATE

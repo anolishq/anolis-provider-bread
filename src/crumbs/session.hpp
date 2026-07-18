@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -214,6 +215,17 @@ public:
      */
     AddressStats stats_for(uint8_t address) const;
 
+    /**
+     * @brief Consume the recovery flag for one address.
+     *
+     * The flag is set when an operation succeeds directly after one or more
+     * failures (the address came back — e.g. after an e-stop power cut).
+     * Returns true at most once per recovery; callers use it to re-apply
+     * per-device session state that a device reboot resets (such as the
+     * firmware command watchdog, anolis-provider-bread#112).
+     */
+    bool take_recovery(uint8_t address);
+
 private:
     SessionStatus validate_open_options() const;
     SessionStatus validate_scan_options(const ScanOptions &options) const;
@@ -228,6 +240,10 @@ private:
     SessionOptions options_;
     mutable std::mutex mutex_;
     std::map<uint8_t, AddressStats> stats_;
+    // Addresses whose most recent operation failed / that have an unconsumed
+    // failure->success transition. Guarded by mutex_.
+    std::set<uint8_t> last_op_failed_;
+    std::set<uint8_t> recovery_pending_;
 };
 
 /** @brief Build session transport options from resolved provider config. */
