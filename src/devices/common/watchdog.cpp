@@ -35,8 +35,7 @@ void arm_if_configured(crumbs::Session &session, const inventory::InventoryDevic
         return;
     }
 
-    const std::string device_tag =
-        device.descriptor.device_id() + " (" + format_i2c_address(device.address) + ")";
+    const std::string device_tag = device.descriptor.device_id() + " (" + format_i2c_address(device.address) + ")";
 
     if (!capability_supported(device)) {
         logging::warning("watchdog: " + device_tag + " has command_watchdog_ms configured but firmware does not " +
