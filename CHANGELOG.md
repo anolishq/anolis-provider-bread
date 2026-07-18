@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-07-17
+
 ### Added
 
 - Firmware command-watchdog support (#112, feastorg/Slice_DCMT#6): new
