@@ -15,7 +15,8 @@
 // BreadProviderRuntime tests — preserve the bread-specific coverage lost when
 // core/handlers.cpp moved to the SDK: the inventory/read seam and the §8.3
 // two-stage call() (build_frame validates args BEFORE the null-session guard).
-// Driven in mock mode (mock:// bus_path → MockTransport produces real values).
+// Driven in mock mode (mock:// bus_path → CrumbsTransport over a CrumbsCannedBus
+// that answers real, CRC'd, padded CRUMBS wire bytes through the real decode).
 
 namespace {
 
@@ -62,7 +63,7 @@ TEST(BreadProviderRuntimeTest, InventoryAndMetadata) {
     EXPECT_TRUE(r.extra_diagnostics.contains("init_time_ms"));
 }
 
-TEST(BreadProviderRuntimeTest, ReadDefaultSetThroughMockTransport) {
+TEST(BreadProviderRuntimeTest, ReadDefaultSetThroughCannedBus) {
     auto rt = make_ready_runtime();
 
     // empty signal_ids -> the adapter's curated default set (§7.2); pass-through.

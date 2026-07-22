@@ -15,8 +15,11 @@
 #include <stdexcept>
 #include <utility>
 
+#include "anolis/provider_sdk/i2c/fault_injecting_i2c_bus.hpp"
+#include "anolis/provider_sdk/i2c/i2c_bus.hpp"
 #include "core/startup.hpp"
-#include "crumbs/mock_transport.hpp"
+#include "crumbs/crumbs_canned_bus.hpp"
+#include "crumbs/crumbs_transport.hpp"
 #include "crumbs/session.hpp"
 #include "devices/common/bread_compatibility.hpp"
 #include "devices/common/watchdog.hpp"
@@ -24,7 +27,6 @@
 
 #if defined(__linux__)
 #include "anolis/provider_sdk/i2c/linux_i2c_bus.hpp"
-#include "crumbs/crumbs_transport.hpp"
 #endif
 
 namespace anolis_provider_bread::runtime {
@@ -135,13 +137,24 @@ void initialize(const ProviderConfig &config) {
     state.ready_at = std::chrono::system_clock::now();
     state.startup_message = "config-seeded inventory (mock mode)";
 
-    // Stand up an in-memory mock CRUMBS session so reads/calls exercise the live
-    // adapter path (returning real declared data) instead of CODE_UNAVAILABLE.
-    // Inventory stays config-seeded above; this only backs the live session.
-    auto transport = std::make_unique<crumbs::MockTransport>();
+    // Stand up a mock CRUMBS session over a canned bus so reads/calls exercise
+    // the real transport + CRUMBS decode path (not a synthesized RawFrame),
+    // returning real declared data. A fault spec on the mock:// query wraps the
+    // canned bus in the fault-injecting decorator (anolishq/anolis#99); plain
+    // mock:// is a clean, fault-free device. Inventory stays config-seeded above.
+    auto [bus_path, fault_query] = anolis::provider_sdk::i2c::split_bus_query(config.bus_path);
+    auto canned = std::make_unique<crumbs::CrumbsCannedBus>(bus_path);
     for (const auto &device : state.devices) {
-        transport->add_device(static_cast<uint8_t>(device.address), inventory::bread_type_id(device.type));
+        canned->add_device(static_cast<uint8_t>(device.address), inventory::bread_type_id(device.type));
     }
+    std::unique_ptr<anolis::provider_sdk::i2c::I2cBus> bus;
+    const auto fault_spec = anolis::provider_sdk::i2c::FaultSpec::parse(fault_query);
+    if (fault_spec.any()) {
+        bus = std::make_unique<anolis::provider_sdk::i2c::FaultInjectingI2cBus>(std::move(canned), fault_spec);
+    } else {
+        bus = std::move(canned);
+    }
+    auto transport = std::make_unique<crumbs::CrumbsTransport>(std::move(bus));
     auto sess = std::make_unique<crumbs::Session>(*transport, crumbs::make_session_options(config));
     const crumbs::SessionStatus open_status = sess->open();
     if (!open_status) {
@@ -149,7 +162,7 @@ void initialize(const ProviderConfig &config) {
     }
 
     // Mirror the hardware path so mock rehearsals exercise watchdog arming
-    // (MockTransport simulates the arming state for GET_WATCHDOG queries).
+    // (the canned bus simulates the arming state for GET_WATCHDOG queries).
     for (const auto &device : state.devices) {
         watchdog::arm_if_configured(*sess, device, "startup");
     }
