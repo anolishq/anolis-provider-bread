@@ -63,8 +63,8 @@ include(FetchContent)
 # tarball); local dev overrides with -DFETCHCONTENT_SOURCE_DIR_ANOLIS_PROVIDER_SDK=<path>.
 FetchContent_Declare(
     anolis_provider_sdk
-    URL https://github.com/anolishq/anolis-provider-sdk/releases/download/v0.1.2/anolis-provider-sdk-0.1.2-source.tar.gz
-    URL_HASH SHA256=06c2620e3d62a250a72dcf44955cd65e6f13b8ce13b752bbd5bf4cda07ed2d85
+    URL https://github.com/anolishq/anolis-provider-sdk/releases/download/v0.1.4/anolis-provider-sdk-0.1.4-source.tar.gz
+    URL_HASH SHA256=32959808fb19048cd65690f5c3dfb7f874ad9c4ed9b770d51528263f01b8f81a
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(anolis_provider_sdk)
@@ -180,9 +180,9 @@ anolis_provider_bread_apply_warnings(anolis_provider_bread_crumbs)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(anolis_provider_bread_crumbs PRIVATE
-        src/crumbs/linux_transport.cpp
+        src/crumbs/crumbs_transport.cpp
     )
-    target_link_libraries(anolis_provider_bread_crumbs PUBLIC crumbs::crumbs)
+    target_link_libraries(anolis_provider_bread_crumbs PUBLIC crumbs::crumbs anolis::provider_sdk_i2c)
 endif()
 
 add_library(anolis_provider_bread_core STATIC

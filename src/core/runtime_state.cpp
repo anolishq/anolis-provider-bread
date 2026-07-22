@@ -23,7 +23,8 @@
 #include "logging/logger.hpp"
 
 #if defined(__linux__)
-#include "crumbs/linux_transport.hpp"
+#include "anolis/provider_sdk/i2c/linux_i2c_bus.hpp"
+#include "crumbs/crumbs_transport.hpp"
 #endif
 
 namespace anolis_provider_bread::runtime {
@@ -78,7 +79,9 @@ void initialize(const ProviderConfig &config) {
     if (!is_mock_mode(config)) {
         // Hardware path: open one live CRUMBS session and derive the runtime
         // inventory from an immediate discovery pass on that bus.
-        auto transport = std::make_unique<crumbs::LinuxTransport>();
+        auto bus = std::make_unique<anolis::provider_sdk::i2c::LinuxI2cBus>(config.bus_path, config.timeout_ms,
+                                                                            config.retry_count);
+        auto transport = std::make_unique<crumbs::CrumbsTransport>(std::move(bus));
         auto sess = std::make_unique<crumbs::Session>(*transport, crumbs::make_session_options(config));
 
         const crumbs::SessionStatus open_status = sess->open();
