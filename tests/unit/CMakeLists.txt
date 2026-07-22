@@ -1,6 +1,7 @@
 add_executable(provider_unit_tests
     bread_inventory_test.cpp
     bread_provider_runtime_test.cpp
+    crumbs_canned_bus_test.cpp
     crumbs_session_test.cpp
     dcmt_adapter_test.cpp
     inventory_test.cpp

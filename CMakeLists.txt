@@ -168,28 +168,31 @@ target_compile_definitions(anolis_provider_bread_support PUBLIC
 )
 anolis_provider_bread_apply_warnings(anolis_provider_bread_support)
 
+# The CRUMBS codec (encode/decode/frame_length/scan) builds on all platforms
+# (CRUMBS_ENABLE_LINUX_HAL is OFF off-Linux), so CrumbsTransport + the canned bus
+# are portable and back the mock path everywhere; only the real LinuxI2cBus is
+# Linux-gated (in runtime_state.cpp).
 add_library(anolis_provider_bread_crumbs STATIC
     src/crumbs/session.cpp
+    src/crumbs/crumbs_transport.cpp
+    src/crumbs/crumbs_canned_bus.cpp
 )
 target_include_directories(anolis_provider_bread_crumbs PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_link_libraries(anolis_provider_bread_crumbs PUBLIC anolis_provider_bread_support)
+target_link_libraries(anolis_provider_bread_crumbs PUBLIC
+    anolis_provider_bread_support
+    anolis_provider_bread_bread_contracts
+    crumbs::crumbs
+    anolis::provider_sdk_i2c
+)
 target_compile_definitions(anolis_provider_bread_crumbs PUBLIC
     ANOLIS_PROVIDER_BREAD_VERSION="${PROJECT_VERSION}"
 )
 anolis_provider_bread_apply_warnings(anolis_provider_bread_crumbs)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_sources(anolis_provider_bread_crumbs PRIVATE
-        src/crumbs/crumbs_transport.cpp
-    )
-    target_link_libraries(anolis_provider_bread_crumbs PUBLIC crumbs::crumbs anolis::provider_sdk_i2c)
-endif()
-
 add_library(anolis_provider_bread_core STATIC
     src/core/bread_provider_runtime.cpp
     src/core/runtime_state.cpp
     src/core/startup.cpp
-    src/crumbs/mock_transport.cpp
     src/devices/common/bread_compatibility.cpp
     src/devices/common/device_adapter.cpp
     src/devices/common/inventory.cpp
