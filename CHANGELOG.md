@@ -13,6 +13,27 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-07-22
+
+### Changed
+
+- Migrated the real I2C transport onto the shared bus seam in
+  `anolis-provider-sdk` 0.1.4 (`anolis::provider_sdk_i2c`). The former
+  `LinuxTransport` is replaced by `CrumbsTransport`, which runs raw I2C over
+  the shared `LinuxI2cBus` while keeping CRUMBS framing and scan in the
+  provider (driven through the CRUMBS controller helpers over `I2cBus`-backed
+  callbacks). `send` = `crumbs_encode_message` + `bus.write`; `read` =
+  `bus.read` + `crumbs_frame_length` + `crumbs_decode_message` (the
+  exact-length trim/decode — the bread#97 surface — unchanged); `scan` =
+  `crumbs_controller_scan_for_crumbs_with_types`. `Session`, the device
+  adapters, the watchdog/recovery path, and the op-level io counters are
+  unchanged. (anolishq/anolis-provider-sdk#19)
+- Behaviour: adopting `LinuxI2cBus` makes `hardware.timeout_ms` real (the
+  previous linux-wire timeout was a no-op) and turns the reply read into a
+  deadline-bounded poll. Scan probes use the short reply-staging window
+  (`query_delay_us`) so full-range discovery stays fast; live reads honour the
+  request timeout, and `I2C_TIMEOUT` / `I2C_RETRIES=0` are now applied.
+
 ## [0.3.5] - 2026-07-17
 
 ### Added
