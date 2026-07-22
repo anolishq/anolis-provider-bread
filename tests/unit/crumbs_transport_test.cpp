@@ -1,5 +1,5 @@
 /**
- * @file linux_transport_test.cpp
+ * @file crumbs_transport_test.cpp
  * @brief Regression tests for CRUMBS reply framing over Linux I2C.
  *
  * A Linux I2C controller must request a fixed byte count up front, but a CRUMBS
@@ -9,7 +9,7 @@
  *
  * bread 0.2.9-0.3.0 broke on exactly this (CRUMBS v0.12.4 strictness + raw
  * lengths), and 0.3.1 carried a local trim workaround. Since CRUMBS v0.12.5 the
- * trim lives upstream (crumbs_frame_length, used by LinuxTransport::read); these
+ * trim lives upstream (crumbs_frame_length, used by CrumbsTransport::read); these
  * tests pin the contract from the consumer side with the literal bytes captured
  * from a Slice_RLHT at 0x0A on the bench Pi (anolishq/anolis#138), so an
  * upstream regression cannot silently reintroduce the breakage. CI is mock://
@@ -24,7 +24,7 @@
 
 #if defined(__linux__)
 
-#include "crumbs/linux_transport.hpp"
+#include "crumbs/crumbs_transport.hpp"
 
 namespace anolis_provider_bread::crumbs {
 namespace {
@@ -36,7 +36,7 @@ const std::vector<uint8_t> kBenchReply = {0x01, 0x00, 0x05, 0xb4, 0x04, 0x01, 0x
                                           0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                                           0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-TEST(LinuxTransportFraming, UpstreamTrimYieldsTheDeclaredFrame) {
+TEST(CrumbsTransportFraming, UpstreamTrimYieldsTheDeclaredFrame) {
     std::size_t frame_len = 0;
 
     ASSERT_EQ(crumbs_frame_length(kBenchReply.data(), kBenchReply.size(), &frame_len), 0);
@@ -45,7 +45,7 @@ TEST(LinuxTransportFraming, UpstreamTrimYieldsTheDeclaredFrame) {
     EXPECT_LT(frame_len, kBenchReply.size());
 }
 
-TEST(LinuxTransportFraming, TrimmedLengthDecodesWhileTheRawLengthDoesNot) {
+TEST(CrumbsTransportFraming, TrimmedLengthDecodesWhileTheRawLengthDoesNot) {
     std::size_t frame_len = 0;
     ASSERT_EQ(crumbs_frame_length(kBenchReply.data(), kBenchReply.size(), &frame_len), 0);
 
@@ -70,7 +70,7 @@ TEST(LinuxTransportFraming, TrimmedLengthDecodesWhileTheRawLengthDoesNot) {
     EXPECT_EQ(ctx_trimmed.last_crc_ok, 1u);
 }
 
-TEST(LinuxTransportFraming, RejectsAnAllPaddingRead) {
+TEST(CrumbsTransportFraming, RejectsAnAllPaddingRead) {
     // A silent device: address ACKed, no data supplied, master reads all 0xFF.
     std::vector<uint8_t> garbage(31, 0xff);
     std::size_t frame_len = 0;
@@ -78,7 +78,7 @@ TEST(LinuxTransportFraming, RejectsAnAllPaddingRead) {
     EXPECT_NE(crumbs_frame_length(garbage.data(), garbage.size(), &frame_len), 0);
 }
 
-TEST(LinuxTransportFraming, AcceptsAnExactlySizedFrameWithNoPadding) {
+TEST(CrumbsTransportFraming, AcceptsAnExactlySizedFrameWithNoPadding) {
     // An Arduino controller hands over exactly the frame; trimming must be a no-op.
     const std::vector<uint8_t> exact(kBenchReply.begin(), kBenchReply.begin() + 9);
     std::size_t frame_len = 0;
