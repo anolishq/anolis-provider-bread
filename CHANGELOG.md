@@ -13,6 +13,29 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-07-22
+
+### Changed
+
+- Mock mode now runs through the bus. The former `MockTransport` (which
+  synthesized finished `RawFrame`s above the codec, so mock never ran
+  `crumbs_frame_length` / `crumbs_decode_message`) is replaced by a
+  `CrumbsCannedBus` that answers the CRUMBS wire protocol in real, CRC'd,
+  `0xFF`-padded bytes below the codec. `CrumbsTransport::read` now runs the real
+  trim + exact-length decode on the mock path — closing the mock blind spot
+  behind #97 (a dependency contract tightening that broke every live read while
+  mock CI stayed green). `MockTransport` is deleted; mock and hardware run the
+  identical `CrumbsTransport`. The RLHT/DCMT/watchdog reply payloads are
+  unchanged, so mock values are the same. (anolis-provider-sdk#19, #118)
+
+### Added
+
+- Always-on fault injection in mock: a fault spec on the `mock://` query wraps
+  the canned bus in the SDK `FaultInjectingI2cBus`, so tests drive real wire
+  faults over the real decode path — e.g. an injected corruption now makes the
+  decode fail (`DecodeFailed`) instead of silently passing, the exact #97 class
+  of regression, now caught in CI. (#118)
+
 ## [0.3.6] - 2026-07-22
 
 ### Changed
