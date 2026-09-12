@@ -121,6 +121,7 @@ sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& de
             extra.metrics["io_ok"] = std::to_string(stats.ok);
             extra.metrics["io_failed"] = std::to_string(stats.failed);
             extra.metrics["io_retried_attempts"] = std::to_string(stats.retried_attempts);
+            extra.metrics["io_rejected"] = std::to_string(stats.rejected);
             if (stats.has_success) {
                 extra.last_seen = to_timestamp(stats.last_success);
             }

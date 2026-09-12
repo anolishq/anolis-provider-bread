@@ -256,6 +256,32 @@ TEST(CrumbsSessionStats, MaskedRetryStaysVisibleInRetriedAttempts) {
     EXPECT_TRUE(stats.has_success);
 }
 
+TEST(CrumbsSessionStats, RejectionCountsBesideOkNotInsteadOfIt) {
+    FakeTransport transport;
+    Session session(transport, SessionOptions{"/dev/i2c-1", 10000u, 100u, 2});
+    ASSERT_TRUE(session.open());
+
+    // The transport delivered a frame (io_ok); the adapter then found it was
+    // not the reply it asked for. Both facts must survive: the I/O worked, the
+    // reply was useless. Folding the second into `failed` would erase the
+    // difference between "bus did not answer" and "bus answered wrong", which
+    // is the distinction the runtime's device-loss classification rests on
+    // (anolis-provider-bread#129).
+    transport.read_actions.push_back({SessionStatus::success(), RawFrame{0x01, 0x80, {0x11}}});
+    RawFrame reply;
+    ASSERT_TRUE(session.query_read(0x08u, 0x80u, reply));
+    session.record_rejection(0x08u);
+
+    const AddressStats stats = session.stats_for(0x08u);
+    EXPECT_EQ(stats.ok, 1U);
+    EXPECT_EQ(stats.failed, 0U);
+    EXPECT_EQ(stats.rejected, 1U);
+    EXPECT_TRUE(stats.has_success);
+
+    // Never-contacted address: zero, not garbage.
+    EXPECT_EQ(session.stats_for(0x09u).rejected, 0U);
+}
+
 TEST(CrumbsSessionStats, ExhaustedRetriesCountOneFailure) {
     FakeTransport transport;
     Session session(transport, SessionOptions{"/dev/i2c-1", 10000u, 100u, 1});

@@ -338,6 +338,7 @@ TEST(ShellTest, SupportsHelloInventoryAndHealth) {
         EXPECT_FALSE(rlht_health->has_last_seen());
         EXPECT_EQ(rlht_health->metrics().at("io_ok"), "0");
         EXPECT_EQ(rlht_health->metrics().at("io_failed"), "0");
+        EXPECT_EQ(rlht_health->metrics().at("io_rejected"), "0");
     }
 
     {

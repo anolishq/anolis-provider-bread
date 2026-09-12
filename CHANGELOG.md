@@ -13,6 +13,16 @@ commit messages only.
 
 ## [Unreleased]
 
+### Added
+
+- `io_rejected` per-device health metric (#129): replies the transport delivered
+  intact but the adapter could not use — wrong type or opcode for the request,
+  or an unparsable payload. Previously these counted as `io_ok`, so a device
+  whose every read the runtime saw fail reported `io_failed = 0`. Kept apart
+  from `io_failed` on purpose: "the bus did not answer" and "the bus answered
+  with the wrong frame" are different faults, and the runtime's device-loss
+  classification depends on the distinction.
+
 ## [0.3.8] - 2026-08-01
 
 ### Added

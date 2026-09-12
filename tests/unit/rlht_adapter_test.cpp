@@ -325,6 +325,19 @@ TEST_F(RlhtAdapterTest, ReadSignals_WrongTypeId_ReturnsInternal) {
     EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_INTERNAL);
 }
 
+TEST_F(RlhtAdapterTest, ReadSignals_RejectedHeader_IsCountedBesideIoOk) {
+    transport.read_replies[RLHT_OP_GET_STATE] =
+        crumbs::RawFrame{0x99u, RLHT_OP_GET_STATE, make_state_payload(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)};
+
+    const auto result = read_signals(session, device, {});
+    ASSERT_FALSE(result.ok);
+
+    const auto stats = session.stats_for(static_cast<uint8_t>(device.address));
+    EXPECT_EQ(stats.ok, 1U);
+    EXPECT_EQ(stats.failed, 0U);
+    EXPECT_EQ(stats.rejected, 1U);
+}
+
 // ---------------------------------------------------------------------------
 // call tests
 // ---------------------------------------------------------------------------

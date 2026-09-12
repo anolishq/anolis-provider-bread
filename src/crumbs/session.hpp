@@ -104,6 +104,13 @@ struct AddressStats {
     uint64_t ok = 0;
     uint64_t failed = 0;
     uint64_t retried_attempts = 0;
+    /** @brief Replies the transport delivered intact but the adapter could not
+     * use: wrong type/opcode for the request, or a payload it could not parse.
+     * Counted separately from `failed` on purpose -- "the bus did not answer"
+     * and "the bus answered with the wrong frame" are different faults, and
+     * the runtime's device-loss classification depends on telling them apart
+     * (anolis-provider-bread#129). */
+    uint64_t rejected = 0;
     bool has_success = false;
     /** @brief Wall-clock time of the last successful operation; meaningful only
      * when `has_success` is true. */
@@ -225,6 +232,16 @@ public:
      * firmware command watchdog, anolis-provider-bread#112).
      */
     bool take_recovery(uint8_t address);
+
+    /**
+     * @brief Record a reply the adapter rejected after a successful read.
+     *
+     * The session counted the I/O as `ok` -- a CRC-valid frame came back --
+     * but it was not the reply the adapter asked for. Without this the health
+     * surface reports a clean device while the runtime sees every one of its
+     * reads fail (anolis-provider-bread#129).
+     */
+    void record_rejection(uint8_t address);
 
 private:
     SessionStatus validate_open_options() const;
