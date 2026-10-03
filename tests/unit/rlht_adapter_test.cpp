@@ -338,6 +338,16 @@ TEST_F(RlhtAdapterTest, ReadSignals_RejectedHeader_IsCountedBesideIoOk) {
     EXPECT_EQ(stats.rejected, 1U);
 }
 
+TEST_F(RlhtAdapterTest, ReadSignals_MalformedPayload_IsCountedAsRejected) {
+    transport.read_replies[RLHT_OP_GET_STATE] =
+        crumbs::RawFrame{RLHT_TYPE_ID, RLHT_OP_GET_STATE, {0x00, 0x00, 0x00, 0x00, 0x00}};
+
+    const auto result = read_signals(session, device, {});
+    ASSERT_FALSE(result.ok);
+
+    EXPECT_EQ(session.stats_for(static_cast<uint8_t>(device.address)).rejected, 1U);
+}
+
 // ---------------------------------------------------------------------------
 // call tests
 // ---------------------------------------------------------------------------
