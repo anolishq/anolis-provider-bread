@@ -15,7 +15,8 @@
  *
  * It is the byte-level twin of `MockTransport`'s request/reply state machine:
  *   - a write is a fully-encoded CRUMBS request frame; it is decoded to record
- *     the pending SET_REPLY opcode (or the SET_WATCHDOG timeout) per address;
+ *     the pending SET_REPLY opcode (or the SET_WATCHDOG timeout, or a
+ *     CLEAR_WATCHDOG_TRIP) per address;
  *   - a read builds the matching GET_STATE / GET_WATCHDOG reply, encodes it, and
  *     returns it padded with 0xFF to the requested count — exactly what a real
  *     fixed-count i2c-dev read of a short CRUMBS frame yields.
@@ -41,6 +42,14 @@ public:
     /** @brief Seed a simulated device's BREAD type id at @p address. */
     void add_device(uint8_t address, uint8_t type_id);
 
+    /**
+     * @brief Simulate a command-watchdog expiry at @p address.
+     *
+     * The canned device models latching firmware: the trip survives
+     * SET_WATCHDOG and is released only by CLEAR_WATCHDOG_TRIP.
+     */
+    void trip_watchdog(uint8_t address);
+
     anolis::provider_sdk::i2c::I2cStatus open() override;
     void close() override;
     bool is_open() const override;
@@ -60,6 +69,8 @@ private:
         uint8_t pending_reply_opcode = 0;
         bool has_pending = false;
         uint16_t watchdog_timeout_ms = 0;
+        bool watchdog_tripped = false;
+        uint8_t watchdog_trip_count = 0;
     };
 
     // Decode a request frame and record the pending reply / watchdog state.

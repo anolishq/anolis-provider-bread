@@ -10,6 +10,7 @@
 #include "devices/common/inventory.hpp"
 
 extern "C" {
+#include <bread/bread_watchdog.h>
 #include <bread/rlht_ops.h>
 }
 
@@ -539,6 +540,19 @@ TEST_F(RlhtAdapterTest, Call_SendTimesOut_ReturnsDeadlineExceeded) {
 
     EXPECT_FALSE(result.ok);
     EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_DEADLINE_EXCEEDED);
+}
+
+TEST_F(RlhtAdapterTest, Call_ClearWatchdogTrip_SendsEmptyClearFrame) {
+    const auto result = call(session, device, 7u, make_args({}));
+
+    ASSERT_TRUE(result.ok) << result.error_message;
+    ASSERT_EQ(transport.sent_frames.size(), 1u);
+    EXPECT_EQ(transport.sent_frames[0].first, 0x08u);
+    const crumbs::RawFrame &frame = transport.sent_frames[0].second;
+    EXPECT_EQ(frame.type_id, RLHT_TYPE_ID);
+    EXPECT_EQ(frame.opcode, BREAD_OP_CLEAR_WATCHDOG_TRIP);
+    EXPECT_EQ(frame.opcode, 0x7Cu);
+    EXPECT_TRUE(frame.payload.empty());
 }
 
 }  // namespace

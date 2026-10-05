@@ -10,6 +10,11 @@
  * the opcode. Firmware boots disarmed, and a device reboot (e.g. an e-stop
  * that cuts backplane power) resets it — callers re-arm on the session's
  * address-recovery signal (#112).
+ *
+ * Arming never clears a trip on its own behalf. On firmware advertising
+ * *_CAP_CLEAR_WATCHDOG_TRIP the trip latches and SET_WATCHDOG re-arms without
+ * releasing it; the only provider path that sends BREAD_OP_CLEAR_WATCHDOG_TRIP
+ * is the operator-invoked `clear_watchdog_trip` device function.
  */
 
 #include <cstdint>

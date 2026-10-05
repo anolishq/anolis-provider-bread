@@ -75,12 +75,12 @@ std::vector<uint8_t> build_dcmt_state_payload() {
     return p;
 }
 
-std::vector<uint8_t> build_watchdog_payload(uint16_t timeout_ms) {
+std::vector<uint8_t> build_watchdog_payload(uint16_t timeout_ms, bool tripped, uint8_t trip_count) {
     std::vector<uint8_t> p;
     append_u8(p, timeout_ms != 0 ? 1 : 0);  // armed
     append_u16_le(p, timeout_ms);
-    append_u8(p, 0);  // tripped
-    append_u8(p, 0);  // trip_count
+    append_u8(p, tripped ? 1 : 0);
+    append_u8(p, trip_count);
     return p;
 }
 
@@ -89,6 +89,15 @@ std::vector<uint8_t> build_watchdog_payload(uint16_t timeout_ms) {
 CrumbsCannedBus::CrumbsCannedBus(std::string bus_path) : bus_path_(std::move(bus_path)) {}
 
 void CrumbsCannedBus::add_device(uint8_t address, uint8_t type_id) { devices_[address].type_id = type_id; }
+
+void CrumbsCannedBus::trip_watchdog(uint8_t address) {
+    auto it = devices_.find(address);
+    if (it == devices_.end()) {
+        return;
+    }
+    it->second.watchdog_tripped = true;
+    ++it->second.watchdog_trip_count;
+}
 
 I2cStatus CrumbsCannedBus::open() {
     opened_ = true;
@@ -108,7 +117,9 @@ void CrumbsCannedBus::apply_write(uint8_t address, const uint8_t *tx_data, size_
     }
     // The write is a fully-encoded CRUMBS request frame; decode it to learn the
     // request (SET_REPLY records which reply to stage; SET_WATCHDOG updates the
-    // simulated arming state). Any other control write is simply accepted.
+    // simulated arming state and, as on latching firmware, leaves a trip in
+    // place; an empty CLEAR_WATCHDOG_TRIP releases it). Any other control write is
+    // simply accepted.
     crumbs_message_t message{};
     if (crumbs_decode_message(tx_data, tx_len, &message, nullptr) != 0) {
         return;
@@ -119,6 +130,11 @@ void CrumbsCannedBus::apply_write(uint8_t address, const uint8_t *tx_data, size_
     } else if (message.opcode == BREAD_OP_SET_WATCHDOG && message.data_len >= 2) {
         it->second.watchdog_timeout_ms =
             static_cast<uint16_t>(message.data[0] | (static_cast<uint16_t>(message.data[1]) << 8));
+    } else if (message.opcode == BREAD_OP_CLEAR_WATCHDOG_TRIP &&
+               message.data_len == BREAD_WATCHDOG_CLEAR_TRIP_PAYLOAD_LEN) {
+        // Like the firmware, a clear carrying a payload is rejected and the
+        // trip stays set.
+        it->second.watchdog_tripped = false;
     }
 }
 
@@ -144,7 +160,7 @@ I2cStatus CrumbsCannedBus::emit_reply(uint8_t address, uint8_t *rx_data, size_t 
     } else if (dev.type_id == DCMT_TYPE_ID && dev.pending_reply_opcode == DCMT_OP_GET_STATE) {
         payload = build_dcmt_state_payload();
     } else if (dev.pending_reply_opcode == BREAD_OP_GET_WATCHDOG) {
-        payload = build_watchdog_payload(dev.watchdog_timeout_ms);
+        payload = build_watchdog_payload(dev.watchdog_timeout_ms, dev.watchdog_tripped, dev.watchdog_trip_count);
     } else {
         return I2cStatus::failure(I2cError::BusError, "canned bus: no canned response for requested reply");
     }

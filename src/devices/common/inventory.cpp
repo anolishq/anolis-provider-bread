@@ -105,6 +105,21 @@ void add_signal(CapabilitySet &caps, const std::string &signal_id, const std::st
     }
 }
 
+constexpr const char *kClearTripDescription =
+    "Clear a latched command-watchdog trip (firmware advertising CLEAR_WATCHDOG_TRIP). Operator action "
+    "only: release the software e-stop and put the runtime in MANUAL first (CONFIG calls are refused "
+    "while the e-stop is engaged, manual calls are blocked in AUTO, everything in IDLE). Never call it "
+    "from a behaviour tree or a mode-transition hook; the runtime does not enforce allowed_modes. A "
+    "clear resumes nothing: actuating commands sent while tripped were ignored, so command the device "
+    "again afterwards.";
+constexpr const char *kDcmtClearTripDescription =
+    "Clear a latched command-watchdog trip (firmware advertising CLEAR_WATCHDOG_TRIP). Operator action "
+    "only: release the software e-stop and put the runtime in MANUAL first (CONFIG calls are refused "
+    "while the e-stop is engaged, manual calls are blocked in AUTO, everything in IDLE). Never call it "
+    "from a behaviour tree or a mode-transition hook; the runtime does not enforce allowed_modes. A "
+    "clear resumes nothing: the trip engaged both brakes and actuating commands sent while tripped "
+    "were ignored, so command the device again afterwards, starting with set_brake(false, false).";
+
 CapabilitySet build_rlht_capabilities(uint32_t flags) {
     CapabilitySet caps;
 
@@ -177,6 +192,16 @@ CapabilitySet build_rlht_capabilities(uint32_t flags) {
         d2_arg->set_max_uint64(100);
     }
 
+    // Only firmware that latches the trip handles CLEAR_WATCHDOG_TRIP; on older
+    // firmware SET_WATCHDOG still clears it and the op must not be sent.
+    if ((flags & RLHT_CAP_CMD_WATCHDOG) != 0u && (flags & RLHT_CAP_CLEAR_WATCHDOG_TRIP) != 0u) {
+        // CATEGORY_CONFIG on purpose: CATEGORY_ACTUATE would put it into the
+        // runtime's e-stop Zero ladder, which refuses no-arg functions and would
+        // then count it as an uncovered actuator. Clearing a trip is an operator
+        // acknowledgement, not something a safe-state ladder should drive.
+        add_function(caps, 7, "clear_watchdog_trip", kClearTripDescription, CAT_CONFIG);
+    }
+
     add_signal(caps, "mode", "Current RLHT control mode.", VT_STRING);
     add_signal(caps, "t1_c", "Channel 1 measured temperature.", VT_DOUBLE, "C");
     add_signal(caps, "t2_c", "Channel 2 measured temperature.", VT_DOUBLE, "C");
@@ -245,6 +270,13 @@ CapabilitySet build_dcmt_capabilities(uint32_t flags) {
         auto *kd2_arg = add_arg(*set_pid, "kd2_x10", VT_UINT64, "Motor 2 derivative gain x10.", true);
         kd2_arg->set_min_uint64(0);
         kd2_arg->set_max_uint64(255);
+    }
+
+    // Only firmware that latches the trip handles CLEAR_WATCHDOG_TRIP; on older
+    // firmware SET_WATCHDOG still clears it and the op must not be sent.
+    if ((flags & DCMT_CAP_CMD_WATCHDOG) != 0u && (flags & DCMT_CAP_CLEAR_WATCHDOG_TRIP) != 0u) {
+        // CATEGORY_CONFIG, not ACTUATE: same reason as the RLHT clear above.
+        add_function(caps, 6, "clear_watchdog_trip", kDcmtClearTripDescription, CAT_CONFIG);
     }
 
     add_signal(caps, "mode", "Current DCMT control mode.", VT_STRING);
@@ -391,7 +423,8 @@ CapabilityProfile make_seeded_capability_profile(DeviceType type) {
         case DeviceType::Dcmt:
             profile.level = DCMT_CAP_LEVEL_3;
             profile.flags = DCMT_CAP_OPEN_LOOP_CONTROL | DCMT_CAP_BRAKE_CONTROL | DCMT_CAP_CLOSED_LOOP_POSITION |
-                            DCMT_CAP_CLOSED_LOOP_SPEED | DCMT_CAP_PID_TUNING | DCMT_CAP_CMD_WATCHDOG;
+                            DCMT_CAP_CLOSED_LOOP_SPEED | DCMT_CAP_PID_TUNING | DCMT_CAP_CMD_WATCHDOG |
+                            DCMT_CAP_CLEAR_WATCHDOG_TRIP;
             break;
     }
 

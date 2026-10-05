@@ -22,5 +22,15 @@ devices:
     address: 0x09
     # Arm the firmware command watchdog (auto-brake when the bus goes silent
     # for this long). 0 or absent = never arm; requires firmware that
-    # advertises the CMD_WATCHDOG capability.
+    # advertises the CMD_WATCHDOG capability. On firmware that also advertises
+    # CLEAR_WATCHDOG_TRIP a trip latches; only an operator calling the
+    # device's clear_watchdog_trip function releases it. To call it, release
+    # the software e-stop and put the runtime in MANUAL (CONFIG calls are
+    # refused while the e-stop is engaged, manual calls are blocked in AUTO,
+    # everything in IDLE). Never call it from a behaviour tree or a
+    # mode-transition hook. A clear resumes nothing: while tripped the board
+    # ignored actuating commands and a DCMT trip engaged both brakes, so
+    # re-command the device afterwards, on DCMT starting with
+    # set_brake(false, false). Without the latch (CMD_WATCHDOG only), the
+    # startup/recovery arming and any command frame still clear a trip.
     command_watchdog_ms: 5000

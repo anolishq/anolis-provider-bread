@@ -13,10 +13,42 @@ commit messages only.
 
 ## [Unreleased]
 
+### Added
+
+- `clear_watchdog_trip` device function (feastorg/Slice_DCMT#26): sends
+  `BREAD_OP_CLEAR_WATCHDOG_TRIP` (0x7C, empty payload) to release a latched
+  command-watchdog trip. CATEGORY_CONFIG, no arguments; function id 7 on RLHT
+  and 6 on DCMT. Offered only on devices that advertise both
+  `*_CAP_CMD_WATCHDOG` and `*_CAP_CLEAR_WATCHDOG_TRIP`; on firmware without
+  the latch nothing changes and the function is absent.
+  - Operator procedure: release the software e-stop and put the runtime in
+    MANUAL first. The runtime refuses CONFIG calls while the e-stop latch is
+    engaged, blocks manual calls in AUTO and blocks everything in IDLE.
+  - A clear resumes nothing. While tripped, both boards ignore actuating
+    commands, and a DCMT trip engages both brakes. After the clear, command
+    the device again; on DCMT start with `set_brake(false, false)`.
+  - Never call it from a behaviour tree or a mode-transition hook. The
+    runtime does not enforce `allowed_modes`, so this is a rule the provider
+    documents, not one the runtime enforces.
+
 ### Changed
 
-- Dependency floor: CRUMBS 0.14.0 and linux-wire 0.1.3, taken together (the
-  FetchContent pins move from CRUMBS 0.12.5 and linux-wire 0.1.2).
+- Dependency floor: CRUMBS 0.14.0, linux-wire 0.1.3 and
+  bread-crumbs-contracts 0.6.0, taken together (from CRUMBS 0.12.5,
+  linux-wire 0.1.2 and contracts 0.4.5).
+- On latching firmware (`*_CAP_CLEAR_WATCHDOG_TRIP` advertised), a watchdog
+  trip is cleared only by an explicit operator action, the
+  `clear_watchdog_trip` call. The provider never sends the clear on its own:
+  not at startup, not on address recovery, not when re-arming. Startup and
+  recovery still arm with `SET_WATCHDOG`, which there re-arms without
+  releasing the trip. On firmware with `*_CAP_CMD_WATCHDOG` but without the
+  latch, behaviour is unchanged: the startup and recovery `SET_WATCHDOG`, and
+  any other command frame, still clear a trip.
+- The mock bus models latching firmware: the seeded DCMT advertises
+  `DCMT_CAP_CLEAR_WATCHDOG_TRIP` (so mock `dcmt0` offers the function), and
+  the canned bus keeps a trip through `SET_WATCHDOG`, clears it on an empty
+  `CLEAR_WATCHDOG_TRIP`, and rejects one with a payload, leaving the trip
+  set.
 
 ## [0.3.9] - 2026-10-05
 

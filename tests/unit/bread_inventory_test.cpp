@@ -3,6 +3,7 @@
 #include "devices/common/inventory.hpp"
 
 extern "C" {
+#include <bread/bread_caps.h>
 #include <bread/dcmt_ops.h>
 #include <bread/rlht_ops.h>
 #include <crumbs_version.h>
@@ -182,6 +183,63 @@ TEST(BreadInventoryTest, BaselineFallbackCapsGateDcmtFunctionsAndTypeMismatchIsU
     EXPECT_EQ(result.unsupported_probes[0].status, ProbeStatus::TypeMismatch);
     ASSERT_EQ(result.missing_expected_ids.size(), 1U);
     EXPECT_EQ(result.missing_expected_ids[0], "heater0");
+}
+
+// Inventory for a single queried device of @p type at 0x10 with @p flags.
+InventoryDevice queried_device(DeviceType type, uint32_t flags) {
+    ProbeRecord probe;
+    probe.address = 0x10;
+    probe.type_id = bread_type_id(type);
+    probe.status = ProbeStatus::Supported;
+    probe.version = {CRUMBS_VERSION, 1, 0, 0};
+    probe.capability_profile.schema = BREAD_CAPS_SCHEMA_V1;
+    probe.capability_profile.level = 1;
+    probe.capability_profile.flags = flags;
+    probe.capability_profile.source = CapabilitySource::Queried;
+    const InventoryBuildResult result =
+        build_inventory_from_probes(make_base_config(), {probe}, InventorySource::Discovered);
+    EXPECT_EQ(result.supported_devices.size(), 1U);
+    return result.supported_devices.at(0);
+}
+
+const anolis::deviceprovider::v1::FunctionSpec *find_function(const InventoryDevice &device, const std::string &name) {
+    for (const auto &fn : device.capabilities.functions()) {
+        if (fn.name() == name) {
+            return &fn;
+        }
+    }
+    return nullptr;
+}
+
+TEST(BreadInventoryTest, ClearWatchdogTripOfferedOnlyWithBothWatchdogCaps) {
+    struct Case {
+        DeviceType type;
+        uint32_t base;
+        uint32_t cmd_watchdog;
+        uint32_t clear_trip;
+        uint32_t function_id;
+    };
+    const Case cases[] = {
+        {DeviceType::Rlht, RLHT_CAP_BASELINE_FLAGS, RLHT_CAP_CMD_WATCHDOG, RLHT_CAP_CLEAR_WATCHDOG_TRIP, 7},
+        {DeviceType::Dcmt, DCMT_CAP_BASELINE_FLAGS, DCMT_CAP_CMD_WATCHDOG, DCMT_CAP_CLEAR_WATCHDOG_TRIP, 6},
+    };
+    for (const Case &c : cases) {
+        SCOPED_TRACE(to_string(c.type));
+
+        const InventoryDevice both = queried_device(c.type, c.base | c.cmd_watchdog | c.clear_trip);
+        const auto *fn = find_function(both, "clear_watchdog_trip");
+        ASSERT_NE(fn, nullptr);
+        EXPECT_EQ(fn->function_id(), c.function_id);
+        EXPECT_EQ(fn->policy().category(), anolis::deviceprovider::v1::FunctionPolicy_Category_CATEGORY_CONFIG);
+        EXPECT_EQ(fn->args_size(), 0);
+
+        // Old firmware: watchdog without the latch. SET_WATCHDOG still clears
+        // the trip there, so the clear op must not be offered.
+        EXPECT_EQ(find_function(queried_device(c.type, c.base | c.cmd_watchdog), "clear_watchdog_trip"), nullptr);
+        EXPECT_FALSE(function_exists(queried_device(c.type, c.base | c.cmd_watchdog), c.function_id, ""));
+        // The clear bit alone is not enough either.
+        EXPECT_EQ(find_function(queried_device(c.type, c.base | c.clear_trip), "clear_watchdog_trip"), nullptr);
+    }
 }
 
 }  // namespace

@@ -11,6 +11,7 @@
 #include <string>
 
 extern "C" {
+#include <bread/bread_watchdog.h>
 #include <bread/rlht_ops.h>
 }
 
@@ -266,6 +267,9 @@ AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args, crumbs
             append_u8(frame.payload, static_cast<uint8_t>(d2));
             break;
         }
+        case 7:  // clear_watchdog_trip: empty payload, operator-invoked only
+            frame.opcode = BREAD_OP_CLEAR_WATCHDOG_TRIP;
+            break;
         default:
             return {false, anolis::deviceprovider::v1::Status::CODE_NOT_FOUND,
                     "unknown RLHT function_id " + std::to_string(function_id)};
