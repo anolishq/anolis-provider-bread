@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-10-05
+
 ### Added
 
 - `io_rejected` per-device health metric (#129): replies the transport delivered
