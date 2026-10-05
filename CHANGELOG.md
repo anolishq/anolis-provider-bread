@@ -13,6 +13,11 @@ commit messages only.
 
 ## [Unreleased]
 
+### Changed
+
+- Dependency floor: CRUMBS 0.14.0 and linux-wire 0.1.3, taken together (the
+  FetchContent pins move from CRUMBS 0.12.5 and linux-wire 0.1.2).
+
 ## [0.3.9] - 2026-10-05
 
 ### Added

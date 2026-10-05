@@ -84,8 +84,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     else()
         FetchContent_Declare(
             linux_wire
-            URL https://github.com/feastorg/linux-wire/releases/download/v0.1.2/linux-wire-0.1.2-source.tar.gz
-            URL_HASH SHA256=5d25546e2123829d43c757a5dad5c3dcd3d49189e8240f9a48180ea3dfc3d02e
+            URL https://github.com/feastorg/linux-wire/releases/download/v0.1.3/linux-wire-0.1.3-source.tar.gz
+            URL_HASH SHA256=9966c7cde75e8f573643709dd978bb6fe85986a394ca2ec7780b8a0059eb0b1b
             DOWNLOAD_EXTRACT_TIMESTAMP TRUE
         )
         set(LINUX_WIRE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -116,8 +116,8 @@ if(DEFINED CRUMBS_DIR AND NOT CRUMBS_DIR STREQUAL "")
 else()
     FetchContent_Declare(
         crumbs
-        URL https://github.com/feastorg/CRUMBS/releases/download/v0.12.5/crumbs-0.12.5-source.tar.gz
-        URL_HASH SHA256=e684c9ed5ac49176c4ccf262a0c35b8d8d4f9783af763c944d8b8df457c8e982
+        URL https://github.com/feastorg/CRUMBS/releases/download/v0.14.0/crumbs-0.14.0-source.tar.gz
+        URL_HASH SHA256=caea74173e4dc432defec9e7905af0bfcb07a24475612d1cd91926aa9c8b9cea
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
