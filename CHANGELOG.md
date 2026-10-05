@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-05
+
 ### Added
 
 - `clear_watchdog_trip` device function (feastorg/Slice_DCMT#26): sends
