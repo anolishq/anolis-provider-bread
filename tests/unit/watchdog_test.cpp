@@ -3,9 +3,13 @@
 #include <gtest/gtest.h>
 
 #include <deque>
+#include <memory>
 #include <vector>
 
+#include "crumbs/crumbs_canned_bus.hpp"
+#include "crumbs/crumbs_transport.hpp"
 #include "crumbs/session.hpp"
+#include "devices/common/device_adapter.hpp"
 #include "devices/common/inventory.hpp"
 
 extern "C" {
@@ -94,6 +98,89 @@ TEST(WatchdogTest, ArmSendsSetWatchdogFrameLittleEndian) {
     ASSERT_EQ(transport.sent_frames[0].payload.size(), 2U);
     EXPECT_EQ(transport.sent_frames[0].payload[0], 0x88u);  // 5000 = 0x1388 LE
     EXPECT_EQ(transport.sent_frames[0].payload[1], 0x13u);
+}
+
+TEST(WatchdogTest, ArmNeverSendsClearTripEvenWhenSupported) {
+    // Startup and recovery both arm through arm_if_configured. On latching
+    // firmware a trip is cleared only by the operator's clear_watchdog_trip,
+    // so arming must send SET_WATCHDOG and nothing else.
+    FakeTransport transport;
+    crumbs::Session session(transport, crumbs::SessionOptions{"/dev/i2c-1", 10000u, 100u, 0});
+    ASSERT_TRUE(session.open());
+
+    arm_if_configured(session, make_dcmt_device(DCMT_CAP_CMD_WATCHDOG | DCMT_CAP_CLEAR_WATCHDOG_TRIP, 5000), "startup");
+    arm_if_configured(session, make_dcmt_device(DCMT_CAP_CMD_WATCHDOG | DCMT_CAP_CLEAR_WATCHDOG_TRIP, 5000),
+                      "recovery");
+
+    ASSERT_EQ(transport.sent_frames.size(), 2U);
+    for (const crumbs::RawFrame &frame : transport.sent_frames) {
+        EXPECT_EQ(frame.opcode, BREAD_OP_SET_WATCHDOG);
+        EXPECT_NE(frame.opcode, BREAD_OP_CLEAR_WATCHDOG_TRIP);
+    }
+}
+
+TEST(WatchdogTest, CannedBusTripSurvivesRearmAndClearsOnOperatorCall) {
+    // Mock round trip over the real transport + CRUMBS codec: a tripped device
+    // stays tripped through a re-arm and reports tripped=0 only after the
+    // clear_watchdog_trip function runs.
+    constexpr uint8_t kAddr = 0x14;
+    auto canned = std::make_unique<crumbs::CrumbsCannedBus>("mock://watchdog-test");
+    canned->add_device(kAddr, DCMT_TYPE_ID);
+    crumbs::CrumbsCannedBus *bus = canned.get();
+    crumbs::CrumbsTransport transport(std::move(canned));
+    crumbs::Session session(transport, crumbs::SessionOptions{"mock://watchdog-test", 0u, 50u, 0});
+    ASSERT_TRUE(session.open());
+
+    const inventory::InventoryDevice device =
+        make_dcmt_device(DCMT_CAP_CMD_WATCHDOG | DCMT_CAP_CLEAR_WATCHDOG_TRIP, 5000);
+    arm_if_configured(session, device, "startup");
+    bus->trip_watchdog(kAddr);
+
+    WatchdogStatus status;
+    ASSERT_TRUE(query_status(session, device, status));
+    EXPECT_TRUE(status.armed);
+    EXPECT_TRUE(status.tripped);
+    EXPECT_EQ(status.trip_count, 1u);
+
+    arm_if_configured(session, device, "recovery");
+    ASSERT_TRUE(query_status(session, device, status));
+    EXPECT_TRUE(status.tripped) << "re-arming must not release a latched trip";
+
+    const AdapterCallResult cleared = call(adapter_for(device.type), &session, device, 6u, ValueMap{});
+    ASSERT_TRUE(cleared.ok) << cleared.error_message;
+
+    ASSERT_TRUE(query_status(session, device, status));
+    EXPECT_FALSE(status.tripped);
+    EXPECT_TRUE(status.armed);
+    EXPECT_EQ(status.timeout_ms, 5000u);
+    EXPECT_EQ(status.trip_count, 1u);
+}
+
+TEST(WatchdogTest, CannedBusRejectsClearTripWithPayload) {
+    // Firmware rejects a CLEAR_WATCHDOG_TRIP carrying a payload and leaves the
+    // trip set; the canned bus must do the same.
+    constexpr uint8_t kAddr = 0x14;
+    auto canned = std::make_unique<crumbs::CrumbsCannedBus>("mock://watchdog-test");
+    canned->add_device(kAddr, DCMT_TYPE_ID);
+    crumbs::CrumbsCannedBus *bus = canned.get();
+    crumbs::CrumbsTransport transport(std::move(canned));
+    crumbs::Session session(transport, crumbs::SessionOptions{"mock://watchdog-test", 0u, 50u, 0});
+    ASSERT_TRUE(session.open());
+
+    const inventory::InventoryDevice device =
+        make_dcmt_device(DCMT_CAP_CMD_WATCHDOG | DCMT_CAP_CLEAR_WATCHDOG_TRIP, 5000);
+    arm_if_configured(session, device, "startup");
+    bus->trip_watchdog(kAddr);
+
+    crumbs::RawFrame bad_clear;
+    bad_clear.type_id = DCMT_TYPE_ID;
+    bad_clear.opcode = BREAD_OP_CLEAR_WATCHDOG_TRIP;
+    bad_clear.payload = {0x00};
+    ASSERT_TRUE(session.send(kAddr, bad_clear));
+
+    WatchdogStatus status;
+    ASSERT_TRUE(query_status(session, device, status));
+    EXPECT_TRUE(status.tripped) << "a clear with a payload must leave the trip set";
 }
 
 TEST(WatchdogTest, ArmIsSkippedWhenUnconfiguredOrUnsupported) {

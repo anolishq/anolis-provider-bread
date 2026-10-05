@@ -87,9 +87,9 @@ TEST(BreadProviderRuntimeTest, CallResolutionAndArgValidation) {
     EXPECT_EQ(rt.call("rlht0", 9999, {}).error_code, adpp::Status::CODE_NOT_FOUND);
 
     // §8.3: a valid function called with NO args -> build_frame rejects with an
-    // arg error BEFORE any transmit (every bread function requires args; there is
-    // no zero-arg function — that's the §8.1 conformance skip). This exercises the
-    // validate-before-hardware contract through the runtime.
+    // arg error BEFORE any transmit (every RLHT function the seeded rlht0 offers
+    // requires args). This exercises the validate-before-hardware contract
+    // through the runtime.
     const auto caps = rt.capabilities("rlht0");  // own the CapabilitySet (no dangling ref into a temporary)
     ASSERT_GT(caps.functions_size(), 0);
     const auto& fn = caps.functions(0);
@@ -104,4 +104,20 @@ TEST(BreadProviderRuntimeTest, CallResolutionAndArgValidation) {
         << "expected an arg error from build_frame, got " << bad_args.error_code << ": " << bad_args.error_message;
 
     EXPECT_FALSE(rt.resolve_function_id("rlht0", "no_such_fn").has_value());
+}
+
+TEST(BreadProviderRuntimeTest, ClearWatchdogTripCallableOnlyWhereAdvertised) {
+    auto rt = make_ready_runtime();
+
+    // The seeded DCMT models latching firmware (CMD_WATCHDOG + CLEAR_WATCHDOG_TRIP):
+    // the zero-arg function resolves and a call goes through the canned bus.
+    const auto dcmt_id = rt.resolve_function_id("dcmt0", "clear_watchdog_trip");
+    ASSERT_TRUE(dcmt_id.has_value());
+    const auto cleared = rt.call("dcmt0", *dcmt_id, {});
+    EXPECT_TRUE(cleared.ok) << cleared.error_message;
+
+    // The seeded RLHT is baseline (no watchdog caps): not offered, and its id is
+    // rejected rather than sent.
+    EXPECT_FALSE(rt.resolve_function_id("rlht0", "clear_watchdog_trip").has_value());
+    EXPECT_EQ(rt.call("rlht0", 7, {}).error_code, adpp::Status::CODE_NOT_FOUND);
 }

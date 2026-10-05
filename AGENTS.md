@@ -34,6 +34,9 @@
   happens only in `adapter_for()` (`src/devices/common/`), a `-Werror=switch`
   exhaustive switch: **adding a device type means updating that switch** (plus a
   contracts header, compatibility entry, adapter, and tests — see CONTRIBUTING.md).
-- Conformance runs via `--provider-profile config/conformance.toml`. One known
-  skip is §8.1 (no zero-arg result-producing function) — a contract gap, not a
-  bug, so don't "fix" it here.
+- Conformance runs via `--provider-profile config/conformance.toml`. The §8.1
+  results check runs against the mock `dcmt0`'s zero-arg `clear_watchdog_trip`
+  (the seeded DCMT advertises the latching-watchdog caps). The harness's
+  "no-arg function accepted" check still skips: it looks only at the first
+  device with functions (`rlht0`), whose functions all take arguments. That is
+  how the harness picks, not a bug, so don't "fix" it here.

@@ -30,7 +30,7 @@ TEST(StubInventoryTest, BuildsSeedInventoryForConfiguredDevices) {
     EXPECT_EQ(inventory_devices[1].descriptor.type_id(), "bread.dcmt");
 
     EXPECT_EQ(inventory_devices[0].capabilities.functions_size(), 6);
-    EXPECT_EQ(inventory_devices[1].capabilities.functions_size(), 5);
+    EXPECT_EQ(inventory_devices[1].capabilities.functions_size(), 6);
     EXPECT_TRUE(inventory::signal_exists(inventory_devices[0], "t1_c"));
     EXPECT_TRUE(inventory::signal_exists(inventory_devices[1], "motor1_value"));
     EXPECT_TRUE(inventory::function_exists(inventory_devices[0], 1, ""));
