@@ -131,11 +131,13 @@ AdapterReadResult read_signals(crumbs::Session &session, const inventory::Invent
     }
 
     if (frame.type_id != DCMT_TYPE_ID || frame.opcode != DCMT_OP_GET_STATE) {
+        session.record_rejection(static_cast<uint8_t>(device.address));
         return {false, anolis::deviceprovider::v1::Status::CODE_INTERNAL, "unexpected DCMT GET_STATE frame header", {}};
     }
 
     DcmtState s;
     if (!parse_state(frame.payload, s)) {
+        session.record_rejection(static_cast<uint8_t>(device.address));
         return {false,
                 anolis::deviceprovider::v1::Status::CODE_INTERNAL,
                 "DCMT GET_STATE payload too short or malformed",

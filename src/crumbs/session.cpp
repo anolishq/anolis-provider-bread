@@ -200,6 +200,11 @@ AddressStats Session::stats_for(uint8_t address) const {
     return it == stats_.end() ? AddressStats{} : it->second;
 }
 
+void Session::record_rejection(uint8_t address) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    ++stats_[address].rejected;
+}
+
 void Session::record_outcome(uint8_t address, const SessionStatus &status) {
     AddressStats &stats = stats_[address];
     if (status.attempts > 1) {

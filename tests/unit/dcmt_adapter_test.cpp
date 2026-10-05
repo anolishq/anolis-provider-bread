@@ -324,6 +324,46 @@ TEST_F(DcmtAdapterTest, ReadSignals_WrongTypeId_ReturnsInternal) {
     EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_INTERNAL);
 }
 
+// A rejected reply must show in the address stats. The session counted the
+// I/O as ok -- a frame came back -- so without `rejected` the health surface
+// reports a clean device while the runtime sees the read fail
+// (anolis-provider-bread#129).
+TEST_F(DcmtAdapterTest, ReadSignals_RejectedHeader_IsCountedBesideIoOk) {
+    // The reply is keyed by the opcode the adapter asked for, but carries a
+    // different one -- a valid frame that is not the answer to this request.
+    transport.read_replies[DCMT_OP_GET_STATE] =
+        crumbs::RawFrame{DCMT_TYPE_ID, 0x7Fu, make_open_loop_payload(0, 0, 0, 0)};
+
+    const auto result = read_signals(session, device, {});
+    ASSERT_FALSE(result.ok);
+
+    const auto stats = session.stats_for(static_cast<uint8_t>(device.address));
+    EXPECT_EQ(stats.ok, 1U);
+    EXPECT_EQ(stats.failed, 0U);
+    EXPECT_EQ(stats.rejected, 1U);
+}
+
+TEST_F(DcmtAdapterTest, ReadSignals_MalformedPayload_IsCountedAsRejected) {
+    transport.read_replies[DCMT_OP_GET_STATE] =
+        crumbs::RawFrame{DCMT_TYPE_ID, DCMT_OP_GET_STATE, {0x00, 0x10, 0x00, 0x10}};
+
+    const auto result = read_signals(session, device, {});
+    ASSERT_FALSE(result.ok);
+
+    EXPECT_EQ(session.stats_for(static_cast<uint8_t>(device.address)).rejected, 1U);
+}
+
+TEST_F(DcmtAdapterTest, ReadSignals_CleanRead_IsNotRejected) {
+    script_state_reply(make_open_loop_payload(100, -50, 0x00, 0x00));
+
+    const auto result = read_signals(session, device, {});
+    ASSERT_TRUE(result.ok);
+
+    const auto stats = session.stats_for(static_cast<uint8_t>(device.address));
+    EXPECT_EQ(stats.ok, 1U);
+    EXPECT_EQ(stats.rejected, 0U);
+}
+
 TEST_F(DcmtAdapterTest, ReadSignals_SessionFails_ReturnsUnavailable) {
     transport.read_error = crumbs::SessionErrorCode::ReadFailed;
 
