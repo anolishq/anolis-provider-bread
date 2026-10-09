@@ -6,6 +6,9 @@ hardware:
   query_delay_us: 10000
   timeout_ms: 100
   retry_count: 2
+  # Optional: the highest I2C clock these devices tolerate on this machine;
+  # --check-host and startup compare it with the bus's configured clock.
+  # max_bus_hz: 50000
 
 discovery:
   mode: manual

@@ -6,8 +6,10 @@
 #include <string>
 #include <vector>
 
+#include "anolis/provider_sdk/host_check.hpp"
 #include "anolis/provider_sdk/result.hpp"
 #include "config/provider_config.hpp"
+#include "core/host_check.hpp"
 #include "core/runtime_state.hpp"
 #include "devices/common/device_type.hpp"
 #include "protocol.pb.h"
@@ -121,3 +123,55 @@ TEST(BreadProviderRuntimeTest, ClearWatchdogTripCallableOnlyWhereAdvertised) {
     EXPECT_FALSE(rt.resolve_function_id("rlht0", "clear_watchdog_trip").has_value());
     EXPECT_EQ(rt.call("rlht0", 7, {}).error_code, adpp::Status::CODE_NOT_FOUND);
 }
+
+TEST(BreadProviderRuntimeTest, MockModeHasNoHostRequirements) {
+    const auto rt = make_ready_runtime();
+    EXPECT_TRUE(anolis_provider_bread::check_host(make_mock_config()).empty());
+
+    const auto r = rt.readiness();
+    EXPECT_TRUE(r.ready);
+    EXPECT_EQ(r.extra_diagnostics.at("host_check"), "ok");
+    EXPECT_FALSE(r.extra_diagnostics.contains("host_unmet"));
+    EXPECT_FALSE(rt.provider_health().state.has_value());
+}
+
+#if defined(__linux__)
+TEST(BreadProviderRuntimeTest, MissingBusStaysUpNotReady) {
+    // A real (non-mock) bus path that does not exist: startup must not throw.
+    // The provider stays up with no devices, every configured device reported
+    // missing with the reason, and says why in readiness and provider health
+    // (executable profile v1 §6) instead of exiting into a runtime crash loop.
+    auto config = make_mock_config();
+    config.bus_path = "/nonexistent-anolis-test/i2c-9";
+    config.max_bus_hz = 50000;
+
+    const auto reqs = anolis_provider_bread::check_host(config);
+    ASSERT_EQ(reqs.size(), 3U);  // present, access, clock (a maximum is set)
+    EXPECT_EQ(anolis::provider_sdk::host_check::exit_code(reqs), 1);
+
+    anolis_provider_bread::runtime::reset();
+    ASSERT_NO_THROW(anolis_provider_bread::runtime::initialize(config));
+    const anolis_provider_bread::BreadProviderRuntime rt;
+
+    EXPECT_TRUE(rt.list_device_ids().empty());
+    EXPECT_EQ(anolis_provider_bread::runtime::session(), nullptr);
+
+    const auto r = rt.readiness();
+    EXPECT_FALSE(r.ready);
+    EXPECT_EQ(r.extra_diagnostics.at("ready"), "false");
+    EXPECT_EQ(r.extra_diagnostics.at("host_check"), "unmet");
+    EXPECT_NE(r.extra_diagnostics.at("host_unmet").find("i2c.bus_present"), std::string::npos);
+    ASSERT_EQ(r.failed_devices.size(), 2U);
+    for (const auto& failed : r.failed_devices) {
+        EXPECT_NE(failed.reason.find("host requirements unmet"), std::string::npos) << failed.reason;
+    }
+
+    const auto health = rt.provider_health();
+    ASSERT_TRUE(health.state.has_value());
+    EXPECT_EQ(*health.state, adpp::ProviderHealth::STATE_DEGRADED);
+    ASSERT_TRUE(health.message.has_value());
+    EXPECT_NE(health.message->find("i2c.bus_present"), std::string::npos) << *health.message;
+
+    anolis_provider_bread::runtime::reset();
+}
+#endif

@@ -23,6 +23,7 @@ public:
     anolis::provider_sdk::ProviderMetadata metadata() const override;
     anolis::provider_sdk::ReadinessReport readiness() const override;
     anolis::provider_sdk::DeviceHealthExtra device_health(const std::string& device_id) const override;
+    anolis::provider_sdk::ProviderHealthExtra provider_health() const override;
     std::vector<std::string> list_device_ids() const override;
     bool has_device(const std::string& device_id) const override;
     anolis::deviceprovider::v1::Device device_info(const std::string& device_id) const override;

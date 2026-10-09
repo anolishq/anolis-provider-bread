@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "anolis/provider_sdk/host_check.hpp"
 #include "config/provider_config.hpp"
 #include "devices/common/inventory.hpp"
 
@@ -44,6 +45,10 @@ struct RuntimeState {
     std::vector<std::string> missing_expected_ids;
     // Probe-failure detail per missing-expected id (#104), when known.
     std::map<std::string, std::string> missing_expected_details;
+    // Host requirements checked at startup (executable profile v1 §6); empty in
+    // mock mode. When one is unmet, or the bus will not open, the provider stays
+    // up and not ready with no devices instead of exiting.
+    std::vector<anolis::provider_sdk::host_check::Requirement> host_requirements;
 };
 
 /** @brief Reset runtime state and destroy any live session/transport pair. */

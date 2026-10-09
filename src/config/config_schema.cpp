@@ -37,10 +37,20 @@ cfg::Schema build_schema() {
                        .min_int(1)
                        .max_int(2147483647)
                        .default_int(10000));
-    hardware.field(
-        cfg::integer_field("timeout_ms").title("I/O timeout (ms)").min_int(1).max_int(2147483647).default_int(100));
+    hardware.field(cfg::integer_field("timeout_ms")
+                       .title("Reply timeout (ms)")
+                       .description("How long to wait for a device's CRUMBS reply before the read fails.")
+                       .min_int(1)
+                       .max_int(2147483647)
+                       .default_int(100));
     hardware.field(
         cfg::integer_field("retry_count").title("I/O retries").min_int(0).max_int(2147483647).default_int(2));
+    hardware.field(cfg::integer_field("max_bus_hz")
+                       .title("Maximum bus clock (Hz)")
+                       .description("The highest I2C clock these devices tolerate on this machine. --check-host and "
+                                    "startup compare it with the bus's configured clock; unset skips that check.")
+                       .min_int(1)
+                       .max_int(5000000));
 
     cfg::Object discovery(cfg::Openness::Closed);
     discovery.field(cfg::string_field("mode")

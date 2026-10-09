@@ -115,6 +115,9 @@ ProviderConfig load_config(const std::string &path) {
     if (const auto value = sdkcfg::as_int64(hardware["retry_count"])) {
         config.retry_count = static_cast<int>(*value);
     }
+    if (const auto value = sdkcfg::as_int64(hardware["max_bus_hz"])) {
+        config.max_bus_hz = static_cast<uint32_t>(*value);
+    }
 
     const YAML::Node discovery = root["discovery"];
     if (const auto mode = sdkcfg::as_string(discovery["mode"])) {
@@ -161,8 +164,11 @@ std::string summarize_config(const ProviderConfig &config) {
     // the effective config without dumping the full YAML file.
     out << "provider.name=" << config.provider_name << ", hardware.bus_path=" << config.bus_path
         << ", hardware.query_delay_us=" << config.query_delay_us << ", hardware.timeout_ms=" << config.timeout_ms
-        << ", hardware.retry_count=" << config.retry_count << ", discovery.mode=" << to_string(config.discovery_mode)
-        << ", devices=" << config.devices.size();
+        << ", hardware.retry_count=" << config.retry_count;
+    if (config.max_bus_hz) {
+        out << ", hardware.max_bus_hz=" << *config.max_bus_hz;
+    }
+    out << ", discovery.mode=" << to_string(config.discovery_mode) << ", devices=" << config.devices.size();
 
     if (config.discovery_mode == DiscoveryMode::Manual) {
         out << ", discovery.addresses=[";

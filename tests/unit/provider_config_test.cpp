@@ -76,9 +76,36 @@ discovery:
     EXPECT_EQ(parsed.query_delay_us, 10000);
     EXPECT_EQ(parsed.timeout_ms, 100);
     EXPECT_EQ(parsed.retry_count, 2);
+    EXPECT_FALSE(parsed.max_bus_hz.has_value());  // unset: no bus-clock host check
     EXPECT_EQ(parsed.discovery_mode, DiscoveryMode::Scan);
     EXPECT_TRUE(parsed.manual_addresses.empty());
     EXPECT_TRUE(parsed.devices.empty());
+}
+
+TEST(ProviderConfigTest, ParsesMaxBusHz) {
+    const TempConfigFile config(R"(
+hardware:
+  bus_path: /dev/i2c-1
+  max_bus_hz: 50000
+discovery:
+  mode: scan
+)");
+
+    const ProviderConfig parsed = load_config(config.path().string());
+    ASSERT_TRUE(parsed.max_bus_hz.has_value());
+    EXPECT_EQ(*parsed.max_bus_hz, 50000U);
+    EXPECT_NE(summarize_config(parsed).find("hardware.max_bus_hz=50000"), std::string::npos);
+}
+
+TEST(ProviderConfigTest, RejectsNonPositiveMaxBusHz) {
+    expect_config_error(R"(
+hardware:
+  bus_path: /dev/i2c-1
+  max_bus_hz: 0
+discovery:
+  mode: scan
+)",
+                        "max_bus_hz");
 }
 
 TEST(ProviderConfigTest, ParsesManualDiscoveryAddressesAndDevices) {

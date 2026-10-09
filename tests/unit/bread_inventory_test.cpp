@@ -76,8 +76,13 @@ TEST(BreadInventoryTest, DiscoveryInventoryAssignsStableGeneratedIdsByTypeAndAdd
     EXPECT_EQ(result.supported_devices[1].descriptor.device_id(), "dcmt0");
     EXPECT_EQ(result.supported_devices[2].descriptor.device_id(), "rlht1");
     EXPECT_EQ(result.supported_devices[0].descriptor.tags().at("inventory"), "discovered");
-    EXPECT_EQ(result.supported_devices[0].descriptor.tags().at("hw.bus_path"), "/dev/i2c-1");
-    EXPECT_EQ(result.supported_devices[0].descriptor.tags().at("hw.i2c_address"), "0x08");
+    // One opaque claim per device, in the SDK's canonical form; the old
+    // ownership tags are gone (anolis#318).
+    EXPECT_EQ(result.supported_devices[0].descriptor.tags().at("anolis.claim"), "i2c:/dev/i2c-1:0x08");
+    EXPECT_EQ(result.supported_devices[0].descriptor.tags().count("hw.bus_path"), 0U);
+    EXPECT_EQ(result.supported_devices[0].descriptor.tags().count("hw.i2c_address"), 0U);
+    EXPECT_EQ(result.supported_devices[0].descriptor.tags().count("bus_path"), 0U);
+    EXPECT_EQ(result.supported_devices[0].descriptor.tags().count("i2c_address"), 0U);
 }
 
 TEST(BreadInventoryTest, ManualInventoryPreservesConfiguredIdentityAndTracksMissingExpected) {

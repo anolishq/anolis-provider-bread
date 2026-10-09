@@ -13,6 +13,45 @@ commit messages only.
 
 ## [Unreleased]
 
+### Added
+
+- `--check-host <config>` (executable profile v1 §6, anolishq/anolis#318):
+  prints what the config needs from the host as a JSON envelope and exits 0
+  (nothing unmet), 1 (something unmet) or 2 (invalid config). A `mock://` bus
+  needs nothing; a real bus is checked for `i2c.bus_present`, `i2c.bus_access`
+  (as the user running the check; `unknown` under root) and, with
+  `hardware.max_bus_hz` set, `i2c.bus_clock` against the device tree's
+  configured clock. Checks come from anolis-provider-sdk 0.3.0. (#136)
+- `hardware.max_bus_hz` (optional): the highest I2C clock the devices tolerate
+  on this machine. Unset skips the clock check.
+
+### Changed
+
+- **Startup no longer exits when the host cannot serve the bus.** The host
+  checks run first; with one unmet, or the bus failing to open, the provider
+  stays up with no devices and reports why: in the log, in WaitReady
+  diagnostics (`ready=false`, `host_check`, `host_unmet`), in provider health
+  (`DEGRADED` with the message), and on every configured device as missing.
+  Before, a missing bus exited 1 and the runtime crash-looped. The startup log
+  says `serving, not ready (...)` in that case instead of `ready (...)`.
+- **Ownership is published as an opaque claim.** Each device carries
+  `anolis.claim` = `i2c:<bus_path>:0x<aa>` (the SDK's canonical key) in place
+  of the `hw.bus_path` / `hw.i2c_address` tags and the plain `bus_path` /
+  `i2c_address` duplicates. Requires an anolis runtime that checks claims;
+  an older runtime skips these devices' ownership check.
+- anolis-provider-sdk 0.2.0 -> 0.3.0. The SDK no longer sets the kernel's
+  adapter-wide `I2C_TIMEOUT` / `I2C_RETRIES`, which bread's `timeout_ms` used to
+  set for every process on the bus. `hardware.timeout_ms` keeps its other use,
+  the CRUMBS reply deadline, and its schema title says so.
+- CI conformance harness: anolis-protocol 1.6.0 -> 1.8.0, which adds the
+  `--check-host` envelope check.
+
+### Fixed
+
+- `docs/troubleshooting.md` quoted a bus-open error the provider never
+  printed; the section now shows the real messages and the new behaviour.
+  (#135)
+
 ## [0.4.0] - 2026-10-05
 
 ### Added

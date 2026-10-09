@@ -17,6 +17,7 @@
 
 #include "anolis/provider_sdk/i2c/fault_injecting_i2c_bus.hpp"
 #include "anolis/provider_sdk/i2c/i2c_bus.hpp"
+#include "core/host_check.hpp"
 #include "core/startup.hpp"
 #include "crumbs/crumbs_canned_bus.hpp"
 #include "crumbs/crumbs_transport.hpp"
@@ -55,6 +56,28 @@ std::string build_startup_message(int device_count, int unsupported_count, const
     return msg.str();
 }
 
+// Publish a started-but-not-ready snapshot: no devices and no session, every
+// configured device reported missing with the reason, so health shows why.
+void publish_not_ready(RuntimeState state, const std::string &reason) {
+    state.ready = false;
+    state.startup_message = reason;
+    state.inventory_mode = "unavailable";
+    for (const auto &spec : state.config.devices) {
+        state.missing_expected_ids.push_back(spec.id);
+        state.missing_expected_details[spec.id] = reason;
+    }
+    logging::error(reason);
+
+    std::unique_ptr<crumbs::Session> old_session;
+    std::unique_ptr<crumbs::Transport> old_transport;
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_state = std::move(state);
+        old_session = std::move(g_session);
+        old_transport = std::move(g_transport);
+    }
+}
+
 }  // namespace
 
 void reset() {
@@ -79,16 +102,26 @@ void initialize(const ProviderConfig &config) {
 
 #if defined(__linux__)
     if (!is_mock_mode(config)) {
-        // Hardware path: open one live CRUMBS session and derive the runtime
-        // inventory from an immediate discovery pass on that bus.
-        auto bus = std::make_unique<anolis::provider_sdk::i2c::LinuxI2cBus>(config.bus_path, config.timeout_ms,
-                                                                            config.retry_count);
+        // Hardware path: check what the bus needs from the host, then open one
+        // live CRUMBS session and derive the runtime inventory from an immediate
+        // discovery pass on that bus. A host that cannot serve the bus leaves
+        // the provider up and not ready rather than exiting.
+        state.host_requirements = check_host(config);
+        if (anolis::provider_sdk::host_check::exit_code(state.host_requirements) != 0) {
+            const std::string reason = "host requirements unmet: " + summarize_unmet(state.host_requirements);
+            publish_not_ready(std::move(state), reason);
+            return;
+        }
+
+        auto bus = std::make_unique<anolis::provider_sdk::i2c::LinuxI2cBus>(config.bus_path, config.retry_count);
         auto transport = std::make_unique<crumbs::CrumbsTransport>(std::move(bus));
         auto sess = std::make_unique<crumbs::Session>(*transport, crumbs::make_session_options(config));
 
         const crumbs::SessionStatus open_status = sess->open();
         if (!open_status) {
-            throw std::runtime_error("failed to open CRUMBS bus '" + config.bus_path + "': " + open_status.message);
+            publish_not_ready(std::move(state),
+                              "failed to open CRUMBS bus '" + config.bus_path + "': " + open_status.message);
+            return;
         }
 
         startup::DiscoveryResult discovery = startup::run_discovery(*sess, config);
