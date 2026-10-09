@@ -6,6 +6,8 @@
  * anolis-provider-bread.
  */
 
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -50,6 +52,9 @@ struct ProviderConfig {
     int query_delay_us = 10000;
     int timeout_ms = 100;
     int retry_count = 2;
+    // Highest bus clock the devices tolerate on this machine; unset skips the
+    // i2c.bus_clock host check.
+    std::optional<uint32_t> max_bus_hz;
     DiscoveryMode discovery_mode = DiscoveryMode::Scan;
     std::vector<int> manual_addresses;
     std::vector<DeviceSpec> devices;

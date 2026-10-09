@@ -33,35 +33,45 @@ Use `--check-config` to validate before running:
 
 A valid config prints `[INFO] Config valid: ...` and exits with code 0.
 
-### Bus open failure
+### Host requirements unmet, or the bus will not open
 
 Applies only when `hardware.bus_path` is a real device node (not a `mock://...` path).
-The provider exits with code 1 after loading config.
+The provider does not exit. It stays up with no devices, reports itself not ready, and
+says why in three places: the log, its WaitReady diagnostics (`host_check`,
+`host_unmet`), and its provider health (`DEGRADED` with the same message). Every
+configured device shows as missing with that reason.
+
+Before opening the bus it checks what the bus needs from the host (executable
+profile v1 §6). An unmet requirement logs:
 
 ```text
-[ERROR] open failed code=TransportError attempts=1 message="failed to open Linux I2C bus '/dev/i2c-1'"
+[ERROR] host requirements unmet: i2c.bus_present: /dev/i2c-1 does not exist
+[INFO] serving, not ready (transport=stdio+uint32_le)
 ```
 
-Check that the bus path exists and the process has permission:
+| Requirement | Unmet means | Fix |
+|-------------|-------------|-----|
+| `i2c.bus_present` | the device node does not exist | enable the I2C bus on the host and load `i2c-dev` |
+| `i2c.bus_access` | the provider's user cannot open it read-write; the detail names the node's group and mode | add that user to the named group, then restart the service |
+| `i2c.bus_clock` | the bus's configured clock is above `hardware.max_bus_hz` (checked only when set) | lower the bus clock in the platform's configuration |
+
+`--check-host` runs the same checks without starting, prints the result as JSON on
+stdout, and exits 0 (nothing unmet), 1 (something unmet) or 2 (invalid config).
+Run it as the user the runtime runs as: root opens any node, so `i2c.bus_access`
+reports `unknown` under root.
 
 ```bash
-ls -la /dev/i2c-*
-sudo setfacl -m u:$USER:rw /dev/i2c-1  # or run as root temporarily during dev
+sudo -u anolis ./anolis-provider-bread --check-host config/example.local.yaml
 ```
 
-Confirm `hardware.bus_path` in your config matches the actual device node.
-
-### Live bus cannot be opened
-
-If `hardware.bus_path` is a real device node (not a `mock://...` path) and the bus cannot be
-opened, startup fails immediately rather than silently falling back to a config-seeded inventory:
+If the checks pass but the bus still will not open, the log names the open error
+instead:
 
 ```text
-[ERROR] open failed code=TransportError ... message="failed to open Linux I2C bus '/dev/i2c-1'"
+[ERROR] failed to open CRUMBS bus '/dev/i2c-1': failed to open /dev/i2c-1: <strerror>
 ```
 
-Fix by correcting the bus path and permissions (see [Bus open failure](#bus-open-failure) above),
-or set `hardware.bus_path` to a `mock://...` value to run without hardware.
+To run without hardware, set `hardware.bus_path` to a `mock://...` value.
 
 ---
 

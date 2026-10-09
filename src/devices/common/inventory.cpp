@@ -24,6 +24,9 @@ extern "C" {
 #include <crumbs_version.h>
 }
 
+#include "anolis/provider_sdk/claims.hpp"
+#include "anolis/provider_sdk/i2c/claims.hpp"
+
 namespace anolis_provider_bread::inventory {
 namespace {
 
@@ -370,10 +373,11 @@ InventoryDevice build_device(const ProviderConfig &config, const ProbeRecord &pr
     device.descriptor.set_type_id(provider_type_id(type));
     device.descriptor.set_type_version(
         std::to_string(device.version.module_major == 0 ? 1 : static_cast<int>(device.version.module_major)));
-    device.descriptor.mutable_tags()->insert({"hw.bus_path", config.bus_path});
-    device.descriptor.mutable_tags()->insert({"hw.i2c_address", formatted_address});
-    device.descriptor.mutable_tags()->insert({"bus_path", config.bus_path});
-    device.descriptor.mutable_tags()->insert({"i2c_address", formatted_address});
+    // The bus address this device owns, as an opaque claim the runtime checks
+    // for uniqueness across providers (anolis#318); the SDK spells the key so
+    // every provider on the bus agrees.
+    anolis::provider_sdk::add_claim(device.descriptor, anolis::provider_sdk::i2c::claim_key(
+                                                           config.bus_path, static_cast<unsigned int>(probe.address)));
     device.descriptor.mutable_tags()->insert({"family", "bread"});
     device.descriptor.mutable_tags()->insert({"inventory", to_string(source)});
     device.descriptor.mutable_tags()->insert({"contract", bread_contract_name(type)});

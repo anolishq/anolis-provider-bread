@@ -25,8 +25,13 @@ TEST(StubInventoryTest, BuildsSeedInventoryForConfiguredDevices) {
     EXPECT_EQ(inventory_devices[0].descriptor.provider_name(), "anolis-provider-bread");
     EXPECT_EQ(inventory_devices[0].descriptor.type_id(), "bread.rlht");
     EXPECT_EQ(inventory_devices[0].descriptor.address(), "0x08");
-    EXPECT_EQ(inventory_devices[0].descriptor.tags().at("hw.bus_path"), "/dev/i2c-1");
-    EXPECT_EQ(inventory_devices[0].descriptor.tags().at("hw.i2c_address"), "0x08");
+    // One opaque claim per device, in the SDK's canonical form; the old
+    // ownership tags are gone (anolis#318).
+    EXPECT_EQ(inventory_devices[0].descriptor.tags().at("anolis.claim"), "i2c:/dev/i2c-1:0x08");
+    EXPECT_EQ(inventory_devices[0].descriptor.tags().count("hw.bus_path"), 0U);
+    EXPECT_EQ(inventory_devices[0].descriptor.tags().count("hw.i2c_address"), 0U);
+    EXPECT_EQ(inventory_devices[0].descriptor.tags().count("bus_path"), 0U);
+    EXPECT_EQ(inventory_devices[0].descriptor.tags().count("i2c_address"), 0U);
     EXPECT_EQ(inventory_devices[1].descriptor.type_id(), "bread.dcmt");
 
     EXPECT_EQ(inventory_devices[0].capabilities.functions_size(), 6);

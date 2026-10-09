@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "anolis/provider_sdk/host_check.hpp"
 #include "anolis/provider_sdk/result.hpp"
 #include "config/provider_config.hpp"
 #include "core/runtime_state.hpp"
@@ -101,7 +102,24 @@ sdk::ReadinessReport BreadProviderRuntime::readiness() const {
     diag["unsupported_probe_count"] = std::to_string(state.unsupported_probe_count);
     diag["missing_expected_count"] = std::to_string(state.missing_expected_ids.size());
     diag["startup_message"] = state.startup_message;
+    // Standard host-check keys (executable profile v1 §3): host_check, and
+    // host_unmet when something is unmet.
+    for (auto& [key, value] : sdk::host_check::readiness_diagnostics(state.host_requirements)) {
+        diag[key] = std::move(value);
+    }
     return r;
+}
+
+sdk::ProviderHealthExtra BreadProviderRuntime::provider_health() const {
+    // Not ready means startup could not serve the bus (unmet host requirements
+    // or a failed open): say why at the provider level, not only per device.
+    const runtime::RuntimeState state = runtime::snapshot();
+    sdk::ProviderHealthExtra extra;
+    if (!state.ready) {
+        extra.state = adpp::ProviderHealth::STATE_DEGRADED;
+        extra.message = state.startup_message;
+    }
+    return extra;
 }
 
 sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& device_id) const {
