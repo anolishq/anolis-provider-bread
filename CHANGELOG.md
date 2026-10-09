@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-09
+
 ### Added
 
 - `--check-host <config>` (executable profile v1 §6, anolishq/anolis#318):
