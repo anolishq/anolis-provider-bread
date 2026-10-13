@@ -69,31 +69,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(anolis_provider_sdk)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    if(DEFINED LINUX_WIRE_DIR AND NOT LINUX_WIRE_DIR STREQUAL "")
-        get_filename_component(LINUX_WIRE_DIR_ABS "${LINUX_WIRE_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-        if(NOT EXISTS "${LINUX_WIRE_DIR_ABS}/CMakeLists.txt")
-            message(FATAL_ERROR
-                "linux-wire not found at: ${LINUX_WIRE_DIR_ABS}\n"
-                "Set LINUX_WIRE_DIR to the root of the linux-wire repository.")
-        endif()
-        set(BUILD_SHARED_LIBS OFF)
-        set(LINUX_WIRE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-        add_subdirectory("${LINUX_WIRE_DIR_ABS}" "${CMAKE_BINARY_DIR}/linux_wire_subbuild")
-        message(STATUS "Using linux-wire source tree: ${LINUX_WIRE_DIR_ABS}")
-    else()
-        FetchContent_Declare(
-            linux_wire
-            URL https://github.com/feastorg/linux-wire/releases/download/v0.1.3/linux-wire-0.1.3-source.tar.gz
-            URL_HASH SHA256=9966c7cde75e8f573643709dd978bb6fe85986a394ca2ec7780b8a0059eb0b1b
-            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-        )
-        set(LINUX_WIRE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-        set(BUILD_SHARED_LIBS OFF)
-        FetchContent_MakeAvailable(linux_wire)
-    endif()
-endif()
-
 # CRUMBS: find_package by default; set CRUMBS_DIR to use a source-tree override.
 if(DEFINED CRUMBS_DIR AND NOT CRUMBS_DIR STREQUAL "")
     get_filename_component(CRUMBS_DIR_ABS "${CRUMBS_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -102,11 +77,7 @@ if(DEFINED CRUMBS_DIR AND NOT CRUMBS_DIR STREQUAL "")
             "CRUMBS not found at: ${CRUMBS_DIR_ABS}\n"
             "Set CRUMBS_DIR to the root of the CRUMBS repository.")
     endif()
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        set(CRUMBS_ENABLE_LINUX_HAL ON CACHE BOOL "" FORCE)
-    else()
-        set(CRUMBS_ENABLE_LINUX_HAL OFF CACHE BOOL "" FORCE)
-    endif()
+    set(CRUMBS_ENABLE_LINUX_HAL OFF CACHE BOOL "" FORCE)
     set(CRUMBS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(CRUMBS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
     add_subdirectory("${CRUMBS_DIR_ABS}" "${CMAKE_BINARY_DIR}/crumbs_subbuild")
@@ -120,11 +91,7 @@ else()
         URL_HASH SHA256=caea74173e4dc432defec9e7905af0bfcb07a24475612d1cd91926aa9c8b9cea
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        set(CRUMBS_ENABLE_LINUX_HAL ON CACHE BOOL "" FORCE)
-    else()
-        set(CRUMBS_ENABLE_LINUX_HAL OFF CACHE BOOL "" FORCE)
-    endif()
+    set(CRUMBS_ENABLE_LINUX_HAL OFF CACHE BOOL "" FORCE)
     set(CRUMBS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(CRUMBS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(crumbs)
@@ -175,7 +142,7 @@ target_compile_definitions(anolis_provider_bread_support PUBLIC
 anolis_provider_bread_apply_warnings(anolis_provider_bread_support)
 
 # The CRUMBS codec (encode/decode/frame_length/scan) builds on all platforms
-# (CRUMBS_ENABLE_LINUX_HAL is OFF off-Linux), so CrumbsTransport + the canned bus
+# (CRUMBS_ENABLE_LINUX_HAL is OFF everywhere), so CrumbsTransport + the canned bus
 # are portable and back the mock path everywhere; only the real LinuxI2cBus is
 # Linux-gated (in runtime_state.cpp).
 add_library(anolis_provider_bread_crumbs STATIC

@@ -16,7 +16,6 @@ git clone https://github.com/anolishq/anolis-provider-bread
 # Optional — only needed if developing CRUMBS or bread-crumbs-contracts alongside this repo:
 git clone https://github.com/feastorg/CRUMBS
 git clone https://github.com/feastorg/bread-crumbs-contracts
-git clone https://github.com/feastorg/linux-wire  # required only for hardware I2C path
 ```
 
 Source overrides use `CRUMBS_DIR` and `BREAD_CONTRACTS_DIR` CMake variables.
@@ -52,7 +51,7 @@ Hardware support is always compiled into the Linux binary, so the `dev-debug`
 build above is also the hardware build. To talk to a real I2C bus, point
 `hardware.bus_path` at a real device node (e.g. `/dev/i2c-1`) instead of a
 `mock://...` path; any non-`mock://` path opens a live CRUMBS session. This
-requires the sibling `linux-wire` repo and a real I2C bus.
+requires a real I2C bus.
 
 ### Validating a config without running the provider
 

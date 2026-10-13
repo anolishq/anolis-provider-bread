@@ -8,7 +8,7 @@ It is scoped to **BREAD-over-CRUMBS** rather than to CRUMBS in general. BREAD is
 
 - The provider is **BREAD-specific**: it speaks BREAD-over-CRUMBS, not CRUMBS in general.
 - Internal boundaries are organized so the CRUMBS session and bus-management code can be extracted if a second concrete consumer appears.
-- Hardware support targets **Linux host mode** via the CRUMBS Linux HAL.
+- Hardware support targets **Linux host mode** via the SDK's Linux I2C bus.
 
 ## Design Direction
 
@@ -34,7 +34,7 @@ A family-wide abstraction layer is not included; it would be speculative given t
 This provider depends on:
 
 - `anolis-protocol` — ADPP proto contracts, consumed via CMake FetchContent (pinned in `CMakeLists.txt`)
-- `CRUMBS` — bus transport and Linux HAL, consumed as a sibling source dependency
+- `CRUMBS` — bus message codec, consumed as a sibling source dependency
 - `bread-crumbs-contracts` — BREAD wire contracts, type IDs, and compatibility rules, consumed as a sibling source dependency
 
 Third-party dependencies (`protobuf`, `yaml-cpp`, `gtest`) are managed through vcpkg in alignment with `anolis-provider-sim`.
