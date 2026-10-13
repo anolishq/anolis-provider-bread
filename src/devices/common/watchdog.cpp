@@ -66,12 +66,14 @@ crumbs::SessionStatus query_status(crumbs::Session &session, const inventory::In
         return status;
     }
     if (frame.opcode != BREAD_OP_GET_WATCHDOG) {
+        session.record_rejection(static_cast<uint8_t>(device.address));
         return crumbs::SessionStatus::failure(crumbs::SessionErrorCode::DecodeFailed,
                                               "unexpected watchdog reply opcode");
     }
 
     bread_watchdog_result_t parsed{};
     if (bread_watchdog_parse_payload(frame.payload.data(), static_cast<uint8_t>(frame.payload.size()), &parsed) != 0) {
+        session.record_rejection(static_cast<uint8_t>(device.address));
         return crumbs::SessionStatus::failure(crumbs::SessionErrorCode::DecodeFailed,
                                               "failed to parse watchdog payload");
     }
