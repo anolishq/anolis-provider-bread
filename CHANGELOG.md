@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-13
+
 ### Removed
 
 - The `linux-wire` dependency and the `LINUX_WIRE_DIR` override (#119).
