@@ -13,6 +13,13 @@ commit messages only.
 
 ## [Unreleased]
 
+### Removed
+
+- The `linux-wire` dependency and the `LINUX_WIRE_DIR` override (#119).
+  CRUMBS is now built with `CRUMBS_ENABLE_LINUX_HAL` off on every platform:
+  raw I2C has gone through the SDK's Linux I2C bus since the shared I2C seam,
+  and only the portable CRUMBS codec is used.
+
 ### Fixed
 
 - A watchdog status reply with the wrong opcode or an unparsable payload is

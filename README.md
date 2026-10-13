@@ -49,7 +49,7 @@ A sample provider config is at `config/example.local.yaml` in the source. See
 
 ### Build from source (contributors / hardware builds)
 
-Linux hardware builds require CRUMBS and linux-wire as sibling checkouts. See
+Linux hardware builds require CRUMBS as a sibling checkout. See
 [docs/build.md](docs/build.md) for the full dependency install and configure workflow.
 
 No-hardware build (dev/CI):

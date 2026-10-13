@@ -9,7 +9,6 @@ repos_feast/
 |- anolis-provider-bread/
 |- CRUMBS/
 |- bread-crumbs-contracts/
-|- linux-wire/
 ```
 
 `anolis-protocol` is fetched automatically via CMake FetchContent (pinned in `CMakeLists.txt`); it is not a sibling checkout or submodule.
@@ -92,8 +91,8 @@ instead of the default MSVC triplet.
 ## Running Against Real Hardware
 
 There is no separate hardware preset or build flag. The `dev-debug` / `dev-release`
-builds above already include hardware capability on Linux (`linux-wire` is always
-compiled in, alongside the sibling `CRUMBS` and `bread-crumbs-contracts` repos).
+builds above already include hardware capability on Linux (the SDK's Linux I2C bus
+is always compiled in, alongside the sibling `CRUMBS` and `bread-crumbs-contracts` repos).
 To work against real CRUMBS and BREAD hardware, run that same binary with a config
 whose `hardware.bus_path` points at a real device node (e.g. `/dev/i2c-1`); any
 non-`mock://` path opens a live CRUMBS session.
@@ -166,7 +165,7 @@ the released binary on the Linux host with a real `hardware.bus_path` pointing a
 
 - `CRUMBS` and `bread-crumbs-contracts` are first-class source dependencies for all builds.
 - Hardware vs config-seeded operation is selected at runtime by `hardware.bus_path` (`mock://...` vs a real path), not by a build flag.
-- On Linux, `linux-wire` is always compiled into the provider and is added before `CRUMBS`.
+- Only the portable CRUMBS codec is built (`CRUMBS_ENABLE_LINUX_HAL` is forced `OFF`); raw I2C goes through the SDK's Linux I2C bus.
 - The CRUMBS session layer (`src/crumbs/`) owns scan/send/read/query-read behavior only.
 - Inventory and compatibility code (`src/devices/common/`) uses `bread-crumbs-contracts` for type
   IDs, baseline capability profiles, and compatibility rules.
