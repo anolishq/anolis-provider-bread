@@ -1,17 +1,25 @@
 ﻿# Build Notes
 
-## Workspace Layout
+## Dependencies
 
-The expected local workspace is:
+A build needs only this repo. At configure time, CMake FetchContent downloads the source
+dependencies as release tarballs, each pinned by URL and SHA256 in `CMakeLists.txt`:
 
-```text
-repos_feast/
-|- anolis-provider-bread/
-|- CRUMBS/
-|- bread-crumbs-contracts/
-```
+- `anolis-provider-sdk`, which also carries the `anolis-protocol` pin
+- `CRUMBS` (only the portable codec is built)
+- `bread-crumbs-contracts`
 
-`anolis-protocol` is fetched automatically via CMake FetchContent (pinned in `CMakeLists.txt`); it is not a sibling checkout or submodule.
+None of them is a sibling checkout or submodule. To build against a local checkout instead,
+for example while changing one of them alongside this repo, point CMake at it on configure:
+
+| Dependency | Configure option |
+|---|---|
+| `CRUMBS` | `-DCRUMBS_DIR=<path>` |
+| `bread-crumbs-contracts` | `-DBREAD_CONTRACTS_DIR=<path>` |
+| `anolis-provider-sdk` | `-DFETCHCONTENT_SOURCE_DIR_ANOLIS_PROVIDER_SDK=<path>` |
+
+A relative `CRUMBS_DIR` or `BREAD_CONTRACTS_DIR` resolves against this repo's root, so
+`-DCRUMBS_DIR=../CRUMBS` picks up a sibling clone.
 
 ## Prerequisites
 
@@ -19,7 +27,7 @@ repos_feast/
 - Ninja or Visual Studio generators
 - `VCPKG_ROOT` set to a working vcpkg installation
 - vcpkg manifest dependencies available for `protobuf`, `yaml-cpp`, and `gtest`
-- sibling source repos for `CRUMBS` and `bread-crumbs-contracts`
+- network access at configure time, to fetch the pinned source tarballs
 
 ### Install Dependencies (Linux)
 
@@ -92,7 +100,7 @@ instead of the default MSVC triplet.
 
 There is no separate hardware preset or build flag. The `dev-debug` / `dev-release`
 builds above already include hardware capability on Linux (the SDK's Linux I2C bus
-is always compiled in, alongside the sibling `CRUMBS` and `bread-crumbs-contracts` repos).
+is always compiled in).
 To work against real CRUMBS and BREAD hardware, run that same binary with a config
 whose `hardware.bus_path` points at a real device node (e.g. `/dev/i2c-1`); any
 non-`mock://` path opens a live CRUMBS session.
@@ -155,15 +163,15 @@ ctest --preset dev-debug
 | `ci-windows-release` | Yes | Automated CI on every push and PR (Windows) |
 
 The `ci-linux-release` and `ci-windows-release` lanes run automatically via GitHub Actions
-(`.github/workflows/ci.yml`). They check out `CRUMBS` and `bread-crumbs-contracts` as sibling
-directories and exercise the provider against a `mock://` bus (no I2C hardware).
+(`.github/workflows/ci.yml`). They check out only this repo, fetch the pinned dependencies at
+configure time, and exercise the provider against a `mock://` bus (no I2C hardware).
 
 There is no automated hardware lane. Real-hardware validation is performed manually by running
 the released binary on the Linux host with a real `hardware.bus_path` pointing at the CRUMBS bus.
 
 ## Notes
 
-- `CRUMBS` and `bread-crumbs-contracts` are first-class source dependencies for all builds.
+- `CRUMBS` and `bread-crumbs-contracts` are source dependencies for all builds, fetched as described in [Dependencies](#dependencies).
 - Hardware vs config-seeded operation is selected at runtime by `hardware.bus_path` (`mock://...` vs a real path), not by a build flag.
 - Only the portable CRUMBS codec is built (`CRUMBS_ENABLE_LINUX_HAL` is forced `OFF`); raw I2C goes through the SDK's Linux I2C bus.
 - The CRUMBS session layer (`src/crumbs/`) owns scan/send/read/query-read behavior only.

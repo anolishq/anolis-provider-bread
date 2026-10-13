@@ -49,19 +49,14 @@ A sample provider config is at `config/example.local.yaml` in the source. See
 
 ### Build from source (contributors / hardware builds)
 
-Linux hardware builds require CRUMBS as a sibling checkout. See
+Only this repo needs to be cloned. CMake fetches `CRUMBS` and `bread-crumbs-contracts`
+at configure time from release tarballs pinned in `CMakeLists.txt`. See
 [docs/build.md](docs/build.md) for the full dependency install and configure workflow.
-
-No-hardware build (dev/CI):
 
 ```bash
 git clone https://github.com/anolishq/anolis-provider-bread.git
 cd anolis-provider-bread
-git clone https://github.com/feastorg/CRUMBS.git ../CRUMBS
-git clone https://github.com/feastorg/bread-crumbs-contracts.git ../bread-crumbs-contracts
-cmake --preset dev-debug \
-  -DCRUMBS_DIR=../CRUMBS \
-  -DBREAD_CONTRACTS_DIR=../bread-crumbs-contracts
+cmake --preset dev-debug
 cmake --build --preset dev-debug --parallel
 ctest --preset dev-debug
 ```

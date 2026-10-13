@@ -4,11 +4,12 @@
 
 Just clone this repo — no sibling checkouts required for a standard build.
 
-`anolis-protocol` is fetched automatically at configure time via CMake FetchContent, pinned to the
-release tag declared in `CMakeLists.txt`. `CRUMBS` and `bread-crumbs-contracts` are resolved from
-their release artifacts via `find_package` when `CRUMBS_DIR` / `BREAD_CONTRACTS_DIR` are not set.
+`anolis-provider-sdk` (which carries the `anolis-protocol` pin), `CRUMBS` and `bread-crumbs-contracts`
+are fetched automatically at configure time via CMake FetchContent, as release source tarballs pinned
+by URL and SHA256 in `CMakeLists.txt`.
 
-For active development of those dependencies, you can clone them as siblings and point CMake at them:
+For active development of `CRUMBS` or `bread-crumbs-contracts`, you can clone them as siblings and
+point CMake at them:
 
 ```bash
 cd repos_feast  # or wherever you keep repos
@@ -18,7 +19,9 @@ git clone https://github.com/feastorg/CRUMBS
 git clone https://github.com/feastorg/bread-crumbs-contracts
 ```
 
-Source overrides use `CRUMBS_DIR` and `BREAD_CONTRACTS_DIR` CMake variables.
+Source overrides use the `CRUMBS_DIR` and `BREAD_CONTRACTS_DIR` CMake variables, for example
+`cmake --preset dev-debug -DCRUMBS_DIR=../CRUMBS -DBREAD_CONTRACTS_DIR=../bread-crumbs-contracts`.
+A relative path resolves against this repo's root.
 
 vcpkg must be installed and `VCPKG_ROOT` set before configuring.
 See [docs/build.md](docs/build.md) for the full prerequisites list.
@@ -121,11 +124,12 @@ Use `GoogleTest`. Look at `dcmt_adapter_test.cpp` or `rlht_adapter_test.cpp` as 
 Changes that touch `bread-crumbs-contracts` and this provider together:
 
 1. Land the contracts change in `bread-crumbs-contracts` first (PR + merge).
-2. Update the workspace to point at the new contracts commit.
+2. Cut a contracts release, then update its tarball URL and SHA256 in `CMakeLists.txt`.
+   Build against the unreleased change first with `-DBREAD_CONTRACTS_DIR=<path>`.
 3. Update any compatibility constants, adapter code, or capability handling in this repo.
 4. If the contracts change bumps a module major version, treat the provider change as a major version bump.
 
-The `anolis-protocol` FetchContent pin (in `CMakeLists.txt`) should only be advanced if the consuming runtime (anolis) has already adopted the new protocol version.
+The `anolis-protocol` pin comes from the `anolis-provider-sdk` release pinned in `CMakeLists.txt`; it should only be advanced if the consuming runtime (anolis) has already adopted the new protocol version.
 
 ---
 
