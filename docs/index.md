@@ -33,9 +33,11 @@ A family-wide abstraction layer is not included; it would be speculative given t
 
 This provider depends on:
 
-- `anolis-protocol` — ADPP proto contracts, consumed via CMake FetchContent (pinned in `CMakeLists.txt`)
-- `CRUMBS` — bus message codec, consumed as a sibling source dependency
-- `bread-crumbs-contracts` — BREAD wire contracts, type IDs, and compatibility rules, consumed as a sibling source dependency
+- `anolis-provider-sdk` — shared C++ SDK for ADPP providers, which also carries the `anolis-protocol` (ADPP proto contracts) pin
+- `CRUMBS` — bus message codec
+- `bread-crumbs-contracts` — BREAD wire contracts, type IDs, and compatibility rules
+
+All three are fetched at configure time via CMake FetchContent, as release source tarballs pinned in `CMakeLists.txt`. See [build.md](build.md#dependencies) for local source overrides.
 
 Third-party dependencies (`protobuf`, `yaml-cpp`, `gtest`) are managed through vcpkg in alignment with `anolis-provider-sim`.
 

@@ -24,7 +24,7 @@ Hardware behavior changes (new capability flags, updated BREAD firmware expectat
 
 ## ADPP Protocol Compatibility
 
-The provider implements the ADPP protocol defined in `anolis-protocol`, consumed via CMake FetchContent.
+The provider implements the ADPP protocol defined in `anolis-protocol`, consumed through the `anolis-provider-sdk` release that CMake FetchContent pins in `CMakeLists.txt`.
 
 | Field | Value |
 |-------|-------|
@@ -33,7 +33,7 @@ The provider implements the ADPP protocol defined in `anolis-protocol`, consumed
 
 The `v1` package identifier is the stable protocol generation.
 A change to a different package (e.g. `v2`) would require explicit provider support and a major version bump.
-The current `anolis-protocol` FetchContent pin (set in `CMakeLists.txt`) is the supported revision.
+The `anolis-protocol` revision carried by the pinned `anolis-provider-sdk` release is the supported revision.
 Do not advance the pin without verifying that the runtime consuming this provider supports the same revision.
 
 ---
@@ -45,7 +45,7 @@ CRUMBS is the I2C transport layer used on the hardware path.
 | Field | Value |
 |-------|-------|
 | Minimum CRUMBS version (firmware) | `1200` (from `BREAD_MIN_CRUMBS_VERSION` in `bread-crumbs-contracts`) |
-| CRUMBS host library | sibling repo `CRUMBS/` at the pinned vcpkg or workspace revision |
+| CRUMBS host library | release source tarball pinned (URL and SHA256) in `CMakeLists.txt` |
 
 A device whose firmware reports a CRUMBS version below the minimum is rejected at probe time with `IncompatibleCrumbsVersion`.
 See [troubleshooting.md](troubleshooting.md) for the associated log signature.
@@ -54,8 +54,8 @@ See [troubleshooting.md](troubleshooting.md) for the associated log signature.
 
 ## BREAD Contracts Compatibility
 
-The BREAD device contracts are defined in `bread-crumbs-contracts` (sibling repo).
-This provider pins a specific revision at build time via the workspace layout and CMake `find_package`.
+The BREAD device contracts are defined in `bread-crumbs-contracts` (separate repo).
+This provider pins a specific release at build time: CMake FetchContent downloads its source tarball, pinned by URL and SHA256 in `CMakeLists.txt`.
 
 | Device | Expected major | Expected minor |
 |--------|----------------|----------------|
@@ -69,7 +69,7 @@ Any device whose firmware reports a different major version, or a minor version 
 
 When `bread-crumbs-contracts` releases a new version:
 
-- If only `MINOR` or `PATCH` changed: update the workspace pin, rebuild, run tests. Should be non-breaking.
+- If only `MINOR` or `PATCH` changed: update the tarball URL and SHA256 in `CMakeLists.txt`, rebuild, run tests. Should be non-breaking.
 - If `MAJOR` changed: inspect the change log. Adapter code (`src/devices/`) may need updating. Treat as a potentially breaking change to this provider.
 
 ---

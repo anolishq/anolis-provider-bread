@@ -69,7 +69,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(anolis_provider_sdk)
 
-# CRUMBS: find_package by default; set CRUMBS_DIR to use a source-tree override.
+# CRUMBS: pinned release tarball via FetchContent by default; set CRUMBS_DIR to use a source-tree override.
 if(DEFINED CRUMBS_DIR AND NOT CRUMBS_DIR STREQUAL "")
     get_filename_component(CRUMBS_DIR_ABS "${CRUMBS_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
     if(NOT EXISTS "${CRUMBS_DIR_ABS}/CMakeLists.txt")
@@ -97,7 +97,7 @@ else()
     FetchContent_MakeAvailable(crumbs)
 endif()
 
-# bread-crumbs-contracts: find_package by default; set BREAD_CONTRACTS_DIR to use a source-tree override.
+# bread-crumbs-contracts: pinned release tarball via FetchContent by default; set BREAD_CONTRACTS_DIR to use a source-tree override.
 if(DEFINED BREAD_CONTRACTS_DIR AND NOT BREAD_CONTRACTS_DIR STREQUAL "")
     get_filename_component(BREAD_CONTRACTS_DIR_ABS "${BREAD_CONTRACTS_DIR}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
     if(NOT EXISTS "${BREAD_CONTRACTS_DIR_ABS}/CMakeLists.txt")
