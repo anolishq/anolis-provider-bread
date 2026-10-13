@@ -13,6 +13,12 @@ commit messages only.
 
 ## [Unreleased]
 
+### Fixed
+
+- A watchdog status reply with the wrong opcode or an unparsable payload is
+  now counted in `io_rejected` (#137); before, it was counted only in
+  `io_ok`, so the health surface showed a clean device.
+
 ## [0.5.0] - 2026-10-09
 
 ### Added

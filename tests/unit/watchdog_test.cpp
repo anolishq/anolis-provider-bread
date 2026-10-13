@@ -226,6 +226,29 @@ TEST(WatchdogTest, QueryStatusRejectsWrongOpcode) {
 
     WatchdogStatus status;
     EXPECT_FALSE(query_status(session, make_dcmt_device(DCMT_CAP_CMD_WATCHDOG, 5000), status));
+
+    const crumbs::AddressStats stats = session.stats_for(0x14u);
+    EXPECT_EQ(stats.ok, 1U);
+    EXPECT_EQ(stats.rejected, 1U);
+}
+
+TEST(WatchdogTest, QueryStatusRejectsBadPayload) {
+    FakeTransport transport;
+    crumbs::Session session(transport, crumbs::SessionOptions{"/dev/i2c-1", 10000u, 100u, 0});
+    ASSERT_TRUE(session.open());
+
+    FakeTransport::ReadAction action;
+    action.frame.type_id = DCMT_TYPE_ID;
+    action.frame.opcode = BREAD_OP_GET_WATCHDOG;
+    action.frame.payload = {1, 0x88};
+    transport.read_actions.push_back(action);
+
+    WatchdogStatus status;
+    EXPECT_FALSE(query_status(session, make_dcmt_device(DCMT_CAP_CMD_WATCHDOG, 5000), status));
+
+    const crumbs::AddressStats stats = session.stats_for(0x14u);
+    EXPECT_EQ(stats.ok, 1U);
+    EXPECT_EQ(stats.rejected, 1U);
 }
 
 }  // namespace
