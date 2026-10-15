@@ -22,6 +22,10 @@ commit messages only.
   disarmed. A tripped device is not re-armed, because on firmware without
   `CLEAR_WATCHDOG_TRIP` a `SET_WATCHDOG` clears the trip. The health read
   that saw the reboot still reports `watchdog_armed=false`.
+- An incremental build after a dependency pin bump now recompiles the
+  translation units that include its headers (#153). FetchContent
+  extracts with `DOWNLOAD_EXTRACT_TIMESTAMP FALSE`, so the headers carry
+  the extraction time instead of the archive's older mtimes.
 
 ## [0.5.1] - 2026-10-13
 
