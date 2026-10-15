@@ -9,7 +9,8 @@
  * (DCMT_CAP_CMD_WATCHDOG / RLHT_CAP_CMD_WATCHDOG), so old firmware never sees
  * the opcode. Firmware boots disarmed, and a device reboot (e.g. an e-stop
  * that cuts backplane power) resets it — callers re-arm on the session's
- * address-recovery signal (#112).
+ * address-recovery signal (#112), and when a health read finds the device
+ * disarmed and not tripped (#148).
  *
  * Arming never clears a trip on its own behalf. On firmware advertising
  * *_CAP_CLEAR_WATCHDOG_TRIP the trip latches and SET_WATCHDOG re-arms without
@@ -45,6 +46,22 @@ bool capability_supported(const inventory::InventoryDevice &device);
  * send is logged but not fatal: the next recovery re-arm attempt retries.
  */
 void arm_if_configured(crumbs::Session &session, const inventory::InventoryDevice &device, const char *context);
+
+/**
+ * @brief Re-arm a device whose health read shows it rebooted.
+ *
+ * Firmware boots disarmed, so a device configured to arm that reports
+ * `armed == false` has rebooted; a reboot between two polls fails no
+ * operation, so the session's recovery signal never fires (#148). Logs the
+ * reboot and re-arms through arm_if_configured(). A tripped device is left
+ * alone: on firmware without the CLEAR_WATCHDOG_TRIP capability SET_WATCHDOG
+ * clears a trip, and only an operator may release that hold. No-op when the
+ * watchdog is not configured or not supported.
+ *
+ * @return true when a re-arm was attempted.
+ */
+bool rearm_if_rebooted(crumbs::Session &session, const inventory::InventoryDevice &device,
+                       const WatchdogStatus &status);
 
 /** @brief Query the device's watchdog status over the bus. */
 crumbs::SessionStatus query_status(crumbs::Session &session, const inventory::InventoryDevice &device,

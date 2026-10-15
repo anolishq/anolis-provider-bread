@@ -22,6 +22,13 @@ commit messages only.
 
 ### Fixed
 
+- A device configured to arm its command watchdog is re-armed when a health
+  read reports it disarmed and not tripped, and the provider logs a warning
+  that it appears to have rebooted (#148). A reboot between two polls fails
+  no operation, so the recovery re-arm never ran and the device stayed
+  disarmed. A tripped device is not re-armed, because on firmware without
+  `CLEAR_WATCHDOG_TRIP` a `SET_WATCHDOG` clears the trip. The health read
+  that saw the reboot still reports `watchdog_armed=false`.
 - An incremental build after a dependency pin bump now recompiles the
   translation units that include its headers (#153). FetchContent
   extracts with `DOWNLOAD_EXTRACT_TIMESTAMP FALSE`, so the headers carry

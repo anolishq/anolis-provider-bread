@@ -251,5 +251,55 @@ TEST(WatchdogTest, QueryStatusRejectsBadPayload) {
     EXPECT_EQ(stats.rejected, 1U);
 }
 
+WatchdogStatus status_of(bool armed, bool tripped) {
+    WatchdogStatus status;
+    status.armed = armed;
+    status.timeout_ms = armed ? 5000 : 0;
+    status.tripped = tripped;
+    return status;
+}
+
+TEST(WatchdogTest, RebootRearmsDisarmedUntrippedDevice) {
+    // A device configured to arm boots disarmed, so armed=false on a health
+    // read means it rebooted between polls (#148).
+    FakeTransport transport;
+    crumbs::Session session(transport, crumbs::SessionOptions{"/dev/i2c-1", 10000u, 100u, 0});
+    ASSERT_TRUE(session.open());
+
+    EXPECT_TRUE(rearm_if_rebooted(session, make_dcmt_device(DCMT_CAP_CMD_WATCHDOG, 5000), status_of(false, false)));
+
+    ASSERT_EQ(transport.sent_frames.size(), 1U);
+    EXPECT_EQ(transport.sent_frames[0].opcode, BREAD_OP_SET_WATCHDOG);
+    ASSERT_EQ(transport.sent_frames[0].payload.size(), 2U);
+    EXPECT_EQ(transport.sent_frames[0].payload[0], 0x88u);  // 5000 = 0x1388 LE
+    EXPECT_EQ(transport.sent_frames[0].payload[1], 0x13u);
+}
+
+TEST(WatchdogTest, RebootRearmLeavesTrippedOrArmedDeviceAlone) {
+    // On firmware without CLEAR_WATCHDOG_TRIP, SET_WATCHDOG clears a trip, so
+    // a re-arm from a health read must never touch a tripped device.
+    FakeTransport transport;
+    crumbs::Session session(transport, crumbs::SessionOptions{"/dev/i2c-1", 10000u, 100u, 0});
+    ASSERT_TRUE(session.open());
+
+    const inventory::InventoryDevice device = make_dcmt_device(DCMT_CAP_CMD_WATCHDOG, 5000);
+    EXPECT_FALSE(rearm_if_rebooted(session, device, status_of(false, true)));
+    EXPECT_FALSE(rearm_if_rebooted(session, device, status_of(true, true)));
+    EXPECT_FALSE(rearm_if_rebooted(session, device, status_of(true, false)));
+
+    EXPECT_TRUE(transport.sent_frames.empty());
+}
+
+TEST(WatchdogTest, RebootRearmSkipsUnconfiguredOrUnsupportedDevice) {
+    FakeTransport transport;
+    crumbs::Session session(transport, crumbs::SessionOptions{"/dev/i2c-1", 10000u, 100u, 0});
+    ASSERT_TRUE(session.open());
+
+    EXPECT_FALSE(rearm_if_rebooted(session, make_dcmt_device(DCMT_CAP_CMD_WATCHDOG, 0), status_of(false, false)));
+    EXPECT_FALSE(rearm_if_rebooted(session, make_dcmt_device(DCMT_CAP_BASELINE_FLAGS, 5000), status_of(false, false)));
+
+    EXPECT_TRUE(transport.sent_frames.empty());
+}
+
 }  // namespace
 }  // namespace anolis_provider_bread::watchdog
