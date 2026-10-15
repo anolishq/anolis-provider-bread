@@ -23,12 +23,17 @@ commit messages only.
 ### Fixed
 
 - A device configured to arm its command watchdog is re-armed when a health
-  read reports it disarmed and not tripped, and the provider logs a warning
-  that it appears to have rebooted (#148). A reboot between two polls fails
-  no operation, so the recovery re-arm never ran and the device stayed
-  disarmed. A tripped device is not re-armed, because on firmware without
-  `CLEAR_WATCHDOG_TRIP` a `SET_WATCHDOG` clears the trip. The health read
-  that saw the reboot still reports `watchdog_armed=false`.
+  read reports it disarmed and not tripped (#148). A reboot between two
+  polls fails no operation, so the recovery re-arm never ran and the device
+  stayed disarmed. A tripped device is not re-armed, because on firmware
+  without `CLEAR_WATCHDOG_TRIP` a `SET_WATCHDOG` clears the trip. The health
+  read that saw the disarm still reports `watchdog_armed=false`.
+- The re-arm warning says the device "reports disarmed (reboot or local
+  WDOG=0, trip_count=0)" (#151): a local `WDOG=0` on the slice serial
+  console disarms it too. With a nonzero `trip_count` it says "local WDOG=0:
+  trip_count=N rules out a reboot", since a reboot resets the count. A
+  local `WDOG=0` is undone on the next health read; set
+  `command_watchdog_ms: 0` (or leave it out) to keep a device disarmed.
 - An incremental build after a dependency pin bump now recompiles the
   translation units that include its headers (#153). FetchContent
   extracts with `DOWNLOAD_EXTRACT_TIMESTAMP FALSE`, so the headers carry
