@@ -58,6 +58,7 @@ cfg::Schema build_schema() {
                         .title("Discovery mode")
                         .enum_value("scan", "Scan the bus")
                         .enum_value("manual", "Manual address list")
+                        .default_string("manual")
                         .description("manual probes exactly the listed addresses; scan walks the bus."));
     discovery.array("addresses",
                     cfg::Array::of_scalars(cfg::i2c_address_field("address"))
