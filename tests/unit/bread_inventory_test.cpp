@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <map>
+#include <string>
+
 #include "devices/common/inventory.hpp"
 
 extern "C" {
@@ -145,6 +148,34 @@ TEST(BreadInventoryTest, MatchedConfigCarriesCommandWatchdogMsIntoInventory) {
             EXPECT_EQ(device.command_watchdog_ms, 0);
         }
     }
+}
+
+TEST(BreadInventoryTest, ReportedModuleVersionComesFromTheProbeNeverFromSeeding) {
+    ProviderConfig config = make_base_config();
+    config.discovery_mode = DiscoveryMode::Manual;
+    config.manual_addresses = {0x08};
+    config.devices = {DeviceSpec{"rlht0", DeviceType::Rlht, "Left Heater", 0x08}};
+
+    const std::vector<ProbeRecord> probes = {
+        ProbeRecord{0x08,
+                    RLHT_TYPE_ID,
+                    ProbeStatus::Supported,
+                    {CRUMBS_VERSION, 1, 2, 3},
+                    make_seeded_capability_profile(DeviceType::Rlht),
+                    "probed"},
+    };
+    const InventoryBuildResult probed = build_inventory_from_probes(config, probes, InventorySource::Manual);
+    ASSERT_EQ(probed.supported_devices.size(), 1U);
+    std::map<std::string, std::string> probed_metrics;
+    add_module_version_metric(probed.supported_devices[0], probed_metrics);
+    EXPECT_EQ(probed_metrics, (std::map<std::string, std::string>{{"module_version", "1.2.3"}}));
+
+    // A seeded version is this build's expectation, not a device reply.
+    const std::vector<InventoryDevice> seeded = build_seed_inventory(config);
+    ASSERT_EQ(seeded.size(), 1U);
+    std::map<std::string, std::string> seeded_metrics;
+    add_module_version_metric(seeded[0], seeded_metrics);
+    EXPECT_TRUE(seeded_metrics.empty());
 }
 
 TEST(BreadInventoryTest, BaselineFallbackCapsGateDcmtFunctionsAndTypeMismatchIsUnsupported) {
