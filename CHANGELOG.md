@@ -13,6 +13,13 @@ commit messages only.
 
 ## [Unreleased]
 
+### Changed
+
+- `discovery.mode` now declares `manual` as its default in `--config-schema`,
+  and `ProviderConfig` defaults to `DiscoveryMode::Manual` to match (#128).
+  The key stays required. Before, the schema declared no default and the
+  struct defaulted to `scan`, which write-probes 0x08-0x77 on a shared bus.
+
 ### Fixed
 
 - An incremental build after a dependency pin bump now recompiles the
