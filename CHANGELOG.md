@@ -15,12 +15,14 @@ commit messages only.
 
 ### Added
 
-- Device health reports `firmware_version`, the SDK-reserved identity key,
-  as the module version (`major.minor.patch`) the device returned in its
-  probe version reply (#126). A config-seeded (mock) device has no such
-  reply, so the key is absent there rather than filled from this build's
-  expected version. The value moves only when the firmware reports a new
-  module version.
+- Device health reports `module_version`, the contract module version
+  (`major.minor.patch`) the device returned in its probe version reply
+  (#126). A config-seeded (mock) device has no such reply, so the metric
+  is absent there rather than filled from this build's expected version.
+  This is the bread-crumbs-contracts module version, not a firmware
+  revision: DCMT builds with different firmware all report 1.0.0. The
+  SDK-reserved `firmware_version` waits for Slice firmware that reports a
+  real revision.
 
 ### Changed
 

@@ -133,11 +133,10 @@ sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& de
     if (const inventory::InventoryDevice* device = inventory::find_device(state.devices, device_id)) {
         extra.metrics["address"] = device->descriptor.address();
         extra.metrics["type_id"] = device->descriptor.type_id();
-        // SDK-reserved identity key: the version the device reported at probe,
-        // absent for config-seeded inventory (#126).
-        if (const auto firmware_version = inventory::reported_firmware_version(*device)) {
-            extra.metrics["firmware_version"] = *firmware_version;
-        }
+        // Bread-specific contract module version from the probe, absent for
+        // config-seeded inventory (#126). Not the SDK's firmware_version,
+        // which is a firmware revision no slice reports yet.
+        inventory::add_module_version_metric(*device, extra.metrics);
         extra.metrics["inventory"] = state.inventory_mode;
         if (crumbs::Session* session = runtime::session()) {
             const crumbs::AddressStats stats = session->stats_for(static_cast<uint8_t>(device->address));

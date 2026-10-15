@@ -130,12 +130,13 @@ TEST(BreadProviderRuntimeTest, ClearWatchdogTripCallableOnlyWhereAdvertised) {
     EXPECT_EQ(rt.call("rlht0", 7, {}).error_code, adpp::Status::CODE_NOT_FOUND);
 }
 
-TEST(BreadProviderRuntimeTest, SeededHealthOmitsFirmwareVersion) {
-    // firmware_version reports what a device said (SDK metrics.md); mock
-    // inventory is config-seeded, so no device said anything and the key is
-    // absent even though the descriptor still carries a module_version tag.
+TEST(BreadProviderRuntimeTest, SeededHealthOmitsModuleVersion) {
+    // module_version reports what a device said at probe; mock inventory is
+    // config-seeded, so no device said anything and the metric is absent even
+    // though the descriptor still carries a module_version tag.
     const auto rt = make_ready_runtime();
     const auto health = rt.device_health("rlht0");
+    EXPECT_EQ(health.metrics.count("module_version"), 0U);
     EXPECT_EQ(health.metrics.count("firmware_version"), 0U);
     EXPECT_EQ(health.metrics.at("type_id"), "bread.rlht");
 }

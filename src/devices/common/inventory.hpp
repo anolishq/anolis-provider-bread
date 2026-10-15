@@ -7,7 +7,6 @@
  */
 
 #include <map>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -127,13 +126,17 @@ std::string to_string(InventorySource source);
 std::string to_string(CapabilitySource source);
 
 /**
- * @brief The module version the device reported in its probe version reply,
- * formatted `major.minor.patch`.
+ * @brief Add the `module_version` health metric: the contract module version
+ * the device reported in its probe version reply, as `major.minor.patch`.
  *
- * Empty for config-seeded inventory: a seeded version is the provider's
- * compile-time expectation, not a value any device reported.
+ * This is the bread-crumbs-contracts module version, not a firmware revision:
+ * builds with different firmware report the same value, so it is not the
+ * SDK's `firmware_version`.
+ *
+ * Adds nothing for config-seeded inventory: a seeded version is the
+ * provider's compile-time expectation, not a value any device reported.
  */
-std::optional<std::string> reported_firmware_version(const InventoryDevice &device);
+void add_module_version_metric(const InventoryDevice &device, std::map<std::string, std::string> &metrics);
 
 /** @brief Find one device in the inventory by provider-local device ID. */
 const InventoryDevice *find_device(const std::vector<InventoryDevice> &devices, const std::string &device_id);

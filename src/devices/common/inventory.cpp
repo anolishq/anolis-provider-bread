@@ -559,11 +559,11 @@ std::vector<InventoryDevice> build_seed_inventory(const ProviderConfig &config) 
         .supported_devices;
 }
 
-std::optional<std::string> reported_firmware_version(const InventoryDevice &device) {
+void add_module_version_metric(const InventoryDevice &device, std::map<std::string, std::string> &metrics) {
     if (device.source == InventorySource::ConfigSeeded) {
-        return std::nullopt;
+        return;
     }
-    return format_module_version(device.version);
+    metrics["module_version"] = format_module_version(device.version);
 }
 
 std::string to_string(InventorySource source) {
