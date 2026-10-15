@@ -3,7 +3,10 @@
 #include <gtest/gtest.h>
 
 #include <deque>
+#include <iostream>
 #include <memory>
+#include <sstream>
+#include <string>
 #include <vector>
 
 #include "crumbs/crumbs_canned_bus.hpp"
@@ -273,6 +276,56 @@ TEST(WatchdogTest, RebootRearmsDisarmedUntrippedDevice) {
     ASSERT_EQ(transport.sent_frames[0].payload.size(), 2U);
     EXPECT_EQ(transport.sent_frames[0].payload[0], 0x88u);  // 5000 = 0x1388 LE
     EXPECT_EQ(transport.sent_frames[0].payload[1], 0x13u);
+}
+
+// Collects what the provider logs at info/warning level (std::clog).
+class ClogCapture {
+public:
+    ClogCapture() : saved_(std::clog.rdbuf(captured_.rdbuf())) {}
+    ~ClogCapture() { std::clog.rdbuf(saved_); }
+    ClogCapture(const ClogCapture &) = delete;
+    ClogCapture &operator=(const ClogCapture &) = delete;
+    std::string text() const { return captured_.str(); }
+
+private:
+    std::ostringstream captured_;
+    std::streambuf *saved_;
+};
+
+TEST(WatchdogTest, DisarmedRearmLogSaysRebootOrLocalDisarm) {
+    // A reboot is not the only way to read armed=false: the slice serial
+    // console's WDOG=0 disarms locally too (#151). trip_count resets at boot,
+    // so a nonzero count rules the reboot out.
+    FakeTransport transport;
+    crumbs::Session session(transport, crumbs::SessionOptions{"/dev/i2c-1", 10000u, 100u, 0});
+    ASSERT_TRUE(session.open());
+    const inventory::InventoryDevice device = make_dcmt_device(DCMT_CAP_CMD_WATCHDOG, 5000);
+
+    std::string fresh;
+    {
+        const ClogCapture capture;
+        EXPECT_TRUE(rearm_if_rebooted(session, device, status_of(false, false)));
+        fresh = capture.text();
+    }
+    EXPECT_NE(fresh.find("[WARN] watchdog: dcmt0 (0x14) reports disarmed (reboot or local WDOG=0, trip_count=0)"),
+              std::string::npos)
+        << fresh;
+    EXPECT_EQ(fresh.find("appears to have rebooted"), std::string::npos) << fresh;
+
+    WatchdogStatus counted = status_of(false, false);
+    counted.trip_count = 2;
+    std::string local;
+    {
+        const ClogCapture capture;
+        EXPECT_TRUE(rearm_if_rebooted(session, device, counted));
+        local = capture.text();
+    }
+    EXPECT_NE(local.find("[WARN] watchdog: dcmt0 (0x14) reports disarmed (local WDOG=0: trip_count=2 rules out a "
+                         "reboot)"),
+              std::string::npos)
+        << local;
+
+    EXPECT_EQ(transport.sent_frames.size(), 2U);
 }
 
 TEST(WatchdogTest, RebootRearmLeavesTrippedOrArmedDeviceAlone) {
