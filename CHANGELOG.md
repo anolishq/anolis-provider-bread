@@ -25,16 +25,18 @@ commit messages only.
   one this build expects is accepted (logged at info); optional features
   follow the caps flags. The `incompatible_module_minor` probe status is
   gone.
-- DCMT `set_pid_x10` (function 5) keeps its name and its six `*_x10`
-  arguments (0-255), and now sets the position loop only. It sends the
-  major 2 `SET_PID` payload, a loop selector and u16 gains x1000, packed by
-  the contracts codec.
+- **BREAKING: DCMT `set_pid_x10` (function 5) is now `set_pid_x1000`**, for
+  the position loop only. Its six arguments are `kp1_x1000` ... `kd2_x1000`
+  (uint64, 0-65535; gain = value / 1000, 0 to 65.535), so gains such as
+  0.15 / 0.01 / 0.01 can be set; the `*_x10` arguments are refused. It
+  sends the major 2 `SET_PID` payload, a loop selector and the u16 gains
+  as given, packed by the contracts codec. RLHT `set_pid_x10` is unchanged.
 - DCMT state is parsed at the major 2 length of 20 bytes.
 
 ### Added
 
-- DCMT `set_speed_pid_x10` (function 7): same arguments as `set_pid_x10`,
-  for the speed loop. Offered only when the firmware advertises
+- DCMT `set_speed_pid_x1000` (function 7): same arguments as
+  `set_pid_x1000`, for the speed loop. Offered only when the firmware advertises
   closed-loop speed and PID tuning.
 - `estop_count` signal (uint64): hardware e-stop presses since boot,
   wrapping at 255. Always on DCMT; on RLHT only when the firmware

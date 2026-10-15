@@ -533,19 +533,20 @@ std::vector<uint8_t> contracts_set_pid_payload(uint8_t loop, uint16_t kp1, uint1
     return {msg.data, msg.data + msg.data_len};
 }
 
-ValueMap make_pid_x10_args(uint64_t kp1, uint64_t ki1, uint64_t kd1, uint64_t kp2, uint64_t ki2, uint64_t kd2) {
+ValueMap make_pid_x1000_args(uint64_t kp1, uint64_t ki1, uint64_t kd1, uint64_t kp2, uint64_t ki2, uint64_t kd2) {
     return DcmtAdapterTest::make_args({
-        {"kp1_x10", make_uint64_val(kp1)},
-        {"ki1_x10", make_uint64_val(ki1)},
-        {"kd1_x10", make_uint64_val(kd1)},
-        {"kp2_x10", make_uint64_val(kp2)},
-        {"ki2_x10", make_uint64_val(ki2)},
-        {"kd2_x10", make_uint64_val(kd2)},
+        {"kp1_x1000", make_uint64_val(kp1)},
+        {"ki1_x1000", make_uint64_val(ki1)},
+        {"kd1_x1000", make_uint64_val(kd1)},
+        {"kp2_x1000", make_uint64_val(kp2)},
+        {"ki2_x1000", make_uint64_val(ki2)},
+        {"kd2_x1000", make_uint64_val(kd2)},
     });
 }
 
-TEST_F(DcmtAdapterTest, Call_SetPidX10_SendsPositionLoopU16X1000Payload) {
-    const auto result = call(session, device, 5u, make_pid_x10_args(20u, 10u, 5u, 18u, 8u, 255u));
+TEST_F(DcmtAdapterTest, Call_SetPidX1000_SendsPositionLoopU16X1000Payload) {
+    // 0.15 / 0.01 / 0.01, the DCMT default gains, which x10 could not express.
+    const auto result = call(session, device, 5u, make_pid_x1000_args(150u, 10u, 10u, 150u, 10u, 65535u));
 
     ASSERT_TRUE(result.ok) << result.error_message;
     ASSERT_EQ(transport.sent_frames.size(), 1u);
@@ -553,34 +554,51 @@ TEST_F(DcmtAdapterTest, Call_SetPidX10_SendsPositionLoopU16X1000Payload) {
     EXPECT_EQ(frame.type_id, DCMT_TYPE_ID);
     EXPECT_EQ(frame.opcode, DCMT_OP_SET_PID);
     ASSERT_EQ(frame.payload.size(), static_cast<size_t>(DCMT_SET_PID_PAYLOAD_LEN));
-    EXPECT_EQ(frame.payload,
-              contracts_set_pid_payload(DCMT_PID_LOOP_POSITION, 2000u, 1000u, 500u, 1800u, 800u, 25500u));
+    EXPECT_EQ(frame.payload, contracts_set_pid_payload(DCMT_PID_LOOP_POSITION, 150u, 10u, 10u, 150u, 10u, 65535u));
 
     // And the firmware-side parser reads it back as the same gains.
     dcmt_set_pid_t parsed{};
     ASSERT_EQ(dcmt_parse_set_pid_payload(frame.payload.data(), static_cast<uint8_t>(frame.payload.size()), &parsed), 0);
     EXPECT_EQ(parsed.loop, DCMT_PID_LOOP_POSITION);
-    EXPECT_EQ(parsed.kp1_x1000, 2000u);
-    EXPECT_EQ(parsed.kd2_x1000, 25500u);
+    EXPECT_EQ(parsed.kp1_x1000, 150u);
+    EXPECT_EQ(parsed.ki1_x1000, 10u);
+    EXPECT_EQ(parsed.kd2_x1000, 65535u);
 }
 
-TEST_F(DcmtAdapterTest, Call_SetSpeedPidX10_SendsSpeedLoopU16X1000Payload) {
-    const auto result = call(session, device, 7u, make_pid_x10_args(1u, 2u, 3u, 4u, 5u, 6u));
+TEST_F(DcmtAdapterTest, Call_SetSpeedPidX1000_SendsSpeedLoopU16X1000Payload) {
+    const auto result = call(session, device, 7u, make_pid_x1000_args(1u, 2u, 3u, 4u, 5u, 6u));
 
     ASSERT_TRUE(result.ok) << result.error_message;
     ASSERT_EQ(transport.sent_frames.size(), 1u);
     const crumbs::RawFrame &frame = transport.sent_frames.at(0).second;
     EXPECT_EQ(frame.opcode, DCMT_OP_SET_PID);
-    EXPECT_EQ(frame.payload, contracts_set_pid_payload(DCMT_PID_LOOP_SPEED, 100u, 200u, 300u, 400u, 500u, 600u));
+    EXPECT_EQ(frame.payload, contracts_set_pid_payload(DCMT_PID_LOOP_SPEED, 1u, 2u, 3u, 4u, 5u, 6u));
 }
 
-TEST_F(DcmtAdapterTest, Call_SetPidX10_GainAbove255_ReturnsOutOfRange) {
+TEST_F(DcmtAdapterTest, Call_SetPidX1000_GainAbove65535_ReturnsOutOfRange) {
     for (const uint32_t function_id : {5u, 7u}) {
-        const auto result = call(session, device, function_id, make_pid_x10_args(0u, 0u, 0u, 0u, 0u, 256u));
+        const auto result = call(session, device, function_id, make_pid_x1000_args(0u, 0u, 0u, 0u, 0u, 65536u));
 
         EXPECT_FALSE(result.ok);
         EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE);
     }
+    EXPECT_TRUE(transport.sent_frames.empty());
+}
+
+TEST_F(DcmtAdapterTest, Call_SetPidX1000_OldX10ArgNames_ReturnsInvalidArgument) {
+    const auto args = make_args({
+        {"kp1_x10", make_uint64_val(20u)},
+        {"ki1_x10", make_uint64_val(10u)},
+        {"kd1_x10", make_uint64_val(5u)},
+        {"kp2_x10", make_uint64_val(18u)},
+        {"ki2_x10", make_uint64_val(8u)},
+        {"kd2_x10", make_uint64_val(4u)},
+    });
+
+    const auto result = call(session, device, 5u, args);
+
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT);
     EXPECT_TRUE(transport.sent_frames.empty());
 }
 

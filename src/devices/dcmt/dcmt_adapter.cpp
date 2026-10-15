@@ -257,31 +257,30 @@ AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args, crumbs
             append_i16_le(frame.payload, static_cast<int16_t>(t2));
             break;
         }
-        case 5:    // set_pid_x10: position loop
-        case 7: {  // set_speed_pid_x10: speed loop (offered only with DCMT_CAP_CLOSED_LOOP_SPEED)
+        case 5:    // set_pid_x1000: position loop
+        case 7: {  // set_speed_pid_x1000: speed loop (offered only with DCMT_CAP_CLOSED_LOOP_SPEED)
             uint64_t kp1 = 0, ki1 = 0, kd1 = 0, kp2 = 0, ki2 = 0, kd2 = 0;
-            if (!get_arg_uint64(args, "kp1_x10", kp1) || !get_arg_uint64(args, "ki1_x10", ki1) ||
-                !get_arg_uint64(args, "kd1_x10", kd1) || !get_arg_uint64(args, "kp2_x10", kp2) ||
-                !get_arg_uint64(args, "ki2_x10", ki2) || !get_arg_uint64(args, "kd2_x10", kd2)) {
+            if (!get_arg_uint64(args, "kp1_x1000", kp1) || !get_arg_uint64(args, "ki1_x1000", ki1) ||
+                !get_arg_uint64(args, "kd1_x1000", kd1) || !get_arg_uint64(args, "kp2_x1000", kp2) ||
+                !get_arg_uint64(args, "ki2_x1000", ki2) || !get_arg_uint64(args, "kd2_x1000", kd2)) {
                 return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
-                        "missing or invalid PID gain args (kp1/ki1/kd1/kp2/ki2/kd2_x10, "
+                        "missing or invalid PID gain args (kp1/ki1/kd1/kp2/ki2/kd2_x1000, "
                         "all uint64)"};
             }
-            if (kp1 > 255u || ki1 > 255u || kd1 > 255u || kp2 > 255u || ki2 > 255u || kd2 > 255u) {
+            if (kp1 > UINT16_MAX || ki1 > UINT16_MAX || kd1 > UINT16_MAX || kp2 > UINT16_MAX || ki2 > UINT16_MAX ||
+                kd2 > UINT16_MAX) {
                 return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
-                        "PID gain values must be in [0, 255]"};
+                        "PID gain values must be in [0, 65535]"};
             }
-            // Module major 2 carries u16 gains x1000 and a loop selector; the
-            // x10 arguments scale exactly (255 x 100 = 25500 <= 65535).
-            const auto x1000 = [](uint64_t x10) { return static_cast<uint16_t>(x10 * 100u); };
+            // Module major 2 carries u16 gains x1000 and a loop selector.
             dcmt_set_pid_t pid{};
             pid.loop = function_id == 5 ? DCMT_PID_LOOP_POSITION : DCMT_PID_LOOP_SPEED;
-            pid.kp1_x1000 = x1000(kp1);
-            pid.ki1_x1000 = x1000(ki1);
-            pid.kd1_x1000 = x1000(kd1);
-            pid.kp2_x1000 = x1000(kp2);
-            pid.ki2_x1000 = x1000(ki2);
-            pid.kd2_x1000 = x1000(kd2);
+            pid.kp1_x1000 = static_cast<uint16_t>(kp1);
+            pid.ki1_x1000 = static_cast<uint16_t>(ki1);
+            pid.kd1_x1000 = static_cast<uint16_t>(kd1);
+            pid.kp2_x1000 = static_cast<uint16_t>(kp2);
+            pid.ki2_x1000 = static_cast<uint16_t>(ki2);
+            pid.kd2_x1000 = static_cast<uint16_t>(kd2);
             // Packed by the contracts codec, the same field list the firmware
             // parses. 13 bytes always fit a fresh message, so it cannot fail.
             crumbs_message_t msg;

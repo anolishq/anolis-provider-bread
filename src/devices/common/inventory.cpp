@@ -224,25 +224,26 @@ CapabilitySet build_rlht_capabilities(uint32_t flags) {
 }
 
 constexpr const char *kDcmtPositionPidDescription =
-    "Set the DCMT position-loop PID gains, encoded x10 (0 to 25.5). The speed loop keeps its gains; tune it "
-    "with set_speed_pid_x10 where offered.";
+    "Set the DCMT position-loop PID gains, encoded x1000: gain = value / 1000, 0 to 65.535. The speed loop "
+    "keeps its gains; tune it with set_speed_pid_x1000 where offered.";
 constexpr const char *kDcmtSpeedPidDescription =
-    "Set the DCMT speed-loop PID gains, encoded x10 (0 to 25.5). The position loop keeps its gains.";
+    "Set the DCMT speed-loop PID gains, encoded x1000: gain = value / 1000, 0 to 65.535. The position loop "
+    "keeps its gains.";
 
 void add_dcmt_pid_function(CapabilitySet &caps, uint32_t function_id, const std::string &name,
                            const std::string &description) {
     auto *set_pid = add_function(caps, function_id, name, description, CAT_CONFIG);
     for (const auto &[arg_name, arg_description] : {
-             std::pair{"kp1_x10", "Motor 1 proportional gain x10."},
-             std::pair{"ki1_x10", "Motor 1 integral gain x10."},
-             std::pair{"kd1_x10", "Motor 1 derivative gain x10."},
-             std::pair{"kp2_x10", "Motor 2 proportional gain x10."},
-             std::pair{"ki2_x10", "Motor 2 integral gain x10."},
-             std::pair{"kd2_x10", "Motor 2 derivative gain x10."},
+             std::pair{"kp1_x1000", "Motor 1 proportional gain x1000."},
+             std::pair{"ki1_x1000", "Motor 1 integral gain x1000."},
+             std::pair{"kd1_x1000", "Motor 1 derivative gain x1000."},
+             std::pair{"kp2_x1000", "Motor 2 proportional gain x1000."},
+             std::pair{"ki2_x1000", "Motor 2 integral gain x1000."},
+             std::pair{"kd2_x1000", "Motor 2 derivative gain x1000."},
          }) {
         auto *arg = add_arg(*set_pid, arg_name, VT_UINT64, arg_description, true);
         arg->set_min_uint64(0);
-        arg->set_max_uint64(255);
+        arg->set_max_uint64(UINT16_MAX);
     }
 }
 
@@ -281,10 +282,10 @@ CapabilitySet build_dcmt_capabilities(uint32_t flags) {
     }
 
     if ((flags & DCMT_CAP_PID_TUNING) != 0u) {
-        add_dcmt_pid_function(caps, 5, "set_pid_x10", kDcmtPositionPidDescription);
+        add_dcmt_pid_function(caps, 5, "set_pid_x1000", kDcmtPositionPidDescription);
         // The speed loop is tuned separately and only on firmware with a speed loop.
         if ((flags & DCMT_CAP_CLOSED_LOOP_SPEED) != 0u) {
-            add_dcmt_pid_function(caps, 7, "set_speed_pid_x10", kDcmtSpeedPidDescription);
+            add_dcmt_pid_function(caps, 7, "set_speed_pid_x1000", kDcmtSpeedPidDescription);
         }
     }
 
