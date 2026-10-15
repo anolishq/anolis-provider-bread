@@ -13,6 +13,13 @@ commit messages only.
 
 ## [Unreleased]
 
+### Fixed
+
+- An incremental build after a dependency pin bump now recompiles the
+  translation units that include its headers (#153). FetchContent
+  extracts with `DOWNLOAD_EXTRACT_TIMESTAMP FALSE`, so the headers carry
+  the extraction time instead of the archive's older mtimes.
+
 ## [0.5.1] - 2026-10-13
 
 ### Removed

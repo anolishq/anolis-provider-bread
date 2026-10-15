@@ -65,7 +65,7 @@ FetchContent_Declare(
     anolis_provider_sdk
     URL https://github.com/anolishq/anolis-provider-sdk/releases/download/v0.3.0/anolis-provider-sdk-0.3.0-source.tar.gz
     URL_HASH SHA256=31f3f8705dbd5714319bfd1a85c99d88cbdccb0e1bd6c36e4701a8b581223528
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    DOWNLOAD_EXTRACT_TIMESTAMP FALSE
 )
 FetchContent_MakeAvailable(anolis_provider_sdk)
 
@@ -89,7 +89,7 @@ else()
         crumbs
         URL https://github.com/feastorg/CRUMBS/releases/download/v0.14.0/crumbs-0.14.0-source.tar.gz
         URL_HASH SHA256=caea74173e4dc432defec9e7905af0bfcb07a24475612d1cd91926aa9c8b9cea
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        DOWNLOAD_EXTRACT_TIMESTAMP FALSE
     )
     set(CRUMBS_ENABLE_LINUX_HAL OFF CACHE BOOL "" FORCE)
     set(CRUMBS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -111,7 +111,7 @@ else()
         bread_crumbs_contracts
         URL https://github.com/feastorg/bread-crumbs-contracts/releases/download/v0.6.0/bread-crumbs-contracts-0.6.0-source.tar.gz
         URL_HASH SHA256=f61a7ed512c57d07846ed263fcffbecd7c0f39ac7316653370f30cfb414e4274
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        DOWNLOAD_EXTRACT_TIMESTAMP FALSE
     )
     FetchContent_MakeAvailable(bread_crumbs_contracts)
 endif()
