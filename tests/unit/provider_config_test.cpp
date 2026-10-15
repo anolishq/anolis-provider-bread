@@ -215,6 +215,7 @@ discovery:
     bool checked_name = false;
     bool checked_hardware = false;
     bool checked_watchdog = false;
+    bool checked_discovery = false;
     const auto &root_spec = provider_schema().root().spec();
     for (const auto &member : root_spec.members) {
         if (member.key == "provider") {
@@ -244,6 +245,20 @@ discovery:
                 }
             }
         }
+        if (member.key == "discovery") {
+            for (const auto &field : member.object->spec().members) {
+                if (field.key == "mode" && field.field.has_value()) {
+                    // A config must still state the mode; the default is what
+                    // a client prefills, and it matches the struct default.
+                    const auto &spec = field.field->spec();
+                    EXPECT_TRUE(spec.required);
+                    ASSERT_TRUE(spec.default_string.has_value());
+                    EXPECT_EQ(*spec.default_string, "manual");
+                    EXPECT_EQ(*spec.default_string, to_string(defaults.discovery_mode));
+                    checked_discovery = true;
+                }
+            }
+        }
         if (member.key == "devices") {
             for (const auto &field : member.array->spec().item_object->spec().members) {
                 if (field.key == "command_watchdog_ms" && field.field.has_value()) {
@@ -256,6 +271,7 @@ discovery:
     EXPECT_TRUE(checked_name);
     EXPECT_TRUE(checked_hardware);
     EXPECT_TRUE(checked_watchdog);
+    EXPECT_TRUE(checked_discovery);
 }
 
 TEST(ProviderConfigTest, RejectsAddressesUnderScanMode) {

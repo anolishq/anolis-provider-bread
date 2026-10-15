@@ -55,7 +55,7 @@ struct ProviderConfig {
     // Highest bus clock the devices tolerate on this machine; unset skips the
     // i2c.bus_clock host check.
     std::optional<uint32_t> max_bus_hz;
-    DiscoveryMode discovery_mode = DiscoveryMode::Scan;
+    DiscoveryMode discovery_mode = DiscoveryMode::Manual;
     std::vector<int> manual_addresses;
     std::vector<DeviceSpec> devices;
 };
