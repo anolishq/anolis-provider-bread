@@ -147,6 +147,30 @@ TEST(BreadInventoryTest, MatchedConfigCarriesCommandWatchdogMsIntoInventory) {
     }
 }
 
+TEST(BreadInventoryTest, ReportedFirmwareVersionComesFromTheProbeNeverFromSeeding) {
+    ProviderConfig config = make_base_config();
+    config.discovery_mode = DiscoveryMode::Manual;
+    config.manual_addresses = {0x08};
+    config.devices = {DeviceSpec{"rlht0", DeviceType::Rlht, "Left Heater", 0x08}};
+
+    const std::vector<ProbeRecord> probes = {
+        ProbeRecord{0x08,
+                    RLHT_TYPE_ID,
+                    ProbeStatus::Supported,
+                    {CRUMBS_VERSION, 1, 2, 3},
+                    make_seeded_capability_profile(DeviceType::Rlht),
+                    "probed"},
+    };
+    const InventoryBuildResult probed = build_inventory_from_probes(config, probes, InventorySource::Manual);
+    ASSERT_EQ(probed.supported_devices.size(), 1U);
+    EXPECT_EQ(reported_firmware_version(probed.supported_devices[0]), std::optional<std::string>("1.2.3"));
+
+    // A seeded version is this build's expectation, not a device reply.
+    const std::vector<InventoryDevice> seeded = build_seed_inventory(config);
+    ASSERT_EQ(seeded.size(), 1U);
+    EXPECT_EQ(reported_firmware_version(seeded[0]), std::nullopt);
+}
+
 TEST(BreadInventoryTest, BaselineFallbackCapsGateDcmtFunctionsAndTypeMismatchIsUnsupported) {
     ProviderConfig config = make_base_config();
     config.discovery_mode = DiscoveryMode::Manual;

@@ -13,6 +13,15 @@ commit messages only.
 
 ## [Unreleased]
 
+### Added
+
+- Device health reports `firmware_version`, the SDK-reserved identity key,
+  as the module version (`major.minor.patch`) the device returned in its
+  probe version reply (#126). A config-seeded (mock) device has no such
+  reply, so the key is absent there rather than filled from this build's
+  expected version. The value moves only when the firmware reports a new
+  module version.
+
 ### Changed
 
 - `discovery.mode` now declares `manual` as its default in `--config-schema`,

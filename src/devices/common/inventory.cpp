@@ -559,6 +559,13 @@ std::vector<InventoryDevice> build_seed_inventory(const ProviderConfig &config) 
         .supported_devices;
 }
 
+std::optional<std::string> reported_firmware_version(const InventoryDevice &device) {
+    if (device.source == InventorySource::ConfigSeeded) {
+        return std::nullopt;
+    }
+    return format_module_version(device.version);
+}
+
 std::string to_string(InventorySource source) {
     switch (source) {
         case InventorySource::ConfigSeeded:
