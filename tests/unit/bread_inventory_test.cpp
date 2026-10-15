@@ -247,5 +247,38 @@ TEST(BreadInventoryTest, ClearWatchdogTripOfferedOnlyWithBothWatchdogCaps) {
     }
 }
 
+TEST(BreadInventoryTest, DcmtSpeedPidOfferedOnlyWithClosedLoopSpeedCap) {
+    const uint32_t base = DCMT_CAP_BASELINE_FLAGS | DCMT_CAP_CLOSED_LOOP_POSITION | DCMT_CAP_PID_TUNING;
+
+    const InventoryDevice position_only = queried_device(DeviceType::Dcmt, base);
+    const auto *position_pid = find_function(position_only, "set_pid_x10");
+    ASSERT_NE(position_pid, nullptr);
+    EXPECT_EQ(position_pid->function_id(), 5u);
+    EXPECT_EQ(position_pid->args_size(), 6);
+    EXPECT_EQ(find_function(position_only, "set_speed_pid_x10"), nullptr);
+    EXPECT_FALSE(function_exists(position_only, 7, ""));
+
+    const InventoryDevice with_speed = queried_device(DeviceType::Dcmt, base | DCMT_CAP_CLOSED_LOOP_SPEED);
+    const auto *speed_pid = find_function(with_speed, "set_speed_pid_x10");
+    ASSERT_NE(speed_pid, nullptr);
+    EXPECT_EQ(speed_pid->function_id(), 7u);
+    EXPECT_EQ(speed_pid->args_size(), 6);
+    EXPECT_EQ(speed_pid->policy().category(), anolis::deviceprovider::v1::FunctionPolicy_Category_CATEGORY_CONFIG);
+
+    // Speed without PID tuning offers neither.
+    const InventoryDevice no_tuning =
+        queried_device(DeviceType::Dcmt, DCMT_CAP_BASELINE_FLAGS | DCMT_CAP_CLOSED_LOOP_SPEED);
+    EXPECT_EQ(find_function(no_tuning, "set_pid_x10"), nullptr);
+    EXPECT_EQ(find_function(no_tuning, "set_speed_pid_x10"), nullptr);
+}
+
+TEST(BreadInventoryTest, EstopCountSignalFollowsTheContract) {
+    // DCMT module major 2 always carries estop_count; RLHT only with its caps bit.
+    EXPECT_TRUE(signal_exists(queried_device(DeviceType::Dcmt, DCMT_CAP_BASELINE_FLAGS), "estop_count"));
+    EXPECT_FALSE(signal_exists(queried_device(DeviceType::Rlht, RLHT_CAP_BASELINE_FLAGS), "estop_count"));
+    EXPECT_TRUE(
+        signal_exists(queried_device(DeviceType::Rlht, RLHT_CAP_BASELINE_FLAGS | RLHT_CAP_ESTOP_COUNT), "estop_count"));
+}
+
 }  // namespace
 }  // namespace anolis_provider_bread::inventory

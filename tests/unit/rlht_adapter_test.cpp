@@ -134,6 +134,25 @@ struct RlhtAdapterTest : public ::testing::Test {
 // read_signals tests
 // ---------------------------------------------------------------------------
 
+TEST_F(RlhtAdapterTest, ReadSignals_EstopCount_EmittedOnlyWithEstopCountCap) {
+    std::vector<uint8_t> payload = make_state_payload(RLHT_MODE_OPEN_LOOP, 0, 250, 250, 0, 0, 0, 0, 1000, 1000, 0);
+    payload.push_back(9);  // estop_count, appended by firmware advertising RLHT_CAP_ESTOP_COUNT
+    script_state_reply(payload);
+
+    // Without the caps bit the byte is not a defined field: no signal.
+    device.capability_profile.flags = RLHT_CAP_BASELINE_FLAGS;
+    const auto without_cap = read_signals(session, device, {"estop_count"});
+    ASSERT_TRUE(without_cap.ok) << without_cap.error_message;
+    EXPECT_TRUE(without_cap.values.empty());
+
+    device.capability_profile.flags = RLHT_CAP_BASELINE_FLAGS | RLHT_CAP_ESTOP_COUNT;
+    const auto with_cap = read_signals(session, device, {"estop_count"});
+    ASSERT_TRUE(with_cap.ok) << with_cap.error_message;
+    ASSERT_EQ(with_cap.values.size(), 1u);
+    EXPECT_EQ(with_cap.values.at(0).signal_id(), "estop_count");
+    EXPECT_EQ(with_cap.values.at(0).value().uint64_value(), 9u);
+}
+
 TEST_F(RlhtAdapterTest, ReadSignals_ClosedLoopState_ReturnsAllSignals) {
     // 250.5°C, 251.0°C, setpoints 200.0/201.0, period 5000/6000 ms
     // flags: relay1 on, estop off

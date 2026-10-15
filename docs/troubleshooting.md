@@ -136,7 +136,6 @@ The `status` field indicates what was incompatible:
 |--------|---------|-----|
 | `IncompatibleCrumbsVersion` | Device firmware uses a CRUMBS version older than the minimum required by `bread-crumbs-contracts` | Update device firmware |
 | `IncompatibleModuleMajor` | Module major version mismatch (breaking change) | Update firmware to match the contracts version expected by this provider |
-| `IncompatibleModuleMinor` | Module minor version below required minimum | Update firmware |
 
 The exact minimum versions expected are defined in `bread-crumbs-contracts`.
 

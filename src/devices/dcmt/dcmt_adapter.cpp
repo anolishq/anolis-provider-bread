@@ -19,6 +19,7 @@ namespace {
 // ---------------------------------------------------------------------------
 // DCMT GET_STATE fixed payload layout is owned by bread-crumbs-contracts:
 //   [mode][m1_pwm][m2_pwm][sp1][sp2][pos1][pos2][spd1][spd2][brakes][estop]
+//   [estop_count]  (20 bytes, module major 2)
 //
 // The provider keeps the stable ADPP signal surface:
 //   open-loop:       target/value = PWM output
@@ -34,6 +35,7 @@ constexpr const char *kSigMotor2Val = "motor2_value";
 constexpr const char *kSigMotor1Brake = "motor1_brake";
 constexpr const char *kSigMotor2Brake = "motor2_brake";
 constexpr const char *kSigEstop = "estop";
+constexpr const char *kSigEstopCount = "estop_count";
 
 struct DcmtState {
     uint8_t mode = 0;
@@ -43,6 +45,7 @@ struct DcmtState {
     int16_t value2 = 0;
     uint8_t brakes = 0;
     uint8_t estop = 0;
+    uint8_t estop_count = 0;
 };
 
 bool parse_state(const std::vector<uint8_t> &payload, DcmtState &out) {
@@ -57,6 +60,7 @@ bool parse_state(const std::vector<uint8_t> &payload, DcmtState &out) {
     out.mode = raw.mode;
     out.brakes = raw.brakes;
     out.estop = raw.estop;
+    out.estop_count = raw.estop_count;
 
     switch (raw.mode) {
         case DCMT_MODE_OPEN_LOOP:
@@ -165,6 +169,8 @@ AdapterReadResult read_signals(crumbs::Session &session, const inventory::Invent
         vals.push_back(make_signal_value(kSigMotor2Brake, make_bool_val((s.brakes & 0x02u) != 0u)));
     if (should_include(signal_ids, kSigEstop))
         vals.push_back(make_signal_value(kSigEstop, make_bool_val(s.estop != 0u)));
+    if (should_include(signal_ids, kSigEstopCount))
+        vals.push_back(make_signal_value(kSigEstopCount, make_uint64_val(s.estop_count)));
 
     return result;
 }
@@ -251,7 +257,8 @@ AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args, crumbs
             append_i16_le(frame.payload, static_cast<int16_t>(t2));
             break;
         }
-        case 5: {  // set_pid_x10
+        case 5:    // set_pid_x10: position loop
+        case 7: {  // set_speed_pid_x10: speed loop (offered only with DCMT_CAP_CLOSED_LOOP_SPEED)
             uint64_t kp1 = 0, ki1 = 0, kd1 = 0, kp2 = 0, ki2 = 0, kd2 = 0;
             if (!get_arg_uint64(args, "kp1_x10", kp1) || !get_arg_uint64(args, "ki1_x10", ki1) ||
                 !get_arg_uint64(args, "kd1_x10", kd1) || !get_arg_uint64(args, "kp2_x10", kp2) ||
@@ -264,13 +271,24 @@ AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args, crumbs
                 return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
                         "PID gain values must be in [0, 255]"};
             }
+            // Module major 2 carries u16 gains x1000 and a loop selector; the
+            // x10 arguments scale exactly (255 x 100 = 25500 <= 65535).
+            const auto x1000 = [](uint64_t x10) { return static_cast<uint16_t>(x10 * 100u); };
+            dcmt_set_pid_t pid{};
+            pid.loop = function_id == 5 ? DCMT_PID_LOOP_POSITION : DCMT_PID_LOOP_SPEED;
+            pid.kp1_x1000 = x1000(kp1);
+            pid.ki1_x1000 = x1000(ki1);
+            pid.kd1_x1000 = x1000(kd1);
+            pid.kp2_x1000 = x1000(kp2);
+            pid.ki2_x1000 = x1000(ki2);
+            pid.kd2_x1000 = x1000(kd2);
+            // Packed by the contracts codec, the same field list the firmware
+            // parses. 13 bytes always fit a fresh message, so it cannot fail.
+            crumbs_message_t msg;
+            crumbs_msg_init(&msg, DCMT_TYPE_ID, DCMT_OP_SET_PID);
+            (void)dcmt_set_pid_pack(&msg, &pid);
             frame.opcode = DCMT_OP_SET_PID;
-            append_u8(frame.payload, static_cast<uint8_t>(kp1));
-            append_u8(frame.payload, static_cast<uint8_t>(ki1));
-            append_u8(frame.payload, static_cast<uint8_t>(kd1));
-            append_u8(frame.payload, static_cast<uint8_t>(kp2));
-            append_u8(frame.payload, static_cast<uint8_t>(ki2));
-            append_u8(frame.payload, static_cast<uint8_t>(kd2));
+            frame.payload.assign(msg.data, msg.data + msg.data_len);
             break;
         }
         case 6:  // clear_watchdog_trip: empty payload, operator-invoked only

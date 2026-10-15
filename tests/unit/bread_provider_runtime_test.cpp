@@ -82,6 +82,18 @@ TEST(BreadProviderRuntimeTest, ReadDefaultSetThroughCannedBus) {
     EXPECT_EQ(unknown.error_code, adpp::Status::CODE_NOT_FOUND);
 }
 
+TEST(BreadProviderRuntimeTest, ReadDcmtStateThroughCannedBus) {
+    auto rt = make_ready_runtime();
+
+    // The canned DCMT state is the module major 2 layout, estop_count included.
+    const anolis::provider_sdk::AdapterReadResult result = rt.read("dcmt0", {"motor1_value", "estop_count"});
+    ASSERT_TRUE(result.ok) << result.error_message;
+    ASSERT_EQ(result.values.size(), 2u);
+    EXPECT_EQ(result.values.at(0).value().int64_value(), 100);
+    EXPECT_EQ(result.values.at(1).signal_id(), "estop_count");
+    EXPECT_EQ(result.values.at(1).value().uint64_value(), 0u);
+}
+
 TEST(BreadProviderRuntimeTest, CallResolutionAndArgValidation) {
     auto rt = make_ready_runtime();
 

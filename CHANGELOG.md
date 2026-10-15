@@ -13,6 +13,33 @@ commit messages only.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: bread-crumbs-contracts 0.6.0 -> 0.7.0, DCMT module major 2
+  (#147).** A DCMT reporting module major 1 is refused at probe
+  (`incompatible_module_major`) and a configured one is reported missing.
+  Ship this together with Slice_DCMT firmware built against contracts
+  `^0.7.0` (module version 2.x) and reflash every DCMT board in the same
+  step. RLHT stays at module major 1 and needs no reflash.
+- The probe gates on the module major only. A module minor older than the
+  one this build expects is accepted (logged at info); optional features
+  follow the caps flags. The `incompatible_module_minor` probe status is
+  gone.
+- DCMT `set_pid_x10` (function 5) keeps its name and its six `*_x10`
+  arguments (0-255), and now sets the position loop only. It sends the
+  major 2 `SET_PID` payload, a loop selector and u16 gains x1000, packed by
+  the contracts codec.
+- DCMT state is parsed at the major 2 length of 20 bytes.
+
+### Added
+
+- DCMT `set_speed_pid_x10` (function 7): same arguments as `set_pid_x10`,
+  for the speed loop. Offered only when the firmware advertises
+  closed-loop speed and PID tuning.
+- `estop_count` signal (uint64): hardware e-stop presses since boot,
+  wrapping at 255. Always on DCMT; on RLHT only when the firmware
+  advertises the e-stop count caps bit.
+
 ## [0.5.1] - 2026-10-13
 
 ### Removed

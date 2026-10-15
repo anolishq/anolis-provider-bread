@@ -57,8 +57,9 @@ std::vector<uint8_t> build_rlht_state_payload() {
     return p;
 }
 
-// DCMT GET_STATE: open-loop, motors driven, brakes released. 19 bytes,
-// DCMT_STATE_FIXED_LEN, matching dcmt_adapter.cpp parse_state.
+// DCMT GET_STATE: open-loop, motors driven, brakes released, no e-stop
+// presses. 20 bytes, DCMT_STATE_FIXED_LEN (module major 2), matching
+// dcmt_adapter.cpp parse_state.
 std::vector<uint8_t> build_dcmt_state_payload() {
     std::vector<uint8_t> p;
     append_u8(p, DCMT_MODE_OPEN_LOOP);
@@ -72,6 +73,7 @@ std::vector<uint8_t> build_dcmt_state_payload() {
     append_i16_le(p, BREAD_INVALID_I16);
     append_u8(p, 0);
     append_u8(p, 0);
+    append_u8(p, 0);  // estop_count
     return p;
 }
 

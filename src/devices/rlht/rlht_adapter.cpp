@@ -35,6 +35,7 @@ constexpr const char *kSigPeriod2 = "period2_ms";
 constexpr const char *kSigRelay1 = "relay1_on";
 constexpr const char *kSigRelay2 = "relay2_on";
 constexpr const char *kSigEstop = "estop";
+constexpr const char *kSigEstopCount = "estop_count";
 
 struct RlhtState {
     uint8_t mode = 0;
@@ -45,6 +46,7 @@ struct RlhtState {
     int16_t sp2_dc = 0;
     uint16_t period1 = 0;
     uint16_t period2 = 0;
+    uint8_t estop_count = 0;
 };
 
 bool parse_state(const std::vector<uint8_t> &payload, RlhtState &out) {
@@ -62,6 +64,7 @@ bool parse_state(const std::vector<uint8_t> &payload, RlhtState &out) {
     out.sp2_dc = raw.sp2_deci_c;
     out.period1 = raw.period1_ms;
     out.period2 = raw.period2_ms;
+    out.estop_count = raw.estop_count;
     return true;
 }
 
@@ -142,6 +145,9 @@ AdapterReadResult read_signals(crumbs::Session &session, const inventory::Invent
         vals.push_back(make_signal_value(kSigRelay2, make_bool_val((s.flags & RLHT_FLAG_RELAY2_ON) != 0u)));
     if (should_include(signal_ids, kSigEstop))
         vals.push_back(make_signal_value(kSigEstop, make_bool_val((s.flags & RLHT_FLAG_ESTOP) != 0u)));
+    // estop_count is a defined field only on firmware advertising the caps bit.
+    if ((device.capability_profile.flags & RLHT_CAP_ESTOP_COUNT) != 0u && should_include(signal_ids, kSigEstopCount))
+        vals.push_back(make_signal_value(kSigEstopCount, make_uint64_val(s.estop_count)));
 
     return result;
 }
