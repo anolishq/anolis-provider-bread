@@ -16,6 +16,7 @@
 #include <optional>
 #include <sstream>
 #include <tuple>
+#include <utility>
 
 extern "C" {
 #include <bread/bread_caps.h>
@@ -215,8 +216,35 @@ CapabilitySet build_rlht_capabilities(uint32_t flags) {
     add_signal(caps, "relay1_on", "Relay 1 state derived from RLHT flags.", VT_BOOL);
     add_signal(caps, "relay2_on", "Relay 2 state derived from RLHT flags.", VT_BOOL);
     add_signal(caps, "estop", "Emergency stop state derived from RLHT flags.", VT_BOOL);
+    if ((flags & RLHT_CAP_ESTOP_COUNT) != 0u) {
+        add_signal(caps, "estop_count", "Hardware e-stop presses since boot, wrapping at 255.", VT_UINT64);
+    }
 
     return caps;
+}
+
+constexpr const char *kDcmtPositionPidDescription =
+    "Set the DCMT position-loop PID gains, encoded x1000: gain = value / 1000, 0 to 65.535. The speed loop "
+    "keeps its gains; tune it with set_speed_pid_x1000 where offered.";
+constexpr const char *kDcmtSpeedPidDescription =
+    "Set the DCMT speed-loop PID gains, encoded x1000: gain = value / 1000, 0 to 65.535. The position loop "
+    "keeps its gains.";
+
+void add_dcmt_pid_function(CapabilitySet &caps, uint32_t function_id, const std::string &name,
+                           const std::string &description) {
+    auto *set_pid = add_function(caps, function_id, name, description, CAT_CONFIG);
+    for (const auto &[arg_name, arg_description] : {
+             std::pair{"kp1_x1000", "Motor 1 proportional gain x1000."},
+             std::pair{"ki1_x1000", "Motor 1 integral gain x1000."},
+             std::pair{"kd1_x1000", "Motor 1 derivative gain x1000."},
+             std::pair{"kp2_x1000", "Motor 2 proportional gain x1000."},
+             std::pair{"ki2_x1000", "Motor 2 integral gain x1000."},
+             std::pair{"kd2_x1000", "Motor 2 derivative gain x1000."},
+         }) {
+        auto *arg = add_arg(*set_pid, arg_name, VT_UINT64, arg_description, true);
+        arg->set_min_uint64(0);
+        arg->set_max_uint64(UINT16_MAX);
+    }
 }
 
 CapabilitySet build_dcmt_capabilities(uint32_t flags) {
@@ -254,25 +282,11 @@ CapabilitySet build_dcmt_capabilities(uint32_t flags) {
     }
 
     if ((flags & DCMT_CAP_PID_TUNING) != 0u) {
-        auto *set_pid = add_function(caps, 5, "set_pid_x10", "Set DCMT PID gains encoded x10.", CAT_CONFIG);
-        auto *kp1_arg = add_arg(*set_pid, "kp1_x10", VT_UINT64, "Motor 1 proportional gain x10.", true);
-        kp1_arg->set_min_uint64(0);
-        kp1_arg->set_max_uint64(255);
-        auto *ki1_arg = add_arg(*set_pid, "ki1_x10", VT_UINT64, "Motor 1 integral gain x10.", true);
-        ki1_arg->set_min_uint64(0);
-        ki1_arg->set_max_uint64(255);
-        auto *kd1_arg = add_arg(*set_pid, "kd1_x10", VT_UINT64, "Motor 1 derivative gain x10.", true);
-        kd1_arg->set_min_uint64(0);
-        kd1_arg->set_max_uint64(255);
-        auto *kp2_arg = add_arg(*set_pid, "kp2_x10", VT_UINT64, "Motor 2 proportional gain x10.", true);
-        kp2_arg->set_min_uint64(0);
-        kp2_arg->set_max_uint64(255);
-        auto *ki2_arg = add_arg(*set_pid, "ki2_x10", VT_UINT64, "Motor 2 integral gain x10.", true);
-        ki2_arg->set_min_uint64(0);
-        ki2_arg->set_max_uint64(255);
-        auto *kd2_arg = add_arg(*set_pid, "kd2_x10", VT_UINT64, "Motor 2 derivative gain x10.", true);
-        kd2_arg->set_min_uint64(0);
-        kd2_arg->set_max_uint64(255);
+        add_dcmt_pid_function(caps, 5, "set_pid_x1000", kDcmtPositionPidDescription);
+        // The speed loop is tuned separately and only on firmware with a speed loop.
+        if ((flags & DCMT_CAP_CLOSED_LOOP_SPEED) != 0u) {
+            add_dcmt_pid_function(caps, 7, "set_speed_pid_x1000", kDcmtSpeedPidDescription);
+        }
     }
 
     // Only firmware that latches the trip handles CLEAR_WATCHDOG_TRIP; on older
@@ -290,6 +304,7 @@ CapabilitySet build_dcmt_capabilities(uint32_t flags) {
     add_signal(caps, "motor1_brake", "Motor 1 brake state.", VT_BOOL);
     add_signal(caps, "motor2_brake", "Motor 2 brake state.", VT_BOOL);
     add_signal(caps, "estop", "Emergency stop state.", VT_BOOL);
+    add_signal(caps, "estop_count", "Hardware e-stop presses since boot, wrapping at 255.", VT_UINT64);
 
     return caps;
 }

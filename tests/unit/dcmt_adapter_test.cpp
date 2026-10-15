@@ -73,7 +73,7 @@ private:
 
 static std::vector<uint8_t> make_state_payload(uint8_t mode, int16_t m1_pwm, int16_t m2_pwm, int16_t sp1, int16_t sp2,
                                                int16_t pos1, int16_t pos2, int16_t spd1, int16_t spd2, uint8_t brakes,
-                                               uint8_t estop) {
+                                               uint8_t estop, uint8_t estop_count = 0) {
     std::vector<uint8_t> p;
     append_u8(p, mode);
     append_i16_le(p, m1_pwm);
@@ -86,6 +86,7 @@ static std::vector<uint8_t> make_state_payload(uint8_t mode, int16_t m1_pwm, int
     append_i16_le(p, spd2);
     append_u8(p, brakes);
     append_u8(p, estop);
+    append_u8(p, estop_count);
     return p;
 }
 
@@ -295,7 +296,7 @@ TEST_F(DcmtAdapterTest, ReadSignals_DefaultSet_IsCuratedSubset) {
 }
 
 TEST_F(DcmtAdapterTest, ReadSignals_TruncatedPayload_ReturnsInternal) {
-    // Only 4 bytes, too short for the fixed 19-byte payload.
+    // Only 4 bytes, too short for the fixed 20-byte payload.
     transport.read_replies[DCMT_OP_GET_STATE] =
         crumbs::RawFrame{DCMT_TYPE_ID, DCMT_OP_GET_STATE, {0x00, 0x10, 0x00, 0x10}};
 
@@ -303,6 +304,31 @@ TEST_F(DcmtAdapterTest, ReadSignals_TruncatedPayload_ReturnsInternal) {
 
     EXPECT_FALSE(result.ok);
     EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_INTERNAL);
+}
+
+TEST_F(DcmtAdapterTest, ReadSignals_ModuleMajorOneNineteenBytePayload_ReturnsInternal) {
+    // Module major 1 firmware sent 19 bytes, without estop_count.
+    std::vector<uint8_t> payload = make_open_loop_payload(10, 20, 0x00, 0x00);
+    payload.pop_back();
+    ASSERT_EQ(payload.size(), 19u);
+    script_state_reply(payload);
+
+    const auto result = read_signals(session, device, {"motor1_value"});
+
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_INTERNAL);
+}
+
+TEST_F(DcmtAdapterTest, ReadSignals_EstopCount_DecodedFromTwentyBytePayload) {
+    script_state_reply(make_state_payload(DCMT_MODE_OPEN_LOOP, 0, 0, BREAD_INVALID_I16, BREAD_INVALID_I16, 0, 0,
+                                          BREAD_INVALID_I16, BREAD_INVALID_I16, 0x00, 0x00, 7));
+
+    const auto result = read_signals(session, device, {"estop_count"});
+
+    ASSERT_TRUE(result.ok) << result.error_message;
+    ASSERT_EQ(result.values.size(), 1u);
+    EXPECT_EQ(result.values.at(0).signal_id(), "estop_count");
+    EXPECT_EQ(result.values.at(0).value().uint64_value(), 7u);
 }
 
 TEST_F(DcmtAdapterTest, ReadSignals_InvalidClosedSpeedSentinel_ReturnsInternal) {
@@ -481,7 +507,85 @@ TEST_F(DcmtAdapterTest, Call_SetSetpoint_SendsCorrectPayload) {
     EXPECT_EQ(t2, -500);
 }
 
-TEST_F(DcmtAdapterTest, Call_SetPidX10_ValidArgs_SendsSixBytes) {
+// The contracts' own SET_PID helper, run through a capturing write_fn, gives
+// the reference payload the provider's frame must match byte for byte.
+std::vector<uint8_t> contracts_set_pid_payload(uint8_t loop, uint16_t kp1, uint16_t ki1, uint16_t kd1, uint16_t kp2,
+                                               uint16_t ki2, uint16_t kd2) {
+    struct Capture {
+        std::vector<uint8_t> bytes;
+    } capture;
+    crumbs_context_t ctx{};
+    crumbs_init(&ctx, CRUMBS_ROLE_CONTROLLER, 0);
+    crumbs_device_t dev{};
+    dev.ctx = &ctx;
+    dev.addr = 0x09;
+    dev.io = &capture;
+    dev.write_fn = [](void *user, uint8_t, const uint8_t *data, size_t len) -> int {
+        static_cast<Capture *>(user)->bytes.assign(data, data + len);
+        return 0;
+    };
+    EXPECT_EQ(dcmt_send_set_pid(&dev, loop, kp1, ki1, kd1, kp2, ki2, kd2), 0);
+
+    crumbs_message_t msg{};
+    EXPECT_EQ(crumbs_decode_message(capture.bytes.data(), capture.bytes.size(), &msg, nullptr), 0);
+    EXPECT_EQ(msg.type_id, DCMT_TYPE_ID);
+    EXPECT_EQ(msg.opcode, DCMT_OP_SET_PID);
+    return {msg.data, msg.data + msg.data_len};
+}
+
+ValueMap make_pid_x1000_args(uint64_t kp1, uint64_t ki1, uint64_t kd1, uint64_t kp2, uint64_t ki2, uint64_t kd2) {
+    return DcmtAdapterTest::make_args({
+        {"kp1_x1000", make_uint64_val(kp1)},
+        {"ki1_x1000", make_uint64_val(ki1)},
+        {"kd1_x1000", make_uint64_val(kd1)},
+        {"kp2_x1000", make_uint64_val(kp2)},
+        {"ki2_x1000", make_uint64_val(ki2)},
+        {"kd2_x1000", make_uint64_val(kd2)},
+    });
+}
+
+TEST_F(DcmtAdapterTest, Call_SetPidX1000_SendsPositionLoopU16X1000Payload) {
+    // 0.15 / 0.01 / 0.01, the DCMT default gains, which x10 could not express.
+    const auto result = call(session, device, 5u, make_pid_x1000_args(150u, 10u, 10u, 150u, 10u, 65535u));
+
+    ASSERT_TRUE(result.ok) << result.error_message;
+    ASSERT_EQ(transport.sent_frames.size(), 1u);
+    const crumbs::RawFrame &frame = transport.sent_frames.at(0).second;
+    EXPECT_EQ(frame.type_id, DCMT_TYPE_ID);
+    EXPECT_EQ(frame.opcode, DCMT_OP_SET_PID);
+    ASSERT_EQ(frame.payload.size(), static_cast<size_t>(DCMT_SET_PID_PAYLOAD_LEN));
+    EXPECT_EQ(frame.payload, contracts_set_pid_payload(DCMT_PID_LOOP_POSITION, 150u, 10u, 10u, 150u, 10u, 65535u));
+
+    // And the firmware-side parser reads it back as the same gains.
+    dcmt_set_pid_t parsed{};
+    ASSERT_EQ(dcmt_parse_set_pid_payload(frame.payload.data(), static_cast<uint8_t>(frame.payload.size()), &parsed), 0);
+    EXPECT_EQ(parsed.loop, DCMT_PID_LOOP_POSITION);
+    EXPECT_EQ(parsed.kp1_x1000, 150u);
+    EXPECT_EQ(parsed.ki1_x1000, 10u);
+    EXPECT_EQ(parsed.kd2_x1000, 65535u);
+}
+
+TEST_F(DcmtAdapterTest, Call_SetSpeedPidX1000_SendsSpeedLoopU16X1000Payload) {
+    const auto result = call(session, device, 7u, make_pid_x1000_args(1u, 2u, 3u, 4u, 5u, 6u));
+
+    ASSERT_TRUE(result.ok) << result.error_message;
+    ASSERT_EQ(transport.sent_frames.size(), 1u);
+    const crumbs::RawFrame &frame = transport.sent_frames.at(0).second;
+    EXPECT_EQ(frame.opcode, DCMT_OP_SET_PID);
+    EXPECT_EQ(frame.payload, contracts_set_pid_payload(DCMT_PID_LOOP_SPEED, 1u, 2u, 3u, 4u, 5u, 6u));
+}
+
+TEST_F(DcmtAdapterTest, Call_SetPidX1000_GainAbove65535_ReturnsOutOfRange) {
+    for (const uint32_t function_id : {5u, 7u}) {
+        const auto result = call(session, device, function_id, make_pid_x1000_args(0u, 0u, 0u, 0u, 0u, 65536u));
+
+        EXPECT_FALSE(result.ok);
+        EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE);
+    }
+    EXPECT_TRUE(transport.sent_frames.empty());
+}
+
+TEST_F(DcmtAdapterTest, Call_SetPidX1000_OldX10ArgNames_ReturnsInvalidArgument) {
     const auto args = make_args({
         {"kp1_x10", make_uint64_val(20u)},
         {"ki1_x10", make_uint64_val(10u)},
@@ -493,9 +597,9 @@ TEST_F(DcmtAdapterTest, Call_SetPidX10_ValidArgs_SendsSixBytes) {
 
     const auto result = call(session, device, 5u, args);
 
-    ASSERT_TRUE(result.ok);
-    ASSERT_EQ(transport.sent_frames.at(0).second.payload.size(), 6u);
-    EXPECT_EQ(transport.sent_frames.at(0).second.payload.at(0), 20u);
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT);
+    EXPECT_TRUE(transport.sent_frames.empty());
 }
 
 TEST_F(DcmtAdapterTest, Call_UnknownFunctionId_ReturnsNotFound) {
