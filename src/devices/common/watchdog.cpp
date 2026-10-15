@@ -57,6 +57,18 @@ void arm_if_configured(crumbs::Session &session, const inventory::InventoryDevic
     }
 }
 
+bool rearm_if_rebooted(crumbs::Session &session, const inventory::InventoryDevice &device,
+                       const WatchdogStatus &status) {
+    if (device.command_watchdog_ms <= 0 || !capability_supported(device) || status.armed || status.tripped) {
+        return false;
+    }
+    logging::warning("watchdog: " + device.descriptor.device_id() + " (" + format_i2c_address(device.address) +
+                     ") reports disarmed, appears to have rebooted (trip_count=" + std::to_string(status.trip_count) +
+                     ")");
+    arm_if_configured(session, device, "reboot");
+    return true;
+}
+
 crumbs::SessionStatus query_status(crumbs::Session &session, const inventory::InventoryDevice &device,
                                    WatchdogStatus &out) {
     crumbs::RawFrame frame;

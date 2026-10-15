@@ -11,8 +11,14 @@
 #include "config/provider_config.hpp"
 #include "core/host_check.hpp"
 #include "core/runtime_state.hpp"
+#include "crumbs/session.hpp"
 #include "devices/common/device_type.hpp"
 #include "protocol.pb.h"
+
+extern "C" {
+#include <bread/bread_watchdog.h>
+#include <bread/dcmt_ops.h>
+}
 
 // BreadProviderRuntime tests — preserve the bread-specific coverage lost when
 // core/handlers.cpp moved to the SDK: the inventory/read seam and the §8.3
@@ -122,6 +128,38 @@ TEST(BreadProviderRuntimeTest, ClearWatchdogTripCallableOnlyWhereAdvertised) {
     // rejected rather than sent.
     EXPECT_FALSE(rt.resolve_function_id("rlht0", "clear_watchdog_trip").has_value());
     EXPECT_EQ(rt.call("rlht0", 7, {}).error_code, adpp::Status::CODE_NOT_FOUND);
+}
+
+TEST(BreadProviderRuntimeTest, HealthReadRearmsDeviceThatRebootedDisarmed) {
+    // #148: a slice that reboots between polls comes back disarmed with no
+    // failed operation, so the session's recovery signal never fires. The
+    // health read sees armed=false and re-arms the device.
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 5000;  // dcmt0
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+    const anolis_provider_bread::BreadProviderRuntime rt;
+
+    EXPECT_EQ(rt.device_health("dcmt0").metrics.at("watchdog_armed"), "true");
+
+    // Model the reboot: the device is disarmed and nothing failed on the bus.
+    anolis_provider_bread::crumbs::Session* session = anolis_provider_bread::runtime::session();
+    ASSERT_NE(session, nullptr);
+    anolis_provider_bread::crumbs::RawFrame disarm;
+    disarm.type_id = DCMT_TYPE_ID;
+    disarm.opcode = BREAD_OP_SET_WATCHDOG;
+    disarm.payload = {0, 0};
+    ASSERT_TRUE(session->send(0x09, disarm));
+    EXPECT_FALSE(session->take_recovery(0x09));
+
+    // The read that saw the reboot reports what it read ...
+    EXPECT_EQ(rt.device_health("dcmt0").metrics.at("watchdog_armed"), "false");
+    // ... and the next one finds the device armed again.
+    const auto after = rt.device_health("dcmt0");
+    EXPECT_EQ(after.metrics.at("watchdog_armed"), "true");
+    EXPECT_EQ(after.metrics.at("watchdog_timeout_ms"), "5000");
+
+    anolis_provider_bread::runtime::reset();
 }
 
 TEST(BreadProviderRuntimeTest, MockModeHasNoHostRequirements) {
