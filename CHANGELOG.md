@@ -20,6 +20,13 @@ commit messages only.
   The key stays required. Before, the schema declared no default and the
   struct defaulted to `scan`, which write-probes 0x08-0x77 on a shared bus.
 
+### Fixed
+
+- An incremental build after a dependency pin bump now recompiles the
+  translation units that include its headers (#153). FetchContent
+  extracts with `DOWNLOAD_EXTRACT_TIMESTAMP FALSE`, so the headers carry
+  the extraction time instead of the archive's older mtimes.
+
 ## [0.5.1] - 2026-10-13
 
 ### Removed
