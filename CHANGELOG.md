@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-16
+
 ### Added
 
 - Device health reports `module_version`, the contract module version
@@ -49,6 +51,10 @@ commit messages only.
   translation units that include its headers (#153). FetchContent
   extracts with `DOWNLOAD_EXTRACT_TIMESTAMP FALSE`, so the headers carry
   the extraction time instead of the archive's older mtimes.
+- The README, CONTRIBUTING and `docs/` describe the build as it runs:
+  CRUMBS, bread-crumbs-contracts and anolis-provider-sdk are fetched at
+  configure time as pinned release tarballs, so no sibling clones are
+  needed, and the `anolis-protocol` pin comes through the SDK. (#144)
 
 ## [0.5.1] - 2026-10-13
 
