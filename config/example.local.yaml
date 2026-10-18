@@ -36,4 +36,7 @@ devices:
     # re-command the device afterwards, on DCMT starting with
     # set_brake(false, false). Without the latch (CMD_WATCHDOG only), the
     # startup/recovery arming and any command frame still clear a trip.
+    # While this is nonzero, a health read that finds the device disarmed
+    # re-arms it, so a local WDOG=0 on the serial console lasts only until
+    # the next poll; set 0 here to keep the device disarmed.
     command_watchdog_ms: 5000

@@ -23,7 +23,8 @@ A relative `CRUMBS_DIR` or `BREAD_CONTRACTS_DIR` resolves against this repo's ro
 
 ## Prerequisites
 
-- CMake 3.20 or newer
+- CMake 3.20 or newer for the Ninja presets (Linux, macOS); CMake 4.2 or newer for the
+  Windows presets, whose `Visual Studio 18 2026` generator was added in CMake 4.2
 - Ninja or Visual Studio generators
 - `VCPKG_ROOT` set to a working vcpkg installation
 - vcpkg manifest dependencies available for `protobuf`, `yaml-cpp`, and `gtest`
@@ -55,7 +56,9 @@ winget install Git.Git
 winget install Python.Python.3.12
 ```
 
-Install Visual Studio 2022 (or Build Tools) with the `Desktop development with C++` workload.
+Install Visual Studio 2026 (or Build Tools for Visual Studio 2026) with the
+`Desktop development with C++` workload. The Windows presets use the `Visual Studio 18 2026`
+generator, so they do not configure with an older Visual Studio.
 
 Install vcpkg:
 

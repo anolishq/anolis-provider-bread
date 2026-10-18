@@ -57,6 +57,23 @@ void arm_if_configured(crumbs::Session &session, const inventory::InventoryDevic
     }
 }
 
+bool rearm_if_rebooted(crumbs::Session &session, const inventory::InventoryDevice &device,
+                       const WatchdogStatus &status) {
+    if (device.command_watchdog_ms <= 0 || !capability_supported(device) || status.armed || status.tripped) {
+        return false;
+    }
+    // A reboot is not the only way to disarm: the slice serial console's
+    // WDOG=0 does it locally (#151). trip_count resets at boot, so a nonzero
+    // count rules the reboot out.
+    const std::string cause = status.trip_count == 0 ? "reboot or local WDOG=0, trip_count=0"
+                                                     : "local WDOG=0: trip_count=" + std::to_string(status.trip_count) +
+                                                           " rules out a reboot";
+    logging::warning("watchdog: " + device.descriptor.device_id() + " (" + format_i2c_address(device.address) +
+                     ") reports disarmed (" + cause + ")");
+    arm_if_configured(session, device, "reported disarmed");
+    return true;
+}
+
 crumbs::SessionStatus query_status(crumbs::Session &session, const inventory::InventoryDevice &device,
                                    WatchdogStatus &out) {
     crumbs::RawFrame frame;

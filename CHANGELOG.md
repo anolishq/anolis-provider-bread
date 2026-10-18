@@ -42,6 +42,49 @@ commit messages only.
   wrapping at 255. Always on DCMT; on RLHT only when the firmware
   advertises the e-stop count caps bit.
 
+## [0.5.2] - 2026-10-16
+
+### Added
+
+- Device health reports `module_version`, the contract module version
+  (`major.minor.patch`) the device returned in its probe version reply
+  (#126). A config-seeded (mock) device has no such reply, so the metric
+  is absent there rather than filled from this build's expected version.
+  This is the bread-crumbs-contracts module version, not a firmware
+  revision: DCMT builds with different firmware all report 1.0.0. The
+  SDK-reserved `firmware_version` waits for Slice firmware that reports a
+  real revision.
+
+### Changed
+
+- `discovery.mode` now declares `manual` as its default in `--config-schema`,
+  and `ProviderConfig` defaults to `DiscoveryMode::Manual` to match (#128).
+  The key stays required. Before, the schema declared no default and the
+  struct defaulted to `scan`, which write-probes 0x08-0x77 on a shared bus.
+
+### Fixed
+
+- A device configured to arm its command watchdog is re-armed when a health
+  read reports it disarmed and not tripped (#148). A reboot between two
+  polls fails no operation, so the recovery re-arm never ran and the device
+  stayed disarmed. A tripped device is not re-armed, because on firmware
+  without `CLEAR_WATCHDOG_TRIP` a `SET_WATCHDOG` clears the trip. The health
+  read that saw the disarm still reports `watchdog_armed=false`.
+- The re-arm warning says the device "reports disarmed (reboot or local
+  WDOG=0, trip_count=0)" (#151): a local `WDOG=0` on the slice serial
+  console disarms it too. With a nonzero `trip_count` it says "local WDOG=0:
+  trip_count=N rules out a reboot", since a reboot resets the count. A
+  local `WDOG=0` is undone on the next health read; set
+  `command_watchdog_ms: 0` (or leave it out) to keep a device disarmed.
+- An incremental build after a dependency pin bump now recompiles the
+  translation units that include its headers (#153). FetchContent
+  extracts with `DOWNLOAD_EXTRACT_TIMESTAMP FALSE`, so the headers carry
+  the extraction time instead of the archive's older mtimes.
+- The README, CONTRIBUTING and `docs/` describe the build as it runs:
+  CRUMBS, bread-crumbs-contracts and anolis-provider-sdk are fetched at
+  configure time as pinned release tarballs, so no sibling clones are
+  needed, and the `anolis-protocol` pin comes through the SDK. (#144)
+
 ## [0.5.1] - 2026-10-13
 
 ### Removed

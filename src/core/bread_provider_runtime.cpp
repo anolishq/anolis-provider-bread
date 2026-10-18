@@ -133,6 +133,10 @@ sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& de
     if (const inventory::InventoryDevice* device = inventory::find_device(state.devices, device_id)) {
         extra.metrics["address"] = device->descriptor.address();
         extra.metrics["type_id"] = device->descriptor.type_id();
+        // Bread-specific contract module version from the probe, absent for
+        // config-seeded inventory (#126). Not the SDK's firmware_version,
+        // which is a firmware revision no slice reports yet.
+        inventory::add_module_version_metric(*device, extra.metrics);
         extra.metrics["inventory"] = state.inventory_mode;
         if (crumbs::Session* session = runtime::session()) {
             const crumbs::AddressStats stats = session->stats_for(static_cast<uint8_t>(device->address));
@@ -153,6 +157,11 @@ sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& de
                     extra.metrics["watchdog_timeout_ms"] = std::to_string(wd.timeout_ms);
                     extra.metrics["watchdog_tripped"] = wd.tripped ? "true" : "false";
                     extra.metrics["watchdog_trip_count"] = std::to_string(wd.trip_count);
+                    // A reboot or a local WDOG=0 between polls fails no
+                    // operation, so handle_recovery never sees it; the
+                    // metrics above keep the value read, so the disarm stays
+                    // visible (#148, #151).
+                    watchdog::rearm_if_rebooted(*session, *device, wd);
                 }
             }
         }
