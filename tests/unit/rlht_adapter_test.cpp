@@ -153,6 +153,40 @@ TEST_F(RlhtAdapterTest, ReadSignals_EstopCount_EmittedOnlyWithEstopCountCap) {
     EXPECT_EQ(with_cap.values.at(0).value().uint64_value(), 9u);
 }
 
+TEST_F(RlhtAdapterTest, ReadSignals_EstopCountCap_NineteenBytePayload_ReturnsInternal) {
+    // Firmware advertising RLHT_CAP_ESTOP_COUNT must send 20 bytes. A 19-byte
+    // reply would decode estop_count as 0, so it is refused, not served.
+    const std::vector<uint8_t> payload =
+        make_state_payload(RLHT_MODE_OPEN_LOOP, 0, 250, 250, 0, 0, 0, 0, 1000, 1000, 0);
+    ASSERT_EQ(payload.size(), 19u);
+    script_state_reply(payload);
+    device.capability_profile.flags = RLHT_CAP_BASELINE_FLAGS | RLHT_CAP_ESTOP_COUNT;
+
+    const auto result = read_signals(session, device, {"t1_c", "estop_count"});
+
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_INTERNAL);
+    EXPECT_TRUE(result.values.empty());
+    EXPECT_EQ(session.stats_for(static_cast<uint8_t>(device.address)).rejected, 1U);
+}
+
+TEST_F(RlhtAdapterTest, ReadSignals_NoEstopCountCap_NineteenBytePayload_ServedWithoutEstopCount) {
+    // Module major 1 firmware without the caps bit still sends 19 bytes and is
+    // served; estop_count is not reported for it.
+    const std::vector<uint8_t> payload =
+        make_state_payload(RLHT_MODE_OPEN_LOOP, 0, 250, 250, 0, 0, 0, 0, 1000, 1000, 0);
+    ASSERT_EQ(payload.size(), 19u);
+    script_state_reply(payload);
+    device.capability_profile.flags = RLHT_CAP_BASELINE_FLAGS;
+
+    const auto result = read_signals(session, device, {"t1_c", "estop_count"});
+
+    ASSERT_TRUE(result.ok) << result.error_message;
+    ASSERT_EQ(result.values.size(), 1u);
+    EXPECT_EQ(result.values.at(0).signal_id(), "t1_c");
+    EXPECT_EQ(session.stats_for(static_cast<uint8_t>(device.address)).rejected, 0U);
+}
+
 TEST_F(RlhtAdapterTest, ReadSignals_ClosedLoopState_ReturnsAllSignals) {
     // 250.5°C, 251.0°C, setpoints 200.0/201.0, period 5000/6000 ms
     // flags: relay1 on, estop off

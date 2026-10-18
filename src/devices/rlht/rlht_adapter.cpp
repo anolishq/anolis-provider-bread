@@ -112,6 +112,18 @@ AdapterReadResult read_signals(crumbs::Session &session, const inventory::Invent
                 {}};
     }
 
+    // Firmware advertising RLHT_CAP_ESTOP_COUNT appends estop_count (20 bytes).
+    // The contracts parser reads a missing byte as 0, which would report no
+    // presses, so a shorter reply from such firmware is refused.
+    const bool has_estop_count = (device.capability_profile.flags & RLHT_CAP_ESTOP_COUNT) != 0u;
+    if (has_estop_count && frame.payload.size() <= RLHT_STATE_OFF_ESTOP_COUNT) {
+        session.record_rejection(static_cast<uint8_t>(device.address));
+        return {false,
+                anolis::deviceprovider::v1::Status::CODE_INTERNAL,
+                "RLHT GET_STATE payload lacks estop_count although the device advertises it",
+                {}};
+    }
+
     const std::string mode_str = (s.mode == RLHT_MODE_OPEN_LOOP) ? "open_loop" : "closed_loop";
 
     AdapterReadResult result;
@@ -146,7 +158,7 @@ AdapterReadResult read_signals(crumbs::Session &session, const inventory::Invent
     if (should_include(signal_ids, kSigEstop))
         vals.push_back(make_signal_value(kSigEstop, make_bool_val((s.flags & RLHT_FLAG_ESTOP) != 0u)));
     // estop_count is a defined field only on firmware advertising the caps bit.
-    if ((device.capability_profile.flags & RLHT_CAP_ESTOP_COUNT) != 0u && should_include(signal_ids, kSigEstopCount))
+    if (has_estop_count && should_include(signal_ids, kSigEstopCount))
         vals.push_back(make_signal_value(kSigEstopCount, make_uint64_val(s.estop_count)));
 
     return result;

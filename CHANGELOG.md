@@ -43,7 +43,10 @@ commit messages only.
   closed-loop speed and PID tuning.
 - `estop_count` signal (uint64): hardware e-stop presses since boot,
   wrapping at 255. Always on DCMT; on RLHT only when the firmware
-  advertises the e-stop count caps bit.
+  advertises the e-stop count caps bit. An RLHT that advertises the bit
+  but sends the 19-byte GET_STATE reply is refused (`CODE_INTERNAL`,
+  counted as a rejection) instead of reporting `estop_count` 0. An RLHT
+  without the bit is served at 19 bytes and has no `estop_count` signal.
 
 ## [0.5.2] - 2026-10-16
 
