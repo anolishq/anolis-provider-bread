@@ -32,6 +32,9 @@ commit messages only.
   sends the major 2 `SET_PID` payload, a loop selector and the u16 gains
   as given, packed by the contracts codec. RLHT `set_pid_x10` is unchanged.
 - DCMT state is parsed at the major 2 length of 20 bytes.
+- Builds against CRUMBS 0.16.0 (was 0.14.0). The provider does not use
+  0.16.0's SET acknowledgement; peripherals on CRUMBS 1200 or newer are
+  still accepted at probe.
 
 ### Added
 

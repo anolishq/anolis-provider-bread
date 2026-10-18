@@ -87,8 +87,8 @@ if(DEFINED CRUMBS_DIR AND NOT CRUMBS_DIR STREQUAL "")
 else()
     FetchContent_Declare(
         crumbs
-        URL https://github.com/feastorg/CRUMBS/releases/download/v0.14.0/crumbs-0.14.0-source.tar.gz
-        URL_HASH SHA256=caea74173e4dc432defec9e7905af0bfcb07a24475612d1cd91926aa9c8b9cea
+        URL https://github.com/feastorg/CRUMBS/releases/download/v0.16.0/crumbs-0.16.0-source.tar.gz
+        URL_HASH SHA256=b32812c84b41a81f16001c864255770cb365b40daa5ba7f187843a250eab7fb5
         DOWNLOAD_EXTRACT_TIMESTAMP FALSE
     )
     set(CRUMBS_ENABLE_LINUX_HAL OFF CACHE BOOL "" FORCE)
