@@ -13,9 +13,11 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-19
+
 ### Fixed
 
-- RLHT `set_periods_ms` advertises `period1_ms` and `period2_ms` as
+- **BREAKING:** RLHT `set_periods_ms` advertises `period1_ms` and `period2_ms` as
   100-10000 ms, the range Slice_RLHT acts on, and refuses a period outside
   it with `CODE_OUT_OF_RANGE` before sending anything (#162). It used to
   accept 0-65535 ms, and the firmware silently clamped the value, so a call
