@@ -15,12 +15,15 @@ commit messages only.
 
 ### Changed
 
-- **BREAKING: bread-crumbs-contracts 0.6.0 -> 0.7.0, DCMT module major 2
+- **BREAKING: bread-crumbs-contracts 0.6.0 -> 0.8.0, DCMT module major 2
   (#147).** A DCMT reporting module major 1 is refused at probe
   (`incompatible_module_major`) and a configured one is reported missing.
-  Ship this together with Slice_DCMT firmware built against contracts
-  `^0.7.0` (module version 2.x) and reflash every DCMT board in the same
-  step. RLHT stays at module major 1 and needs no reflash.
+  Ship this together with Slice_DCMT firmware reporting module version
+  2.x (contracts `^0.7.0` or later; Slice_DCMT pins `^0.8.0`) and reflash
+  every DCMT board in the same step. RLHT stays at module major 1 and
+  needs no reflash. Contracts 0.8.0 changes no opcode, payload or module
+  version relative to 0.7.0; it requires CRUMBS 0.16.0 and fails the
+  build on a family opcode equal to a bread-common one.
 - The probe gates on the module major only. A module minor older than the
   one this build expects is accepted (logged at info); optional features
   follow the caps flags. The `incompatible_module_minor` probe status is

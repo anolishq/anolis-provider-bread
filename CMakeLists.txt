@@ -109,8 +109,8 @@ if(DEFINED BREAD_CONTRACTS_DIR AND NOT BREAD_CONTRACTS_DIR STREQUAL "")
 else()
     FetchContent_Declare(
         bread_crumbs_contracts
-        URL https://github.com/feastorg/bread-crumbs-contracts/releases/download/v0.7.0/bread-crumbs-contracts-0.7.0-source.tar.gz
-        URL_HASH SHA256=1a03063c3d14f25ad756108861dbd5d739fdccc2ec22544937f20428f7bd603a
+        URL https://github.com/feastorg/bread-crumbs-contracts/releases/download/v0.8.0/bread-crumbs-contracts-0.8.0-source.tar.gz
+        URL_HASH SHA256=e93856d2b640113fee69d53bc3780feefb99c031e46427b678d0d5b060cb6c20
         DOWNLOAD_EXTRACT_TIMESTAMP FALSE
     )
     FetchContent_MakeAvailable(bread_crumbs_contracts)
