@@ -246,12 +246,13 @@ AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args, crumbs
                 return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
                         "missing or invalid args: period1_ms, period2_ms (uint64)"};
             }
-            // Slice_RLHT clamps a period outside 100-10000 ms instead of using it (#162).
-            // TODO(feastorg/bread-crumbs-contracts#48): use RLHT_PERIOD_MIN_MS and RLHT_PERIOD_MAX_MS
-            // once a contracts release carries them.
-            if (p1 < 100u || p1 > 10000u || p2 < 100u || p2 > 10000u) {
+            // Slice_RLHT never uses a period outside this range: it clamps it, or refuses it with
+            // RLHT_CAP_REFUSES (#162).
+            if (p1 < RLHT_PERIOD_MIN_MS || p1 > RLHT_PERIOD_MAX_MS || p2 < RLHT_PERIOD_MIN_MS ||
+                p2 > RLHT_PERIOD_MAX_MS) {
                 return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
-                        "period values must be in [100, 10000] ms"};
+                        "period values must be in [" + std::to_string(RLHT_PERIOD_MIN_MS) + ", " +
+                            std::to_string(RLHT_PERIOD_MAX_MS) + "] ms"};
             }
             frame.opcode = RLHT_OP_SET_PERIODS;
             append_u16_le(frame.payload, static_cast<uint16_t>(p1));
