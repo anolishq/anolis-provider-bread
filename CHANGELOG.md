@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-18
+
 ### Changed
 
 - **BREAKING: bread-crumbs-contracts 0.6.0 -> 0.8.0, DCMT module major 2
@@ -50,6 +52,13 @@ commit messages only.
   but sends the 19-byte GET_STATE reply is refused (`CODE_INTERNAL`,
   counted as a rejection) instead of reporting `estop_count` 0. An RLHT
   without the bit is served at 19 bytes and has no `estop_count` signal.
+
+### Fixed
+
+- `docs/build.md` asks for CMake 4.2 and Visual Studio 2026 for the
+  Windows presets, which use the `Visual Studio 18 2026` generator; the
+  CMake 3.20 and Visual Studio 2022 it named could not configure them.
+  (#159)
 
 ## [0.5.2] - 2026-10-16
 
