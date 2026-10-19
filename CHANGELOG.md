@@ -13,6 +13,15 @@ commit messages only.
 
 ## [Unreleased]
 
+### Fixed
+
+- RLHT `set_periods_ms` advertises `period1_ms` and `period2_ms` as
+  100-10000 ms, the range Slice_RLHT acts on, and refuses a period outside
+  it with `CODE_OUT_OF_RANGE` before sending anything (#162). It used to
+  accept 0-65535 ms, and the firmware silently clamped the value, so a call
+  with 50 or 20000 succeeded and the board ran 100 or 10000. A call outside
+  the range that used to succeed now fails.
+
 ## [0.6.0] - 2026-10-18
 
 ### Changed
