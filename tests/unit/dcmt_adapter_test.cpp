@@ -445,6 +445,7 @@ TEST_F(DcmtAdapterTest, Call_SetOpenLoop_PwmOverRange_ReturnsOutOfRange) {
     EXPECT_FALSE(result.ok);
     EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE);
     EXPECT_EQ(result.error_message, "motor PWM values must be in [-255, 255]");
+    EXPECT_TRUE(transport.sent_frames.empty());
 }
 
 TEST_F(DcmtAdapterTest, Call_SetBrake_SendsCorrectPayload) {

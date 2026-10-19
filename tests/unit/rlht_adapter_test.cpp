@@ -526,6 +526,47 @@ TEST_F(RlhtAdapterTest, Call_SetPeriodsMs_SendsFourBytes) {
     EXPECT_EQ(p2, 6000u);
 }
 
+TEST_F(RlhtAdapterTest, Call_SetPeriodsMs_AtBounds_SendsThem) {
+    const auto args = make_args({
+        {"period1_ms", make_uint64_val(100u)},
+        {"period2_ms", make_uint64_val(10000u)},
+    });
+
+    const auto result = call(session, device, 4u, args);
+
+    ASSERT_TRUE(result.ok);
+    const auto &payload = transport.sent_frames.at(0).second.payload;
+    ASSERT_EQ(payload.size(), 4u);
+    uint16_t p1 = 0, p2 = 0;
+    read_u16_le(payload, 0u, p1);
+    read_u16_le(payload, 2u, p2);
+    EXPECT_EQ(p1, 100u);
+    EXPECT_EQ(p2, 10000u);
+}
+
+// Slice_RLHT clamps a period outside 100-10000 ms instead of using it, so the
+// call is refused before a frame goes out (#162).
+TEST_F(RlhtAdapterTest, Call_SetPeriodsMs_OutsideRange_ReturnsOutOfRangeAndSendsNothing) {
+    const std::vector<std::pair<uint64_t, uint64_t>> cases = {
+        {99u, 5000u}, {5000u, 99u}, {10001u, 5000u}, {5000u, 10001u}, {0u, 5000u}, {65535u, 5000u},
+    };
+    for (const auto &[p1, p2] : cases) {
+        SCOPED_TRACE(std::to_string(p1) + ", " + std::to_string(p2));
+        transport.sent_frames.clear();
+        const auto args = make_args({
+            {"period1_ms", make_uint64_val(p1)},
+            {"period2_ms", make_uint64_val(p2)},
+        });
+
+        const auto result = call(session, device, 4u, args);
+
+        EXPECT_FALSE(result.ok);
+        EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE);
+        EXPECT_EQ(result.error_message, "period values must be in [100, 10000] ms");
+        EXPECT_TRUE(transport.sent_frames.empty());
+    }
+}
+
 TEST_F(RlhtAdapterTest, Call_SetOpenDutyPct_ValidRange_SendsTwoBytes) {
     const auto args = make_args({
         {"duty1_pct", make_uint64_val(75u)},
@@ -551,6 +592,7 @@ TEST_F(RlhtAdapterTest, Call_SetOpenDutyPct_Over100_ReturnsOutOfRange) {
 
     EXPECT_FALSE(result.ok);
     EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE);
+    EXPECT_TRUE(transport.sent_frames.empty());
 }
 
 TEST_F(RlhtAdapterTest, Call_MissingRequiredArg_ReturnsInvalidArgument) {

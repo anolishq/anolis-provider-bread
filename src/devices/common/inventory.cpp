@@ -167,12 +167,15 @@ CapabilitySet build_rlht_capabilities(uint32_t flags) {
 
     if ((flags & RLHT_CAP_PERIOD_CONTROL) != 0u) {
         auto *set_periods = add_function(caps, 4, "set_periods_ms", "Set RLHT relay periods.", CAT_CONFIG);
+        // The range Slice_RLHT acts on; it clamps anything outside it (#162).
+        // TODO(feastorg/bread-crumbs-contracts#48): use RLHT_PERIOD_MIN_MS and RLHT_PERIOD_MAX_MS
+        // once a contracts release carries them.
         auto *p1_arg = add_arg(*set_periods, "period1_ms", VT_UINT64, "Relay 1 period.", true, "ms");
-        p1_arg->set_min_uint64(0);
-        p1_arg->set_max_uint64(65535);
+        p1_arg->set_min_uint64(100);
+        p1_arg->set_max_uint64(10000);
         auto *p2_arg = add_arg(*set_periods, "period2_ms", VT_UINT64, "Relay 2 period.", true, "ms");
-        p2_arg->set_min_uint64(0);
-        p2_arg->set_max_uint64(65535);
+        p2_arg->set_min_uint64(100);
+        p2_arg->set_max_uint64(10000);
     }
 
     if ((flags & RLHT_CAP_TC_SELECT) != 0u) {

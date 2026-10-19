@@ -71,6 +71,17 @@ TEST(StubInventoryTest, BuildsSeedInventoryForConfiguredDevices) {
     EXPECT_EQ(set_open_duty->args(1).name(), "duty2_pct");
     EXPECT_EQ(set_open_duty->args(1).max_uint64(), 100u);
 
+    // The range Slice_RLHT acts on; it clamps anything outside it (#162).
+    const auto *set_periods = find_fn(rlht_caps, "set_periods_ms");
+    ASSERT_NE(set_periods, nullptr);
+    ASSERT_EQ(set_periods->args_size(), 2);
+    EXPECT_EQ(set_periods->args(0).name(), "period1_ms");
+    EXPECT_EQ(set_periods->args(0).min_uint64(), 100u);
+    EXPECT_EQ(set_periods->args(0).max_uint64(), 10000u);
+    EXPECT_EQ(set_periods->args(1).name(), "period2_ms");
+    EXPECT_EQ(set_periods->args(1).min_uint64(), 100u);
+    EXPECT_EQ(set_periods->args(1).max_uint64(), 10000u);
+
     const auto &dcmt_caps = inventory_devices[1].capabilities;
     const auto *set_open_loop = find_fn(dcmt_caps, "set_open_loop");
     ASSERT_NE(set_open_loop, nullptr);
