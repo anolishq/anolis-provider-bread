@@ -130,6 +130,9 @@ inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address) {
         logging::warning("probe " + format_i2c_address(static_cast<int>(address)) + " compat failed: " + compat_detail);
         return probe;
     }
+    if (compat_detail != "compatible") {
+        logging::info("probe " + format_i2c_address(static_cast<int>(address)) + " " + compat_detail);
+    }
 
     // Capability discovery is best-effort. A failed caps read does not remove a
     // supported module from inventory; it falls back to the type baseline.

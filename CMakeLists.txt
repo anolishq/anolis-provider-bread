@@ -87,8 +87,8 @@ if(DEFINED CRUMBS_DIR AND NOT CRUMBS_DIR STREQUAL "")
 else()
     FetchContent_Declare(
         crumbs
-        URL https://github.com/feastorg/CRUMBS/releases/download/v0.14.0/crumbs-0.14.0-source.tar.gz
-        URL_HASH SHA256=caea74173e4dc432defec9e7905af0bfcb07a24475612d1cd91926aa9c8b9cea
+        URL https://github.com/feastorg/CRUMBS/releases/download/v0.16.0/crumbs-0.16.0-source.tar.gz
+        URL_HASH SHA256=b32812c84b41a81f16001c864255770cb365b40daa5ba7f187843a250eab7fb5
         DOWNLOAD_EXTRACT_TIMESTAMP FALSE
     )
     set(CRUMBS_ENABLE_LINUX_HAL OFF CACHE BOOL "" FORCE)
@@ -109,8 +109,8 @@ if(DEFINED BREAD_CONTRACTS_DIR AND NOT BREAD_CONTRACTS_DIR STREQUAL "")
 else()
     FetchContent_Declare(
         bread_crumbs_contracts
-        URL https://github.com/feastorg/bread-crumbs-contracts/releases/download/v0.6.0/bread-crumbs-contracts-0.6.0-source.tar.gz
-        URL_HASH SHA256=f61a7ed512c57d07846ed263fcffbecd7c0f39ac7316653370f30cfb414e4274
+        URL https://github.com/feastorg/bread-crumbs-contracts/releases/download/v0.8.0/bread-crumbs-contracts-0.8.0-source.tar.gz
+        URL_HASH SHA256=e93856d2b640113fee69d53bc3780feefb99c031e46427b678d0d5b060cb6c20
         DOWNLOAD_EXTRACT_TIMESTAMP FALSE
     )
     FetchContent_MakeAvailable(bread_crumbs_contracts)

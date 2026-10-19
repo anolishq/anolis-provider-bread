@@ -21,7 +21,6 @@ enum class ProbeStatus {
     VersionReadFailed,
     IncompatibleCrumbsVersion,
     IncompatibleModuleMajor,
-    IncompatibleModuleMinor,
     TypeMismatch,
 };
 
@@ -62,6 +61,16 @@ std::string provider_type_id(DeviceType type);
  */
 ProbeStatus evaluate_version_compatibility(uint8_t type_id, const ModuleVersion &version,
                                            std::string *detail = nullptr);
+
+/**
+ * @brief Evaluate a probed module version against an expected module
+ * major/minor, the module half of @ref evaluate_version_compatibility.
+ *
+ * Only the major gates (IncompatibleModuleMajor on a mismatch). A minor older
+ * than expected is still Supported, and `detail` says so.
+ */
+ProbeStatus evaluate_module_version(const ModuleVersion &version, uint8_t expected_major, uint8_t expected_minor,
+                                    std::string *detail = nullptr);
 
 /** @brief Convert a probe status enum to its stable diagnostic string form. */
 std::string to_string(ProbeStatus status);

@@ -102,31 +102,37 @@ ProbeStatus evaluate_version_compatibility(uint8_t type_id, const ModuleVersion 
         return ProbeStatus::IncompatibleCrumbsVersion;
     }
 
-    // Module major/minor compatibility is strict because the adapter layer
-    // assumes the payload layouts defined by the matching BREAD contract.
-    const int module_rc =
-        bread_check_module_compat(version.module_major, version.module_minor, expected.first, expected.second);
-    if (module_rc == -1) {
+    return evaluate_module_version(version, expected.first, expected.second, detail);
+}
+
+ProbeStatus evaluate_module_version(const ModuleVersion &version, uint8_t expected_major, uint8_t expected_minor,
+                                    std::string *detail) {
+    if (detail) {
+        detail->clear();
+    }
+
+    // The module major is the wire-compatibility number: the adapters assume
+    // the payload layouts of the major this build was compiled against. Minor
+    // and patch never gate; optional features follow the caps flags.
+    if (bread_check_module_compat(version.module_major, version.module_minor, expected_major, expected_minor) != 0) {
         if (detail) {
             std::ostringstream out;
-            out << "module major mismatch: expected " << static_cast<int>(expected.first) << " got "
+            out << "module major mismatch: expected " << static_cast<int>(expected_major) << " got "
                 << static_cast<int>(version.module_major);
             *detail = out.str();
         }
         return ProbeStatus::IncompatibleModuleMajor;
     }
-    if (module_rc == -2) {
-        if (detail) {
-            std::ostringstream out;
-            out << "module minor too old: expected >= " << static_cast<int>(expected.second) << " got "
-                << static_cast<int>(version.module_minor);
-            *detail = out.str();
-        }
-        return ProbeStatus::IncompatibleModuleMinor;
-    }
 
     if (detail) {
-        *detail = "compatible";
+        if (version.module_minor < expected_minor) {
+            std::ostringstream out;
+            out << "compatible: module minor " << static_cast<int>(version.module_minor) << " is older than "
+                << static_cast<int>(expected_minor) << ", optional features follow the caps flags";
+            *detail = out.str();
+        } else {
+            *detail = "compatible";
+        }
     }
     return ProbeStatus::Supported;
 }
@@ -143,8 +149,6 @@ std::string to_string(ProbeStatus status) {
             return "incompatible_crumbs_version";
         case ProbeStatus::IncompatibleModuleMajor:
             return "incompatible_module_major";
-        case ProbeStatus::IncompatibleModuleMinor:
-            return "incompatible_module_minor";
         case ProbeStatus::TypeMismatch:
             return "type_mismatch";
     }

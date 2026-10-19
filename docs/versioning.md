@@ -60,10 +60,11 @@ This provider pins a specific release at build time: CMake FetchContent download
 | Device | Expected major | Expected minor |
 |--------|----------------|----------------|
 | RLHT | 1 | 0 |
-| DCMT | 1 | 0 |
+| DCMT | 2 | 0 |
 
 These values come from `RLHT_MODULE_VER_MAJOR/MINOR` and `DCMT_MODULE_VER_MAJOR/MINOR` in the contracts headers.
-Any device whose firmware reports a different major version, or a minor version below the expected minimum, is rejected at probe time.
+The module major is the wire-compatibility number: any device whose firmware reports a different major is rejected at probe time.
+The minor and patch never gate. A minor older than expected is accepted and logged at info; optional features follow the caps flags.
 
 ### Advancing The Contracts Revision
 

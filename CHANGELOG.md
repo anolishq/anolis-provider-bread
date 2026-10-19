@@ -13,6 +13,44 @@ commit messages only.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: bread-crumbs-contracts 0.6.0 -> 0.8.0, DCMT module major 2
+  (#147).** A DCMT reporting module major 1 is refused at probe
+  (`incompatible_module_major`) and a configured one is reported missing.
+  Ship this together with Slice_DCMT firmware reporting module version
+  2.x (contracts `^0.7.0` or later; Slice_DCMT pins `^0.8.0`) and reflash
+  every DCMT board in the same step. RLHT stays at module major 1 and
+  needs no reflash. Contracts 0.8.0 changes no opcode, payload or module
+  version relative to 0.7.0; it requires CRUMBS 0.16.0 and fails the
+  build on a family opcode equal to a bread-common one.
+- The probe gates on the module major only. A module minor older than the
+  one this build expects is accepted (logged at info); optional features
+  follow the caps flags. The `incompatible_module_minor` probe status is
+  gone.
+- **BREAKING: DCMT `set_pid_x10` (function 5) is now `set_pid_x1000`**, for
+  the position loop only. Its six arguments are `kp1_x1000` ... `kd2_x1000`
+  (uint64, 0-65535; gain = value / 1000, 0 to 65.535), so gains such as
+  0.15 / 0.01 / 0.01 can be set; the `*_x10` arguments are refused. It
+  sends the major 2 `SET_PID` payload, a loop selector and the u16 gains
+  as given, packed by the contracts codec. RLHT `set_pid_x10` is unchanged.
+- DCMT state is parsed at the major 2 length of 20 bytes.
+- Builds against CRUMBS 0.16.0 (was 0.14.0). The provider does not use
+  0.16.0's SET acknowledgement; peripherals on CRUMBS 1200 or newer are
+  still accepted at probe.
+
+### Added
+
+- DCMT `set_speed_pid_x1000` (function 7): same arguments as
+  `set_pid_x1000`, for the speed loop. Offered only when the firmware advertises
+  closed-loop speed and PID tuning.
+- `estop_count` signal (uint64): hardware e-stop presses since boot,
+  wrapping at 255. Always on DCMT; on RLHT only when the firmware
+  advertises the e-stop count caps bit. An RLHT that advertises the bit
+  but sends the 19-byte GET_STATE reply is refused (`CODE_INTERNAL`,
+  counted as a rejection) instead of reporting `estop_count` 0. An RLHT
+  without the bit is served at 19 bytes and has no `estop_count` signal.
+
 ## [0.5.2] - 2026-10-16
 
 ### Added

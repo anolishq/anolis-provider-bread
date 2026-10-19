@@ -378,4 +378,49 @@ TEST(StartupDiscoveryTest, ScanModeDcmtDeviceWithQueriedCaps) {
     EXPECT_EQ(result.inventory_mode, "discovered");
 }
 
+// ---------------------------------------------------------------------------
+// 6. Module major gate: a DCMT reporting module major 1 (firmware built
+// before contracts 0.7.0) is refused and reported missing; a module minor
+// older than expected is accepted.
+// ---------------------------------------------------------------------------
+TEST(StartupDiscoveryTest, ManualModeRefusesDcmtModuleMajorOne) {
+    ScriptedTransport transport;
+
+    transport.add_reply(0x15, 0x00, DCMT_TYPE_ID, make_version_payload(CRUMBS_VERSION, 1, 0, 0));
+    transport.add_reply(0x15, BREAD_OP_GET_CAPS, DCMT_TYPE_ID,
+                        make_caps_payload(BREAD_CAPS_SCHEMA_V1, DCMT_CAP_LEVEL_1, DCMT_CAP_BASELINE_FLAGS));
+
+    DeviceSpec spec;
+    spec.id = "dcmt0";
+    spec.type = DeviceType::Dcmt;
+    spec.address = 0x15;
+
+    auto session = make_session(transport);
+    const DiscoveryResult result = run_discovery(*session, make_manual_config({0x15}, {spec}));
+
+    EXPECT_TRUE(result.devices.empty());
+    ASSERT_EQ(result.unsupported_probes.size(), 1u);
+    EXPECT_EQ(result.unsupported_probes[0].status, inventory::ProbeStatus::IncompatibleModuleMajor);
+    ASSERT_EQ(result.missing_expected_ids.size(), 1u);
+    EXPECT_EQ(result.missing_expected_ids[0], "dcmt0");
+    ASSERT_EQ(result.missing_expected_details.count("dcmt0"), 1u);
+    EXPECT_NE(result.missing_expected_details.at("dcmt0").find("module major mismatch: expected 2 got 1"),
+              std::string::npos);
+}
+
+TEST(StartupDiscoveryTest, ModuleMinorOlderThanExpectedIsAccepted) {
+    inventory::ModuleVersion version;
+    version.crumbs_version = CRUMBS_VERSION;
+    version.module_major = 2;
+    version.module_minor = 0;
+
+    std::string detail;
+    EXPECT_EQ(inventory::evaluate_module_version(version, 2, 1, &detail), inventory::ProbeStatus::Supported) << detail;
+    EXPECT_EQ(inventory::evaluate_module_version(version, 2, 0, &detail), inventory::ProbeStatus::Supported) << detail;
+    EXPECT_EQ(inventory::evaluate_module_version(version, 1, 0, &detail),
+              inventory::ProbeStatus::IncompatibleModuleMajor);
+    EXPECT_EQ(inventory::evaluate_module_version(version, 3, 0, &detail),
+              inventory::ProbeStatus::IncompatibleModuleMajor);
+}
+
 }  // namespace anolis_provider_bread::startup
