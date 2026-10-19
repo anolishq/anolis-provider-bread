@@ -22,6 +22,14 @@ commit messages only.
   with 50 or 20000 succeeded and the board ran 100 or 10000. A call outside
   the range that used to succeed now fails.
 
+### Changed
+
+- Builds against bread-crumbs-contracts 0.9.0 (was 0.8.0). The
+  `set_periods_ms` range comes from its `RLHT_PERIOD_MIN_MS` and
+  `RLHT_PERIOD_MAX_MS`, 100 and 10000 as before. 0.9.0 changes no opcode,
+  payload, module version or existing caps bit; it adds the refuse reasons
+  and the `*_CAP_REFUSES` flags, which the provider does not read yet.
+
 ## [0.6.0] - 2026-10-18
 
 ### Changed
