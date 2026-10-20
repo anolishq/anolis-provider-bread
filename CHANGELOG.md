@@ -13,6 +13,16 @@ commit messages only.
 
 ## [Unreleased]
 
+### Fixed
+
+- A held I2C power cut no longer makes each failed read block for about
+  4 s (#166). A bus operation that fails with the kernel adapter's
+  `ETIMEDOUT` is not retried: each attempt blocks about 1 s in the
+  kernel, so with the bench's `retry_count: 3` one failed read took
+  about 4.1 s. Two of them back to back in one poll outlasted the
+  runtime's 5 s request timeout, and the runtime restarted the
+  provider. Every other failure is retried as before.
+
 ## [0.7.0] - 2026-10-19
 
 ### Fixed
