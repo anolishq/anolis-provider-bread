@@ -17,7 +17,8 @@ jobs:
 
   release-linux-x86_64:
     name: Release (linux-x86_64)
-    runs-on: ubuntu-26.04
+    # Release binaries link libc and libstdc++ dynamically from the runner; the deployed Pi is Debian 13 trixie (glibc 2.41).
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout anolis-provider-bread
@@ -129,7 +130,8 @@ jobs:
 
   release-linux-arm64:
     name: Release (linux-arm64)
-    runs-on: ubuntu-26.04-arm
+    # Release binaries link libc and libstdc++ dynamically from the runner; the deployed Pi is Debian 13 trixie (glibc 2.41).
+    runs-on: ubuntu-24.04-arm
 
     steps:
       - name: Checkout anolis-provider-bread
