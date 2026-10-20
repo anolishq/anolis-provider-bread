@@ -92,6 +92,30 @@ CrumbsCannedBus::CrumbsCannedBus(std::string bus_path) : bus_path_(std::move(bus
 
 void CrumbsCannedBus::add_device(uint8_t address, uint8_t type_id) { devices_[address].type_id = type_id; }
 
+void CrumbsCannedBus::refuse_next(uint8_t address, uint8_t reason) {
+    devices_[address].next_outcomes.emplace_back(CRUMBS_ACK_REFUSED, reason);
+}
+
+void CrumbsCannedBus::reject_next(uint8_t address, uint8_t reason) {
+    devices_[address].next_outcomes.emplace_back(CRUMBS_ACK_REJECTED, reason);
+}
+
+void CrumbsCannedBus::drop_next(uint8_t address, int count) { devices_[address].drop_count += count; }
+
+void CrumbsCannedBus::fail_ack_reads(uint8_t address, int count, int skip) {
+    devices_[address].ack_read_skip = skip;
+    devices_[address].ack_read_failures = count;
+}
+
+int CrumbsCannedBus::writes_of(uint8_t address, uint8_t opcode) const {
+    const auto it = devices_.find(address);
+    if (it == devices_.end()) {
+        return 0;
+    }
+    const auto found = it->second.writes_by_opcode.find(opcode);
+    return found == it->second.writes_by_opcode.end() ? 0 : found->second;
+}
+
 void CrumbsCannedBus::trip_watchdog(uint8_t address) {
     auto it = devices_.find(address);
     if (it == devices_.end()) {
@@ -126,10 +150,37 @@ void CrumbsCannedBus::apply_write(uint8_t address, const uint8_t *tx_data, size_
     if (crumbs_decode_message(tx_data, tx_len, &message, nullptr) != 0) {
         return;
     }
+    DeviceState &dev = it->second;
     if (message.opcode == kSetReplyOpcode && message.data_len >= 1) {
-        it->second.pending_reply_opcode = message.data[0];
-        it->second.has_pending = true;
-    } else if (message.opcode == BREAD_OP_SET_WATCHDOG && message.data_len >= 2) {
+        dev.pending_reply_opcode = message.data[0];
+        dev.has_pending = true;
+        return;
+    }
+
+    // A command frame: count it for GET_ACK as CRUMBS 0.16 does (the counter
+    // moves last), unless a test has it lost, refused or rejected. Only an
+    // applied frame is acted on.
+    ++dev.writes_by_opcode[message.opcode];
+    if (dev.drop_count > 0) {
+        --dev.drop_count;
+        return;
+    }
+    uint8_t status = CRUMBS_ACK_APPLIED;
+    uint8_t reason = 0;
+    if (!dev.next_outcomes.empty()) {
+        status = dev.next_outcomes.front().first;
+        reason = dev.next_outcomes.front().second;
+        dev.next_outcomes.pop_front();
+    }
+    dev.ack_opcode = message.opcode;
+    dev.ack_status = status;
+    dev.ack_reason = reason;
+    ++dev.ack_counter;
+    if (status != CRUMBS_ACK_APPLIED) {
+        return;
+    }
+
+    if (message.opcode == BREAD_OP_SET_WATCHDOG && message.data_len >= 2) {
         it->second.watchdog_timeout_ms =
             static_cast<uint16_t>(message.data[0] | (static_cast<uint16_t>(message.data[1]) << 8));
     } else if (message.opcode == BREAD_OP_CLEAR_WATCHDOG_TRIP &&
@@ -148,7 +199,7 @@ I2cStatus CrumbsCannedBus::emit_reply(uint8_t address, uint8_t *rx_data, size_t 
     if (it == devices_.end()) {
         return I2cStatus::failure(I2cError::BusError, "canned bus: no seeded device at address");
     }
-    const DeviceState &dev = it->second;
+    DeviceState &dev = it->second;
     if (!dev.has_pending) {
         return I2cStatus::failure(I2cError::BusError, "canned bus: no query pending for address");
     }
@@ -163,6 +214,14 @@ I2cStatus CrumbsCannedBus::emit_reply(uint8_t address, uint8_t *rx_data, size_t 
         payload = build_dcmt_state_payload();
     } else if (dev.pending_reply_opcode == BREAD_OP_GET_WATCHDOG) {
         payload = build_watchdog_payload(dev.watchdog_timeout_ms, dev.watchdog_tripped, dev.watchdog_trip_count);
+    } else if (dev.pending_reply_opcode == CRUMBS_CMD_GET_ACK) {
+        if (dev.ack_read_skip > 0) {
+            --dev.ack_read_skip;
+        } else if (dev.ack_read_failures > 0) {
+            --dev.ack_read_failures;
+            return I2cStatus::failure(I2cError::BusError, "canned bus: injected GET_ACK read failure");
+        }
+        payload = {dev.ack_counter, dev.ack_opcode, dev.ack_status, dev.ack_reason};
     } else {
         return I2cStatus::failure(I2cError::BusError, "canned bus: no canned response for requested reply");
     }

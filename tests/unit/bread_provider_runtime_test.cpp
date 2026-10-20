@@ -224,6 +224,16 @@ TEST(BreadProviderRuntimeTest, HealthSkipsWatchdogQueryWhileDeviceIsFailing) {
     anolis_provider_bread::runtime::reset();
 }
 
+TEST(BreadProviderRuntimeTest, HealthReportsHowSetsAreConfirmed) {
+    // #134: a successful call carries no message to the runtime, so health is
+    // where a device's confirmation mode shows. Seeded mock devices report the
+    // provider's own CRUMBS version (GET_ACK capable) and baseline caps without
+    // the REFUSES bit.
+    const auto rt = make_ready_runtime();
+    EXPECT_EQ(rt.device_health("rlht0").metrics.at("set_confirmation"), "delivery_only");
+    EXPECT_EQ(rt.device_health("dcmt0").metrics.at("set_confirmation"), "delivery_only");
+}
+
 TEST(BreadProviderRuntimeTest, MockModeHasNoHostRequirements) {
     const auto rt = make_ready_runtime();
     EXPECT_TRUE(anolis_provider_bread::check_host(make_mock_config()).empty());
