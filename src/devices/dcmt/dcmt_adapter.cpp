@@ -8,6 +8,8 @@
 
 #include <string>
 
+#include "devices/common/set_confirm.hpp"
+
 extern "C" {
 #include <bread/bread_watchdog.h>
 #include <bread/dcmt_ops.h>
@@ -298,19 +300,13 @@ AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args, crumbs
                     "unknown DCMT function_id " + std::to_string(function_id)};
     }
 
-    // DCMT setters are treated as accepted once the frame is written
-    // successfully; callers observe the resulting state on a later read.
+    // The frame is built; transmit() confirms it from the device's GET_ACK.
     return {true, anolis::deviceprovider::v1::Status::CODE_OK, "ok"};
 }
 
 AdapterCallResult transmit(crumbs::Session &session, const inventory::InventoryDevice &device,
                            const crumbs::RawFrame &frame) {
-    const auto addr = static_cast<uint8_t>(device.address);
-    const crumbs::SessionStatus send_status = session.send(addr, frame);
-    if (!send_status.ok()) {
-        return call_error_from_session(send_status, "DCMT SET command");
-    }
-    return {true, anolis::deviceprovider::v1::Status::CODE_OK, "ok"};
+    return transmit_confirmed(session, device, frame, "DCMT SET command");
 }
 
 AdapterCallResult call(crumbs::Session &session, const inventory::InventoryDevice &device, uint32_t function_id,
