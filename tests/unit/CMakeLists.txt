@@ -8,6 +8,7 @@ add_executable(provider_unit_tests
     crumbs_transport_test.cpp
     provider_config_test.cpp
     rlht_adapter_test.cpp
+    set_confirm_test.cpp
     startup_discovery_test.cpp
     watchdog_test.cpp
 )

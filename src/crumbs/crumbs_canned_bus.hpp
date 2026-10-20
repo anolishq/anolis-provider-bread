@@ -19,15 +19,20 @@
  *     CLEAR_WATCHDOG_TRIP) per address;
  *   - a read builds the matching GET_STATE / GET_WATCHDOG reply, encodes it, and
  *     returns it padded with 0xFF to the requested count — exactly what a real
- *     fixed-count i2c-dev read of a short CRUMBS frame yields.
+ *     fixed-count i2c-dev read of a short CRUMBS frame yields;
+ *   - every command frame other than SET_REPLY is counted for GET_ACK, as a
+ *     CRUMBS 0.16 peripheral counts it: applied, or refused, rejected or lost
+ *     where a test injects that.
  *
  * Seed device types with `add_device` before opening (as `MockTransport` did).
  */
 
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <string>
+#include <utility>
 
 #include "anolis/provider_sdk/i2c/i2c_bus.hpp"
 #include "anolis/provider_sdk/i2c/i2c_status.hpp"
@@ -50,6 +55,26 @@ public:
      */
     void trip_watchdog(uint8_t address);
 
+    /** @brief The next command frame at @p address is refused with @p reason
+     * (a BREAD_REFUSE_* byte) and not acted on. */
+    void refuse_next(uint8_t address, uint8_t reason);
+
+    /** @brief The next command frame at @p address is rejected with @p reason
+     * (a CRUMBS_ACK_REJECT_* byte) and not acted on. */
+    void reject_next(uint8_t address, uint8_t reason);
+
+    /** @brief The next @p count command frames at @p address never arrive:
+     * not counted, not acted on. */
+    void drop_next(uint8_t address, int count);
+
+    /** @brief After @p skip more GET_ACK reads succeed, the next @p count fail
+     * at @p address. */
+    void fail_ack_reads(uint8_t address, int count, int skip = 0);
+
+    /** @brief Command frames with @p opcode written to @p address, lost ones
+     * included. */
+    int writes_of(uint8_t address, uint8_t opcode) const;
+
     anolis::provider_sdk::i2c::I2cStatus open() override;
     void close() override;
     bool is_open() const override;
@@ -71,6 +96,17 @@ private:
         uint16_t watchdog_timeout_ms = 0;
         bool watchdog_tripped = false;
         uint8_t watchdog_trip_count = 0;
+        // GET_ACK record: [counter][opcode][status][reason].
+        uint8_t ack_counter = 0;
+        uint8_t ack_opcode = 0;
+        uint8_t ack_status = 0;
+        uint8_t ack_reason = 0;
+        // Outcomes injected for the next command frames, oldest first.
+        std::deque<std::pair<uint8_t, uint8_t>> next_outcomes;  // {CRUMBS_ACK_* status, reason}
+        int drop_count = 0;
+        int ack_read_skip = 0;
+        int ack_read_failures = 0;
+        std::map<uint8_t, int> writes_by_opcode;
     };
 
     // Decode a request frame and record the pending reply / watchdog state.

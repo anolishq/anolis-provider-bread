@@ -12,6 +12,7 @@
 #include "crumbs/session.hpp"
 #include "devices/common/device_adapter.hpp"
 #include "devices/common/inventory.hpp"
+#include "devices/common/set_confirm.hpp"
 #include "devices/common/watchdog.hpp"
 #include "logging/logger.hpp"
 #include "protocol.pb.h"
@@ -138,6 +139,10 @@ sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& de
         // which is a firmware revision no slice reports yet.
         inventory::add_module_version_metric(*device, extra.metrics);
         extra.metrics["inventory"] = state.inventory_mode;
+        // How this device's SET calls are confirmed (#134): from GET_ACK, or
+        // unconfirmed on CRUMBS older than 1600. A successful call carries no
+        // message to the runtime, so this is where "unconfirmed" shows.
+        extra.metrics["set_confirmation"] = to_string(set_confirmation(*device));
         if (crumbs::Session* session = runtime::session()) {
             const crumbs::AddressStats stats = session->stats_for(static_cast<uint8_t>(device->address));
             extra.metrics["io_ok"] = std::to_string(stats.ok);

@@ -13,6 +13,37 @@ commit messages only.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING:** RLHT and DCMT setter calls report what the device did
+  with the frame, read from its CRUMBS acknowledgement (GET_ACK), not
+  that the frame was written (#134). For a device whose probe reported
+  CRUMBS 1600 or later, a call reads GET_ACK, sends, reads it again and
+  returns:
+  - OK when the device applied the command;
+  - an error naming the reason when the firmware refused it, for
+    example `RLHT SET command refused: ESTOP`: `CODE_FAILED_PRECONDITION`
+    for ESTOP, WATCHDOG_TRIP and WRONG_MODE, `CODE_INVALID_ARGUMENT` for
+    MALFORMED, UNDEFINED_VALUE and UNKNOWN_OP, `CODE_UNIMPLEMENTED` for
+    NOT_BUILT;
+  - `CODE_INTERNAL` when CRUMBS rejected it (no handler, or a type
+    mismatch);
+  - `CODE_UNAVAILABLE` when the device never counted it after 3 sends
+    (a frame that did not arrive is sent again, as CRUMBS'
+    `send_confirmed` does), or when GET_ACK cannot be read, in which case
+    nothing is re-sent, since the frame may have landed.
+
+  A call the firmware refused used to return OK. A safe-state hook
+  refused while the e-stop line is held now reports `success: false`,
+  and the ladder `safe_state_achieved: false`. A device on CRUMBS older
+  than 1600 is written once and reported OK, as before. Device health
+  gains a `set_confirmation` metric: `acknowledged`, `delivery_only` (no
+  `*_CAP_REFUSES`: an applied GET_ACK means delivered) or `unconfirmed`.
+  The provider's own watchdog arming (`watchdog.cpp`, at startup, on
+  recovery and from the health re-arm) still writes without
+  confirmation; the operator `clear_watchdog_trip` call is a setter and
+  is confirmed.
+
 ## [0.7.2] - 2026-10-19
 
 ### Fixed
