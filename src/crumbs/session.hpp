@@ -234,6 +234,16 @@ public:
     bool take_recovery(uint8_t address);
 
     /**
+     * @brief Report whether the most recent operation against one address
+     * failed.
+     *
+     * Cleared by the next successful operation. Lets callers skip optional bus
+     * I/O, such as the health read's watchdog query, against a device already
+     * known to be unreachable (anolis-provider-bread#166).
+     */
+    bool last_op_failed(uint8_t address) const;
+
+    /**
      * @brief Record a reply the adapter rejected after a successful read.
      *
      * The session counted the I/O as `ok` -- a CRC-valid frame came back --

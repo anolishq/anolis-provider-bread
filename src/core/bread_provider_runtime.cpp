@@ -150,7 +150,13 @@ sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& de
             // Watchdog status is a live bus query (there is no passive source
             // for trip state); only devices configured to arm pay for it, and
             // a failed query just omits the metrics rather than failing health.
-            if (device->command_watchdog_ms > 0 && watchdog::capability_supported(*device)) {
+            // Health must not do blocking bus I/O on a device already known to
+            // be failing: on a held power cut each query blocks about 1 s, and
+            // a few of them in one request outlast the runtime's timeout
+            // (#166). The metrics are omitted as for a failed query; the next
+            // successful operation clears the flag and handle_recovery re-arms.
+            if (device->command_watchdog_ms > 0 && watchdog::capability_supported(*device) &&
+                !session->last_op_failed(static_cast<uint8_t>(device->address))) {
                 watchdog::WatchdogStatus wd;
                 if (watchdog::query_status(*session, *device, wd)) {
                     extra.metrics["watchdog_armed"] = wd.armed ? "true" : "false";

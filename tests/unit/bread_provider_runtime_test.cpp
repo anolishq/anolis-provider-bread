@@ -185,6 +185,45 @@ TEST(BreadProviderRuntimeTest, HealthReadRearmsDeviceThatRebootedDisarmed) {
     anolis_provider_bread::runtime::reset();
 }
 
+TEST(BreadProviderRuntimeTest, HealthSkipsWatchdogQueryWhileDeviceIsFailing) {
+    // #166: on a held power cut each watchdog query blocks about 1 s, so a
+    // health request must not query a device whose last operation failed.
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 5000;  // dcmt0
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+    auto rt = anolis_provider_bread::BreadProviderRuntime{};
+
+    anolis_provider_bread::crumbs::Session* session = anolis_provider_bread::runtime::session();
+    ASSERT_NE(session, nullptr);
+    const auto io_count = [&]() {
+        const auto stats = session->stats_for(0x09);
+        return stats.ok + stats.failed;
+    };
+
+    // A read with no query pending fails on the canned bus, as a dead bus would.
+    anolis_provider_bread::crumbs::RawFrame frame;
+    ASSERT_FALSE(session->read(0x09, frame));
+    ASSERT_TRUE(session->last_op_failed(0x09));
+
+    const auto before = io_count();
+    const auto failing = rt.device_health("dcmt0");
+    EXPECT_EQ(io_count(), before) << "health queried a device whose last operation failed";
+    EXPECT_EQ(failing.metrics.count("watchdog_armed"), 0U);
+    EXPECT_EQ(failing.metrics.count("watchdog_tripped"), 0U);
+    EXPECT_EQ(failing.metrics.at("io_failed"), "1");
+
+    // A successful read clears the failure, and health queries again.
+    ASSERT_TRUE(rt.read("dcmt0", {}).ok);
+    EXPECT_FALSE(session->last_op_failed(0x09));
+    const auto recovered_before = io_count();
+    const auto recovered = rt.device_health("dcmt0");
+    EXPECT_GT(io_count(), recovered_before);
+    EXPECT_EQ(recovered.metrics.at("watchdog_armed"), "true");
+
+    anolis_provider_bread::runtime::reset();
+}
+
 TEST(BreadProviderRuntimeTest, MockModeHasNoHostRequirements) {
     const auto rt = make_ready_runtime();
     EXPECT_TRUE(anolis_provider_bread::check_host(make_mock_config()).empty());
