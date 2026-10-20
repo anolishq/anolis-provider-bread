@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-20
+
 ### Changed
 
 - **BREAKING:** RLHT and DCMT setter calls report what the device did
@@ -43,6 +45,11 @@ commit messages only.
   recovery and from the health re-arm) still writes without
   confirmation; the operator `clear_watchdog_trip` call is a setter and
   is confirmed.
+- The release binaries are built on ubuntu-24.04 and ubuntu-24.04-arm
+  again (#174), after #172 moved them to 26.04. They link libc and
+  libstdc++ dynamically from the build runner, and the deployed Pi runs
+  Debian 13 trixie (glibc 2.41); 0.7.2, built on 24.04, needs at most
+  `GLIBC_2.38` and `GLIBCXX_3.4.32`.
 
 ## [0.7.2] - 2026-10-19
 
