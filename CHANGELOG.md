@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-19
+
 ### Fixed
 
 - A held I2C power cut no longer makes each failed read block for about
