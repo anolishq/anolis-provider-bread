@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-10-19
+
 ### Fixed
 
 - GetHealth no longer queries the command watchdog of a device whose
