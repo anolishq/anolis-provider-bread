@@ -13,6 +13,17 @@ commit messages only.
 
 ## [Unreleased]
 
+### Fixed
+
+- GetHealth no longer queries the command watchdog of a device whose
+  last bus operation failed (#166). On a held I2C power cut each query
+  blocked about 1 s, so one health request with three armed devices
+  spent about 3 s on writes that could not succeed, and together with
+  the next request it outlasted the runtime's 5 s request timeout. The
+  `watchdog_*` metrics are left out for that device, as they already
+  were when the query failed; the next successful operation brings
+  them back and re-arms the device as before.
+
 ## [0.7.1] - 2026-10-19
 
 ### Fixed

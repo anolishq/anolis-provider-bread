@@ -236,6 +236,11 @@ bool Session::take_recovery(uint8_t address) {
     return recovery_pending_.erase(address) != 0;
 }
 
+bool Session::last_op_failed(uint8_t address) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return last_op_failed_.count(address) != 0;
+}
+
 SessionStatus Session::validate_open_options() const {
     if (options_.bus_path.empty()) {
         return SessionStatus::failure(SessionErrorCode::InvalidArgument, "session bus_path must not be empty");
