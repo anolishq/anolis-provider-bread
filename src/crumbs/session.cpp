@@ -10,6 +10,7 @@
 #include "crumbs/session.hpp"
 
 #include <algorithm>
+#include <cerrno>
 #include <optional>
 #include <sstream>
 #include <utility>
@@ -56,7 +57,9 @@ SessionStatus execute_with_retry(const SessionOptions &options, const std::strin
 
         // Retries are limited to transport-style failures; argument and state
         // validation errors return immediately without reissuing bus traffic.
-        if (!is_retryable(last.code) || attempt == max_attempts) {
+        // ETIMEDOUT is the kernel adapter giving up on a bus that is down: each
+        // attempt blocks about 1 s, so retrying only multiplies the stall (#166).
+        if (!is_retryable(last.code) || last.native_code == ETIMEDOUT || attempt == max_attempts) {
             logging::error(describe_failure(operation, last, address));
             return last;
         }

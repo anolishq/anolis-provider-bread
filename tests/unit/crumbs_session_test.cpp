@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <cerrno>
 #include <deque>
 #include <utility>
 #include <vector>
@@ -167,6 +168,46 @@ TEST(CrumbsSessionTest, QueryReadStopsOnNonRetryableFailure) {
     EXPECT_EQ(transport.send_calls, 1);
     EXPECT_TRUE(transport.delays.empty());
     EXPECT_EQ(transport.read_calls, 0);
+}
+
+TEST(CrumbsSessionTest, QueryReadDoesNotRetryABusTimeout) {
+    FakeTransport transport;
+    Session session(transport, SessionOptions{"/dev/i2c-1", 10000u, 100u, 3});
+    ASSERT_TRUE(session.open());
+
+    // The kernel adapter's ETIMEDOUT: the bus is down, and each write blocks
+    // about 1 s before failing (#166).
+    for (int i = 0; i < 4; ++i) {
+        transport.send_actions.push_back(
+            SessionStatus::failure(SessionErrorCode::WriteFailed, "Connection timed out", ETIMEDOUT));
+    }
+
+    RawFrame reply;
+    const SessionStatus status = session.query_read(0x08u, 0x80u, reply);
+    EXPECT_FALSE(status);
+    EXPECT_EQ(status.code, SessionErrorCode::WriteFailed);
+    EXPECT_EQ(status.native_code, ETIMEDOUT);
+    EXPECT_EQ(status.attempts, 1);
+    EXPECT_EQ(transport.send_calls, 1);
+    EXPECT_EQ(transport.read_calls, 0);
+}
+
+TEST(CrumbsSessionTest, OtherWriteFailuresStillRetryToRetryCount) {
+    FakeTransport transport;
+    Session session(transport, SessionOptions{"/dev/i2c-1", 10000u, 100u, 3});
+    ASSERT_TRUE(session.open());
+
+    for (int i = 0; i < 4; ++i) {
+        transport.send_actions.push_back(
+            SessionStatus::failure(SessionErrorCode::WriteFailed, "Input/output error", EIO));
+    }
+
+    RawFrame reply;
+    const SessionStatus status = session.query_read(0x08u, 0x80u, reply);
+    EXPECT_FALSE(status);
+    EXPECT_EQ(status.native_code, EIO);
+    EXPECT_EQ(status.attempts, 4);
+    EXPECT_EQ(transport.send_calls, 4);
 }
 
 TEST(CrumbsSessionTest, ScanRequiresOpenAndReturnsResults) {
