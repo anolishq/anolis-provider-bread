@@ -23,9 +23,11 @@ commit messages only.
   failed to start until power returned (35 failed starts over about 5½
   minutes on 2026-10-19). Hello is now answered at once.
 - **Discovery stops within the WaitReady budget.** No address is probed
-  once WaitReady's `max_wait_ms_hint`, less a 3 s margin, has passed. An
-  expected device left unprobed is reported missing as "not probed: the
-  start-up budget was spent". With no hint, discovery is not limited.
+  once WaitReady's `max_wait_ms_hint`, less a 3 s margin, has passed. The
+  margin covers one probe already under way: 1.25–2 s per failed probe
+  with the backplane unpowered (2026-10-19). An expected device left
+  unprobed is reported missing as "not probed: the start-up budget was
+  spent". With no hint, discovery is not limited.
   Devices missing at start still join only when the provider restarts.
   Joining without a restart is a later change (anolishq/anolis-protocol#76).
 - **Behaviour change: a start-up that throws leaves the provider up and not
