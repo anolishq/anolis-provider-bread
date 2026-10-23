@@ -17,11 +17,11 @@ commit messages only.
 
 - **bread answers Hello before discovery** (#168,
   anolishq/anolis-protocol#76). Discovery moved into the SDK's `initialize`
-  hook, which runs after Hello and before the WaitReady reply. On a bus
-  held down at boot, every probe waits out the bus, so discovery used to
-  outlast the runtime's 2 s `hello_timeout_ms`, and the runtime failed to
-  start until power returned (35 failed starts over about 5½ minutes on
-  2026-10-19). Hello is now answered at once.
+  hook, which runs after Hello and before the WaitReady reply. With the
+  backplane unpowered at boot, every probe waits out the bus, so discovery
+  used to outlast the runtime's 2 s `hello_timeout_ms`, and the runtime
+  failed to start until power returned (35 failed starts over about 5½
+  minutes on 2026-10-19). Hello is now answered at once.
 - **Discovery stops within the WaitReady budget.** No address is probed
   once WaitReady's `max_wait_ms_hint`, less a 3 s margin, has passed. An
   expected device left unprobed is reported missing as "not probed: the

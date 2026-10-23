@@ -72,7 +72,7 @@ void initialize(const ProviderConfig &config, std::chrono::milliseconds budget =
  * @brief How long before the end of the budget discovery stops starting probes.
  *
  * One probe of an address that does not answer waits out the bus: about 1 s
- * per failed write with the backplane e-stop held (2026-10-19). The margin
+ * per failed write with the backplane unpowered (2026-10-19). The margin
  * covers that probe with room to spare.
  */
 inline constexpr std::chrono::milliseconds kDiscoveryMargin{3000};
