@@ -13,6 +13,13 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-23
+
+This fixes the boot half of #168. Devices that are missing at boot still
+join only when the provider restarts. Joining without a restart is
+stage 2 of anolishq/anolis-protocol#76. #168 stays open, and closes when
+that lands.
+
 ### Changed
 
 - **bread answers Hello before discovery** (#168,
@@ -28,8 +35,6 @@ commit messages only.
   with the backplane unpowered (2026-10-19). An expected device left
   unprobed is reported missing as "not probed: the start-up budget was
   spent". With no hint, discovery is not limited.
-  Devices missing at start still join only when the provider restarts.
-  Joining without a restart is a later change (anolishq/anolis-protocol#76).
 - **Behaviour change: a start-up that throws leaves the provider up and not
   ready, instead of exiting.** A failed bus scan in scan mode, or a mock bus
   that won't open, used to exit 1 before serving ADPP. bread now serves,
@@ -37,6 +42,8 @@ commit messages only.
   health, and lists every configured device as missing with that reason,
   the same as an unmet host requirement. A config that doesn't load still
   exits 1.
+- Builds against anolis-provider-sdk 0.4.0, which adds the `initialize`
+  hook. Its anolis-protocol pin is unchanged at 1.6.0.
 
 ## [0.8.0] - 2026-10-20
 
