@@ -99,7 +99,9 @@ void reset() {
 
 namespace {
 
-void initialize_until(const ProviderConfig &config, std::optional<std::chrono::steady_clock::time_point> deadline) {
+// `deadline` is read only on the Linux hardware path; other builds are mock-only.
+void initialize_until(const ProviderConfig &config,
+                      [[maybe_unused]] std::optional<std::chrono::steady_clock::time_point> deadline) {
     RuntimeState state;
     state.config = config;
     state.started_at = std::chrono::system_clock::now();
