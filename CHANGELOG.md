@@ -17,7 +17,8 @@ commit messages only.
 
 This fixes the boot half of #168. Devices that are missing at boot still
 join only when the provider restarts. Joining without a restart is
-stage 2 of anolishq/anolis-protocol#76.
+stage 2 of anolishq/anolis-protocol#76. #168 stays open, and closes when
+that lands.
 
 ### Changed
 
