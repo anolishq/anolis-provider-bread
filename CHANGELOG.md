@@ -13,6 +13,29 @@ commit messages only.
 
 ## [Unreleased]
 
+### Changed
+
+- **bread answers Hello before discovery** (#168,
+  anolishq/anolis-protocol#76). Discovery moved into the SDK's `initialize`
+  hook, which runs after Hello and before the WaitReady reply. On a bus
+  held down at boot, every probe waits out the bus, so discovery used to
+  outlast the runtime's 2 s `hello_timeout_ms`, and the runtime failed to
+  start until power returned (35 failed starts over about 5½ minutes on
+  2026-10-19). Hello is now answered at once.
+- **Discovery stops within the WaitReady budget.** No address is probed
+  once WaitReady's `max_wait_ms_hint`, less a 3 s margin, has passed. An
+  expected device left unprobed is reported missing as "not probed: the
+  start-up budget was spent". With no hint, discovery is not limited.
+  Devices missing at start still join only when the provider restarts.
+  Joining without a restart is a later change (anolishq/anolis-protocol#76).
+- **Behaviour change: a start-up that throws leaves the provider up and not
+  ready, instead of exiting.** A failed bus scan in scan mode, or a mock bus
+  that won't open, used to exit 1 before serving ADPP. bread now serves,
+  reports not ready with "start-up failed: <reason>" in readiness and
+  health, and lists every configured device as missing with that reason,
+  the same as an unmet host requirement. A config that doesn't load still
+  exits 1.
+
 ## [0.8.0] - 2026-10-20
 
 ### Changed

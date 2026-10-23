@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <optional>
 #include <string>
 #include <vector>
@@ -285,3 +286,24 @@ TEST(BreadProviderRuntimeTest, MissingBusStaysUpNotReady) {
     anolis_provider_bread::runtime::reset();
 }
 #endif
+
+// A start-up that throws (here the mock bus refuses to open) leaves the
+// provider up and not ready with the reason, as an unmet host requirement
+// does, instead of escaping into the run-loop and exiting
+// (anolishq/anolis-provider-bread#168).
+TEST(BreadProviderRuntimeTest, AFailedStartUpLeavesTheProviderUpAndNotReady) {
+    auto config = make_mock_config();
+    config.retry_count = -1;  // fails the session's open-time validation
+
+    anolis_provider_bread::runtime::reset();
+    ASSERT_NO_THROW(anolis_provider_bread::runtime::initialize(config, std::chrono::milliseconds{10000}));
+    const anolis_provider_bread::BreadProviderRuntime rt;
+
+    EXPECT_TRUE(rt.list_device_ids().empty());
+    EXPECT_EQ(anolis_provider_bread::runtime::session(), nullptr);
+    const auto state = anolis_provider_bread::runtime::snapshot();
+    EXPECT_FALSE(state.ready);
+    EXPECT_EQ(state.startup_message.rfind("start-up failed: failed to open mock CRUMBS bus", 0), 0u)
+        << state.startup_message;
+    ASSERT_EQ(state.missing_expected_ids.size(), 2u);
+}

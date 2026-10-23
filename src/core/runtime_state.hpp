@@ -54,9 +54,28 @@ struct RuntimeState {
 /** @brief Reset runtime state and destroy any live session/transport pair. */
 void reset();
 
-/** @brief Initialize runtime state from config, including live discovery when
- * available. */
-void initialize(const ProviderConfig &config);
+/**
+ * @brief Initialize runtime state from config, including live discovery when
+ * available.
+ *
+ * `budget` is the time the caller can wait, the runtime's WaitReady
+ * `max_wait_ms_hint` (anolishq/anolis-protocol#76); 0 means no limit.
+ * Discovery stops probing kDiscoveryMargin before it runs out, leaving room for
+ * a probe already under way, and expected devices left unprobed are reported
+ * missing. A start-up that throws, such as a failed bus scan in scan mode,
+ * leaves the provider up and not ready with the reason, the same as an
+ * unmet host requirement.
+ */
+void initialize(const ProviderConfig &config, std::chrono::milliseconds budget = std::chrono::milliseconds{0});
+
+/**
+ * @brief How long before the end of the budget discovery stops starting probes.
+ *
+ * One probe of an address that does not answer waits out the bus: about 1 s
+ * per failed write with the backplane e-stop held (2026-10-19). The margin
+ * covers that probe with room to spare.
+ */
+inline constexpr std::chrono::milliseconds kDiscoveryMargin{3000};
 
 /** @brief Return a copy of the current runtime snapshot. */
 RuntimeState snapshot();

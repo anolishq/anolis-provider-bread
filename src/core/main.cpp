@@ -1,3 +1,4 @@
+#include <chrono>
 #include <exception>
 #include <iostream>
 #include <string>
@@ -100,32 +101,37 @@ int main(int argc, char **argv) {
                                                                 anolis_provider_bread::check_host(config));
     }
 
+    anolis_provider_bread::ProviderConfig config;
     try {
-        const anolis_provider_bread::ProviderConfig config = anolis_provider_bread::load_config(config_path);
-
-        if (check_config_only) {
-            anolis_provider_bread::logging::info("Config valid: " + anolis_provider_bread::summarize_config(config));
-            return 0;
-        }
-
-        anolis_provider_bread::logging::info("starting with config: " +
-                                             anolis_provider_bread::summarize_config(config));
-        anolis_provider_bread::runtime::initialize(config);
+        config = anolis_provider_bread::load_config(config_path);
     } catch (const std::exception &e) {
         anolis_provider_bread::logging::error(e.what());
         return 1;
     }
 
+    if (check_config_only) {
+        anolis_provider_bread::logging::info("Config valid: " + anolis_provider_bread::summarize_config(config));
+        return 0;
+    }
+
+    anolis_provider_bread::logging::info("starting with config: " + anolis_provider_bread::summarize_config(config));
     set_binary_mode_stdio();
-    // Not ready (unmet host requirements or a failed bus open) still serves ADPP,
-    // so the runtime can see why; say which it is.
-    anolis_provider_bread::logging::info(anolis_provider_bread::runtime::snapshot().ready
-                                             ? "ready (transport=stdio+uint32_le)"
-                                             : "serving, not ready (transport=stdio+uint32_le)");
 
     // The SDK run-loop owns the transport, the §3.2 Hello-gate, dispatch, and exit
-    // codes; bread supplies the device/inventory/readiness seam. No lifecycle hooks
-    // (no physics ticker; the CRUMBS session is torn down at process exit).
+    // codes; bread supplies the device/inventory/readiness seam. Discovery runs
+    // in the initialize hook, after Hello and within WaitReady's budget, so Hello
+    // is answered at once even on a bus that is down
+    // (anolishq/anolis-provider-bread#168). The CRUMBS session is torn down at
+    // process exit.
+    anolis::provider_sdk::LifecycleHooks hooks;
+    hooks.initialize = [&config](std::chrono::milliseconds budget) {
+        anolis_provider_bread::runtime::initialize(config, budget);
+        // Not ready (unmet host requirements, a failed bus open or a failed
+        // start-up) still serves ADPP, so the runtime can see why.
+        anolis_provider_bread::logging::info(anolis_provider_bread::runtime::snapshot().ready
+                                                 ? "ready (transport=stdio+uint32_le)"
+                                                 : "serving, not ready (transport=stdio+uint32_le)");
+    };
     anolis_provider_bread::BreadProviderRuntime bread_runtime;
-    return anolis::provider_sdk::run_loop(std::cin, std::cout, bread_runtime);
+    return anolis::provider_sdk::run_loop(std::cin, std::cout, bread_runtime, hooks);
 }
