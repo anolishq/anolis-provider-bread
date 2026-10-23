@@ -6,7 +6,9 @@
  * inventory.
  */
 
+#include <chrono>
 #include <map>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -42,10 +44,17 @@ inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address);
 /**
  * @brief Run the configured discovery flow and build the supported inventory.
  *
+ * With a `deadline`, no address is probed once it has passed. An expected
+ * device whose address was left unprobed is reported missing as "not probed"
+ * (anolishq/anolis-protocol#76), so start-up fits the runtime's WaitReady
+ * budget on a bus that is down. A probe that starts before the deadline runs to
+ * the end.
+ *
  * Error handling:
  * Throws `std::runtime_error` only when the bus-wide scan operation fails in
  * scan mode. Unsupported or missing devices are reported in the result.
  */
-DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &config);
+DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &config,
+                              std::optional<std::chrono::steady_clock::time_point> deadline = std::nullopt);
 
 }  // namespace anolis_provider_bread::startup

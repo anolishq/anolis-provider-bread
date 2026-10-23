@@ -10,6 +10,7 @@
 
 #include "core/startup.hpp"
 
+#include <algorithm>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
@@ -179,9 +180,15 @@ inventory::ProbeRecord probe_device(crumbs::Session &session, uint8_t address) {
     return probe;
 }
 
-DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &config) {
+DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &config,
+                              std::optional<std::chrono::steady_clock::time_point> deadline) {
     std::vector<inventory::ProbeRecord> probes;
     inventory::InventorySource source = inventory::InventorySource::Discovered;
+    // Addresses left unprobed because the deadline passed.
+    std::vector<int> unprobed;
+    const auto out_of_time = [&deadline] {
+        return deadline.has_value() && std::chrono::steady_clock::now() >= *deadline;
+    };
 
     if (config.discovery_mode == DiscoveryMode::Scan) {
         // Scan mode treats bus-wide scan failure as a startup blocker because
@@ -196,6 +203,10 @@ DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &co
         logging::info("scan found " + std::to_string(scan_results.size()) + " CRUMBS device(s)");
         probes.reserve(scan_results.size());
         for (const auto &result : scan_results) {
+            if (out_of_time()) {
+                unprobed.push_back(static_cast<int>(result.address));
+                continue;
+            }
             probes.push_back(probe_device(session, result.address));
         }
         source = inventory::InventorySource::Discovered;
@@ -204,12 +215,25 @@ DiscoveryResult run_discovery(crumbs::Session &session, const ProviderConfig &co
         // records per-address failures as unsupported or missing results.
         probes.reserve(config.manual_addresses.size());
         for (const int addr : config.manual_addresses) {
+            if (out_of_time()) {
+                unprobed.push_back(addr);
+                continue;
+            }
             probes.push_back(probe_device(session, static_cast<uint8_t>(addr)));
         }
         source = inventory::InventorySource::Manual;
     }
 
     inventory::InventoryBuildResult build = inventory::build_inventory_from_probes(config, probes, source);
+
+    if (!unprobed.empty()) {
+        logging::warning("start-up budget spent: " + std::to_string(unprobed.size()) + " address(es) not probed");
+        for (const auto &spec : config.devices) {
+            if (std::find(unprobed.begin(), unprobed.end(), spec.address) != unprobed.end()) {
+                build.missing_expected_details[spec.id] = "not probed: the start-up budget was spent";
+            }
+        }
+    }
 
     if (!build.unsupported_probes.empty()) {
         logging::warning(std::to_string(build.unsupported_probes.size()) +

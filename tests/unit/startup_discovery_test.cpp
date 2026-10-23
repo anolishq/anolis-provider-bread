@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <deque>
 #include <map>
 
@@ -241,6 +242,49 @@ TEST(StartupDiscoveryTest, ManualModeUsesBaselineFallbackOnCapsFailure) {
     EXPECT_EQ(result.devices[0].capability_profile.source, inventory::CapabilitySource::BaselineFallback);
     EXPECT_TRUE(result.missing_expected_ids.empty());
     EXPECT_EQ(result.inventory_mode, "manual");
+}
+
+// anolis-protocol#76: once the start-up deadline has passed, no address is
+// probed, and an expected device left unprobed is missing as "not probed".
+// The scripted bus would answer 0x0A, so a probe would have found it.
+TEST(StartupDiscoveryTest, PastDeadlineProbesNothingAndReportsExpectedDevicesNotProbed) {
+    ScriptedTransport transport;
+    transport.add_reply(
+        0x0A, 0x00, RLHT_TYPE_ID,
+        make_version_payload(CRUMBS_VERSION, RLHT_MODULE_VER_MAJOR, RLHT_MODULE_VER_MINOR, RLHT_MODULE_VER_PATCH));
+
+    DeviceSpec spec;
+    spec.id = "rlht0";
+    spec.type = DeviceType::Rlht;
+    spec.address = 0x0A;
+    auto session = make_session(transport);
+    const DiscoveryResult result = run_discovery(*session, make_manual_config({0x0A}, {spec}),
+                                                 std::chrono::steady_clock::now() - std::chrono::seconds(1));
+
+    EXPECT_TRUE(result.devices.empty());
+    EXPECT_TRUE(result.unsupported_probes.empty()) << "an address was probed after the deadline";
+    ASSERT_EQ(result.missing_expected_ids, std::vector<std::string>{"rlht0"});
+    EXPECT_EQ(result.missing_expected_details.at("rlht0"), "not probed: the start-up budget was spent");
+}
+
+TEST(StartupDiscoveryTest, DeadlineAheadProbesAsUsual) {
+    ScriptedTransport transport;
+    transport.add_reply(
+        0x0A, 0x00, RLHT_TYPE_ID,
+        make_version_payload(CRUMBS_VERSION, RLHT_MODULE_VER_MAJOR, RLHT_MODULE_VER_MINOR, RLHT_MODULE_VER_PATCH));
+    transport.add_read_error(0x0A, BREAD_OP_GET_CAPS, crumbs::SessionErrorCode::ReadFailed);
+
+    DeviceSpec spec;
+    spec.id = "rlht0";
+    spec.type = DeviceType::Rlht;
+    spec.address = 0x0A;
+    auto session = make_session(transport);
+    const DiscoveryResult result = run_discovery(*session, make_manual_config({0x0A}, {spec}),
+                                                 std::chrono::steady_clock::now() + std::chrono::hours(1));
+
+    ASSERT_EQ(result.devices.size(), 1u);
+    EXPECT_EQ(result.devices[0].descriptor.device_id(), "rlht0");
+    EXPECT_TRUE(result.missing_expected_ids.empty());
 }
 
 // ---------------------------------------------------------------------------

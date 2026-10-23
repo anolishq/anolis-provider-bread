@@ -9,8 +9,10 @@
 
 #include "core/runtime_state.hpp"
 
+#include <algorithm>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -95,7 +97,11 @@ void reset() {
     // Correct.
 }
 
-void initialize(const ProviderConfig &config) {
+namespace {
+
+// `deadline` is read only on the Linux hardware path; other builds are mock-only.
+void initialize_until(const ProviderConfig &config,
+                      [[maybe_unused]] std::optional<std::chrono::steady_clock::time_point> deadline) {
     RuntimeState state;
     state.config = config;
     state.started_at = std::chrono::system_clock::now();
@@ -124,7 +130,7 @@ void initialize(const ProviderConfig &config) {
             return;
         }
 
-        startup::DiscoveryResult discovery = startup::run_discovery(*sess, config);
+        startup::DiscoveryResult discovery = startup::run_discovery(*sess, config, deadline);
 
         // Arm configured firmware command watchdogs once the roster is known
         // (#112). Capability gating and failure logging live in the helper.
@@ -211,6 +217,23 @@ void initialize(const ProviderConfig &config) {
         g_transport = std::move(transport);
     }
     // Old session/transport destroyed here, outside the lock.
+}
+
+}  // namespace
+
+void initialize(const ProviderConfig &config, std::chrono::milliseconds budget) {
+    std::optional<std::chrono::steady_clock::time_point> deadline;
+    if (budget.count() > 0) {
+        deadline = std::chrono::steady_clock::now() + std::max(budget - kDiscoveryMargin, std::chrono::milliseconds{0});
+    }
+    try {
+        initialize_until(config, deadline);
+    } catch (const std::exception &e) {
+        RuntimeState state;
+        state.config = config;
+        state.started_at = std::chrono::system_clock::now();
+        publish_not_ready(std::move(state), std::string("start-up failed: ") + e.what());
+    }
 }
 
 RuntimeState snapshot() {
