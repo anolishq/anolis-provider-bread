@@ -23,6 +23,10 @@ devices:
     type: dcmt
     label: Conveyor Drive
     address: 0x09
+    # Set false when the motors have no encoders: bread then leaves out the
+    # closed-loop modes, set_setpoint and the PID tuning functions, which
+    # the firmware advertises either way. Defaults to true.
+    # encoders: false
     # Arm the firmware command watchdog (auto-brake when the bus goes silent
     # for this long). 0 or absent = never arm; requires firmware that
     # advertises the CMD_WATCHDOG capability. On firmware that also advertises

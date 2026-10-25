@@ -151,6 +151,9 @@ ProviderConfig load_config(const std::string &path) {
             if (const auto watchdog = sdkcfg::as_int64(device_node["command_watchdog_ms"])) {
                 spec.command_watchdog_ms = static_cast<int>(*watchdog);
             }
+            if (const auto encoders = sdkcfg::as_bool(device_node["encoders"])) {
+                spec.encoders = *encoders;
+            }
             config.devices.push_back(spec);
         }
     }

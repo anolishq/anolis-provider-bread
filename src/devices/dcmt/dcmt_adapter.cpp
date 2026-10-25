@@ -306,6 +306,13 @@ AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args, crumbs
 
 AdapterCallResult transmit(crumbs::Session &session, const inventory::InventoryDevice &device,
                            const crumbs::RawFrame &frame) {
+    // A device without encoders offers no closed-loop modes (#179); refuse
+    // them here too, so a direct set_mode call cannot enter one.
+    if (!device.encoders && frame.opcode == DCMT_OP_SET_MODE && !frame.payload.empty() &&
+        frame.payload.front() != static_cast<uint8_t>(DCMT_MODE_OPEN_LOOP)) {
+        return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
+                "closed-loop modes need encoders; this device is configured with encoders: false"};
+    }
     return transmit_confirmed(session, device, frame, "DCMT SET command");
 }
 

@@ -37,6 +37,9 @@ struct DeviceSpec {
     // Firmware command-watchdog timeout (BREAD_OP_SET_WATCHDOG); 0 = never arm.
     // Armed only when the probed capability flags advertise support.
     int command_watchdog_ms = 0;
+    // DCMT only: false when no encoders are fitted. The firmware advertises
+    // its closed loops either way, so the inventory leaves them out (#179).
+    bool encoders = true;
 };
 
 /**

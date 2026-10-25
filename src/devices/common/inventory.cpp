@@ -269,7 +269,11 @@ CapabilitySet build_dcmt_capabilities(uint32_t flags) {
 
     if ((flags & (DCMT_CAP_OPEN_LOOP_CONTROL | DCMT_CAP_CLOSED_LOOP_POSITION | DCMT_CAP_CLOSED_LOOP_SPEED)) != 0u) {
         auto *set_mode = add_function(caps, 3, "set_mode", "Set DCMT control mode.", CAT_CONFIG);
-        add_arg(*set_mode, "mode", VT_STRING, "One of open_loop, closed_position, or closed_speed.", true);
+        const bool closed = (flags & (DCMT_CAP_CLOSED_LOOP_POSITION | DCMT_CAP_CLOSED_LOOP_SPEED)) != 0u;
+        add_arg(*set_mode, "mode", VT_STRING,
+                closed ? "One of open_loop, closed_position, or closed_speed."
+                       : "open_loop only: this device has no closed-loop modes.",
+                true);
     }
 
     if ((flags & (DCMT_CAP_CLOSED_LOOP_POSITION | DCMT_CAP_CLOSED_LOOP_SPEED)) != 0u) {
@@ -544,7 +548,18 @@ InventoryBuildResult build_inventory_from_probes(const ProviderConfig &config, c
         probe.capability_profile = normalize_capability_profile(type, probe.capability_profile);
         result.supported_devices.push_back(build_device(config, probe, type, source, expected, device_id, label));
         if (match_index.has_value()) {
-            result.supported_devices.back().command_watchdog_ms = config.devices[*match_index].command_watchdog_ms;
+            InventoryDevice &added = result.supported_devices.back();
+            const DeviceSpec &spec = config.devices[*match_index];
+            added.command_watchdog_ms = spec.command_watchdog_ms;
+            // No encoders: drop the closed loops and their tuning (#179). The
+            // capability profile and its caps_flags tag keep what the firmware
+            // advertised; only the offered functions change.
+            if (type == DeviceType::Dcmt && !spec.encoders) {
+                constexpr uint32_t kEncoderCaps =
+                    DCMT_CAP_CLOSED_LOOP_POSITION | DCMT_CAP_CLOSED_LOOP_SPEED | DCMT_CAP_PID_TUNING;
+                added.encoders = false;
+                added.capabilities = build_capabilities(type, added.capability_profile.flags & ~kEncoderCaps);
+            }
         }
     }
 
