@@ -13,6 +13,29 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-25
+
+### Added
+
+- **`devices[].encoders`: a DCMT without encoders offers no closed-loop
+  control** (#179, #182). DCMT firmware advertises closed-loop position,
+  closed-loop speed and PID tuning whether or not encoders are fitted, so
+  on a drive without them bread offered those functions and accepted a
+  closed mode that drove on feedback nothing measured. The new per-device
+  key defaults to `true`, so existing configs are unchanged. With
+  `encoders: false` on a DCMT:
+  - its functions are built without `CLOSED_LOOP_POSITION`,
+    `CLOSED_LOOP_SPEED` and `PID_TUNING`, so `set_setpoint`,
+    `set_pid_x1000` and `set_speed_pid_x1000` are left out, and
+    `set_mode` describes `open_loop` only;
+  - `set_mode` refuses `closed_position` and `closed_speed` with
+    `CODE_INVALID_ARGUMENT` before any frame is sent;
+  - the capability profile and its `caps_flags` tag still report what
+    the firmware advertised.
+
+  The key is in the config schema, and commented in
+  `config/example.local.yaml`. It has no effect on RLHT.
+
 ## [0.8.1] - 2026-10-23
 
 This fixes the boot half of #168. Devices that are missing at boot still
