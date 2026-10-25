@@ -159,6 +159,28 @@ devices:
     EXPECT_EQ(parsed.devices[0].command_watchdog_ms, 5000);
 }
 
+TEST(ProviderConfigTest, ParsesDeviceEncodersAndDefaultsToFitted) {
+    const TempConfigFile config(R"(
+hardware:
+  bus_path: /dev/i2c-1
+discovery:
+  mode: scan
+devices:
+  - id: dcmt0
+    type: dcmt
+    address: 0x14
+    encoders: false
+  - id: dcmt1
+    type: dcmt
+    address: 0x15
+)");
+
+    const ProviderConfig parsed = load_config(config.path().string());
+    ASSERT_EQ(parsed.devices.size(), 2U);
+    EXPECT_FALSE(parsed.devices[0].encoders);
+    EXPECT_TRUE(parsed.devices[1].encoders);
+}
+
 TEST(ProviderConfigTest, RejectsCommandWatchdogMsBeyondU16) {
     expect_config_error(R"(
 hardware:

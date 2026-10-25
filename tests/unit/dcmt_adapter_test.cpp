@@ -480,6 +480,20 @@ TEST_F(DcmtAdapterTest, Call_SetMode_ClosedPosition_SendsCorrectByte) {
     EXPECT_EQ(transport.sent_frames.at(0).second.payload.at(0), static_cast<uint8_t>(DCMT_MODE_CLOSED_POSITION));
 }
 
+// encoders: false (#179): a direct call cannot enter a closed loop either.
+TEST_F(DcmtAdapterTest, Call_SetMode_ClosedModeRefusedWithoutEncoders) {
+    device.encoders = false;
+
+    for (const char *mode : {"closed_position", "closed_speed"}) {
+        const auto result = call(session, device, 3u, make_args({{"mode", make_string_val(mode)}}));
+        EXPECT_FALSE(result.ok) << mode;
+        EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT) << mode;
+    }
+    EXPECT_TRUE(transport.sent_frames.empty());
+
+    ASSERT_TRUE(call(session, device, 3u, make_args({{"mode", make_string_val("open_loop")}})).ok);
+}
+
 TEST_F(DcmtAdapterTest, Call_SetMode_InvalidMode_ReturnsInvalidArgument) {
     const auto args = make_args({{"mode", make_string_val("warp")}});
 

@@ -97,6 +97,12 @@ cfg::Schema build_schema() {
                      .min_int(0)
                      .max_int(65535)
                      .default_int(0));
+    device.field(cfg::boolean_field("encoders")
+                     .title("Encoders fitted")
+                     .description("DCMT only. false when the motors have no encoders: the closed-loop modes, "
+                                  "set_setpoint and the PID tuning functions are left out for this device, "
+                                  "since the firmware advertises them either way.")
+                     .default_bool(true));
 
     cfg::Object root(cfg::Openness::Closed);
     root.child("provider", std::move(provider));

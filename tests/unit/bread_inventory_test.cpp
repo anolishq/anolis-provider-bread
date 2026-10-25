@@ -308,6 +308,54 @@ TEST(BreadInventoryTest, DcmtSpeedPidOfferedOnlyWithClosedLoopSpeedCap) {
     EXPECT_EQ(find_function(no_tuning, "set_speed_pid_x1000"), nullptr);
 }
 
+// A DCMT configured with encoders: false offers no closed-loop control (#179):
+// the firmware advertises the loops whether or not encoders are fitted.
+TEST(BreadInventoryTest, DcmtWithoutEncodersOffersNoClosedLoopFunctions) {
+    const uint32_t full =
+        DCMT_CAP_BASELINE_FLAGS | DCMT_CAP_CLOSED_LOOP_POSITION | DCMT_CAP_CLOSED_LOOP_SPEED | DCMT_CAP_PID_TUNING;
+    ProviderConfig config = make_base_config();
+    config.discovery_mode = DiscoveryMode::Manual;
+    config.manual_addresses = {0x14, 0x15};
+    DeviceSpec no_encoders{"drive-open", DeviceType::Dcmt, "Open Drive", 0x14};
+    no_encoders.encoders = false;
+    DeviceSpec fitted{"drive-servo", DeviceType::Dcmt, "Servo Drive", 0x15};
+    config.devices = {no_encoders, fitted};
+
+    auto probe_at = [&](int address) {
+        ProbeRecord probe;
+        probe.address = address;
+        probe.type_id = DCMT_TYPE_ID;
+        probe.status = ProbeStatus::Supported;
+        probe.version = {CRUMBS_VERSION, 1, 0, 0};
+        probe.capability_profile.schema = BREAD_CAPS_SCHEMA_V1;
+        probe.capability_profile.level = 1;
+        probe.capability_profile.flags = full;
+        probe.capability_profile.source = CapabilitySource::Queried;
+        return probe;
+    };
+    const InventoryBuildResult result =
+        build_inventory_from_probes(config, {probe_at(0x14), probe_at(0x15)}, InventorySource::Manual);
+    ASSERT_EQ(result.supported_devices.size(), 2U);
+
+    for (const auto &device : result.supported_devices) {
+        const bool open = device.descriptor.device_id() == "drive-open";
+        EXPECT_EQ(device.encoders, !open);
+        for (const char *name : {"set_setpoint", "set_pid_x1000", "set_speed_pid_x1000"}) {
+            EXPECT_EQ(find_function(device, name) == nullptr, open) << device.descriptor.device_id() << " " << name;
+        }
+        EXPECT_NE(find_function(device, "set_open_loop"), nullptr);
+        const auto *set_mode = find_function(device, "set_mode");
+        ASSERT_NE(set_mode, nullptr);
+        ASSERT_EQ(set_mode->args_size(), 1);
+        const std::string &modes = set_mode->args(0).description();
+        EXPECT_EQ(modes.find("closed_position") == std::string::npos, open) << modes;
+        // The profile and its tag still report what the firmware advertised.
+        EXPECT_EQ(device.capability_profile.flags & DCMT_CAP_CLOSED_LOOP_POSITION, DCMT_CAP_CLOSED_LOOP_POSITION);
+    }
+    EXPECT_EQ(result.supported_devices[0].descriptor.tags().at("caps_flags"),
+              result.supported_devices[1].descriptor.tags().at("caps_flags"));
+}
+
 TEST(BreadInventoryTest, EstopCountSignalFollowsTheContract) {
     // DCMT module major 2 always carries estop_count; RLHT only with its caps bit.
     EXPECT_TRUE(signal_exists(queried_device(DeviceType::Dcmt, DCMT_CAP_BASELINE_FLAGS), "estop_count"));

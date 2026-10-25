@@ -82,6 +82,9 @@ struct InventoryDevice {
     // Configured firmware command-watchdog timeout (devices[].command_watchdog_ms);
     // 0 = never arm. Only honored when capability flags advertise support.
     int command_watchdog_ms = 0;
+    // devices[].encoders: false leaves out a DCMT's closed-loop control (#179).
+    // capability_profile keeps what the firmware advertised.
+    bool encoders = true;
 };
 
 /**
