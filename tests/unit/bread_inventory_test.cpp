@@ -2,6 +2,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "devices/common/inventory.hpp"
 
@@ -247,6 +248,49 @@ const anolis::deviceprovider::v1::FunctionSpec *find_function(const InventoryDev
     return nullptr;
 }
 
+std::vector<std::string> allowed_values(const anolis::deviceprovider::v1::ArgSpec &arg) {
+    return {arg.allowed_values().begin(), arg.allowed_values().end()};
+}
+
+// set_mode's modes are allowed_values, which the runtime publishes and
+// enforces (#178, anolishq/anolis#467), not only prose in the description.
+TEST(BreadInventoryTest, RlhtSetModeAllowsClosedLoopAndOpenLoop) {
+    const InventoryDevice rlht = queried_device(DeviceType::Rlht, RLHT_CAP_BASELINE_FLAGS);
+    const auto *set_mode = find_function(rlht, "set_mode");
+    ASSERT_NE(set_mode, nullptr);
+    ASSERT_EQ(set_mode->args_size(), 1);
+    EXPECT_EQ(set_mode->args(0).name(), "mode");
+    EXPECT_EQ(allowed_values(set_mode->args(0)), (std::vector<std::string>{"closed_loop", "open_loop"}));
+}
+
+TEST(BreadInventoryTest, DcmtSetModeAllowsTheModesItsFlagsAdvertise) {
+    struct Case {
+        uint32_t flags;
+        std::vector<std::string> modes;
+        std::string description;
+    };
+    const Case cases[] = {
+        {DCMT_CAP_BASELINE_FLAGS, {"open_loop"}, "open_loop only: this device has no closed-loop modes."},
+        {DCMT_CAP_BASELINE_FLAGS | DCMT_CAP_CLOSED_LOOP_POSITION,
+         {"open_loop", "closed_position"},
+         "One of open_loop or closed_position."},
+        {DCMT_CAP_BASELINE_FLAGS | DCMT_CAP_CLOSED_LOOP_SPEED,
+         {"open_loop", "closed_speed"},
+         "One of open_loop or closed_speed."},
+        {DCMT_CAP_BASELINE_FLAGS | DCMT_CAP_CLOSED_LOOP_POSITION | DCMT_CAP_CLOSED_LOOP_SPEED,
+         {"open_loop", "closed_position", "closed_speed"},
+         "One of open_loop, closed_position, or closed_speed."},
+    };
+    for (const Case &c : cases) {
+        const InventoryDevice dcmt = queried_device(DeviceType::Dcmt, c.flags);
+        const auto *set_mode = find_function(dcmt, "set_mode");
+        ASSERT_NE(set_mode, nullptr) << c.flags;
+        ASSERT_EQ(set_mode->args_size(), 1);
+        EXPECT_EQ(allowed_values(set_mode->args(0)), c.modes) << c.flags;
+        EXPECT_EQ(set_mode->args(0).description(), c.description) << c.flags;
+    }
+}
+
 TEST(BreadInventoryTest, ClearWatchdogTripOfferedOnlyWithBothWatchdogCaps) {
     struct Case {
         DeviceType type;
@@ -349,6 +393,10 @@ TEST(BreadInventoryTest, DcmtWithoutEncodersOffersNoClosedLoopFunctions) {
         ASSERT_EQ(set_mode->args_size(), 1);
         const std::string &modes = set_mode->args(0).description();
         EXPECT_EQ(modes.find("closed_position") == std::string::npos, open) << modes;
+        EXPECT_EQ(allowed_values(set_mode->args(0)),
+                  (open ? std::vector<std::string>{"open_loop"}
+                        : std::vector<std::string>{"open_loop", "closed_position", "closed_speed"}))
+            << device.descriptor.device_id();
         // The profile and its tag still report what the firmware advertised.
         EXPECT_EQ(device.capability_profile.flags & DCMT_CAP_CLOSED_LOOP_POSITION, DCMT_CAP_CLOSED_LOOP_POSITION);
     }

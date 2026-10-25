@@ -12,11 +12,13 @@
 
 #include <algorithm>
 #include <climits>
+#include <format>
 #include <iomanip>
 #include <optional>
 #include <sstream>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 extern "C" {
 #include <bread/bread_caps.h>
@@ -129,7 +131,9 @@ CapabilitySet build_rlht_capabilities(uint32_t flags) {
 
     if ((flags & RLHT_CAP_MODE_CONTROL) != 0u) {
         auto *set_mode = add_function(caps, 1, "set_mode", "Set RLHT control mode.", CAT_CONFIG);
-        add_arg(*set_mode, "mode", VT_STRING, "One of closed_loop or open_loop.", true);
+        auto *mode = add_arg(*set_mode, "mode", VT_STRING, "One of closed_loop or open_loop.", true);
+        mode->add_allowed_values("closed_loop");
+        mode->add_allowed_values("open_loop");
     }
 
     if ((flags & RLHT_CAP_SETPOINT_CONTROL) != 0u) {
@@ -269,11 +273,21 @@ CapabilitySet build_dcmt_capabilities(uint32_t flags) {
 
     if ((flags & (DCMT_CAP_OPEN_LOOP_CONTROL | DCMT_CAP_CLOSED_LOOP_POSITION | DCMT_CAP_CLOSED_LOOP_SPEED)) != 0u) {
         auto *set_mode = add_function(caps, 3, "set_mode", "Set DCMT control mode.", CAT_CONFIG);
-        const bool closed = (flags & (DCMT_CAP_CLOSED_LOOP_POSITION | DCMT_CAP_CLOSED_LOOP_SPEED)) != 0u;
-        add_arg(*set_mode, "mode", VT_STRING,
-                closed ? "One of open_loop, closed_position, or closed_speed."
-                       : "open_loop only: this device has no closed-loop modes.",
-                true);
+        // The modes the device advertises, which the runtime enforces as
+        // allowed_values; the description lists the same ones.
+        std::vector<std::string> modes{"open_loop"};
+        if ((flags & DCMT_CAP_CLOSED_LOOP_POSITION) != 0u) modes.emplace_back("closed_position");
+        if ((flags & DCMT_CAP_CLOSED_LOOP_SPEED) != 0u) modes.emplace_back("closed_speed");
+        std::string description = "open_loop only: this device has no closed-loop modes.";
+        if (modes.size() == 2) {
+            description = std::format("One of {} or {}.", modes[0], modes[1]);
+        } else if (modes.size() == 3) {
+            description = std::format("One of {}, {}, or {}.", modes[0], modes[1], modes[2]);
+        }
+        auto *mode = add_arg(*set_mode, "mode", VT_STRING, description, true);
+        for (const auto &value : modes) {
+            mode->add_allowed_values(value);
+        }
     }
 
     if ((flags & (DCMT_CAP_CLOSED_LOOP_POSITION | DCMT_CAP_CLOSED_LOOP_SPEED)) != 0u) {
