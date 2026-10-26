@@ -1,14 +1,18 @@
 #include "config/provider_config.hpp"
 
 #include <gtest/gtest.h>
+#include <yaml-cpp/yaml.h>
 
 #include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
+#include "anolis/provider_sdk/config_validate.hpp"
 #include "config/config_schema.hpp"
 
 namespace anolis_provider_bread {
@@ -179,6 +183,60 @@ devices:
     ASSERT_EQ(parsed.devices.size(), 2U);
     EXPECT_FALSE(parsed.devices[0].encoders);
     EXPECT_TRUE(parsed.devices[1].encoders);
+}
+
+// The schema offers encoders on a DCMT only (#184), so a client rendering it
+// shows no "Encoders fitted" on an RLHT row.
+TEST(ProviderConfigTest, SchemaAllowsEncodersOnDcmtOnly) {
+    const auto errors_for = [](const std::string &type) {
+        const YAML::Node config = YAML::Load(R"(
+hardware:
+  bus_path: /dev/i2c-1
+discovery:
+  mode: scan
+devices:
+  - id: dev0
+    type: )" + type + R"(
+    address: 0x14
+    encoders: true
+)");
+        return anolis::provider_sdk::config::format_errors(
+            anolis::provider_sdk::config::validate(provider_schema(), config));
+    };
+    EXPECT_NE(errors_for("rlht").find("encoders"), std::string::npos) << errors_for("rlht");
+    EXPECT_EQ(errors_for("dcmt"), "");
+}
+
+// Workbench 0.20.0 and later seeded encoders: true on new RLHT rows, so a config
+// can carry one. It still loads: the key is dropped with a warning (#184).
+TEST(ProviderConfigTest, IgnoresEncodersOnAnRlhtWithAWarning) {
+    const TempConfigFile config(R"(
+hardware:
+  bus_path: /dev/i2c-1
+discovery:
+  mode: scan
+devices:
+  - id: rlht0
+    type: rlht
+    address: 0x0A
+    encoders: true
+  - id: dcmt0
+    type: dcmt
+    address: 0x14
+    encoders: false
+)");
+
+    // The logger writes warnings to std::clog.
+    std::ostringstream captured;
+    std::streambuf *const previous = std::clog.rdbuf(captured.rdbuf());
+    const ProviderConfig parsed = load_config(config.path().string());
+    std::clog.rdbuf(previous);
+    const std::string log = captured.str();
+
+    ASSERT_EQ(parsed.devices.size(), 2U);
+    EXPECT_FALSE(parsed.devices[1].encoders);
+    EXPECT_NE(log.find("[WARN] device 'rlht0': encoders applies to DCMT only"), std::string::npos) << log;
+    EXPECT_EQ(log.find("dcmt0"), std::string::npos) << log;
 }
 
 TEST(ProviderConfigTest, RejectsCommandWatchdogMsBeyondU16) {

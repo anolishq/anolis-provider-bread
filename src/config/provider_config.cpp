@@ -22,6 +22,7 @@
 
 #include "anolis/provider_sdk/config_validate.hpp"
 #include "config/config_schema.hpp"
+#include "logging/logger.hpp"
 
 namespace anolis_provider_bread {
 
@@ -77,6 +78,36 @@ std::string format_i2c_address(int address) {
     return out.str();
 }
 
+namespace {
+
+// The one exception to validating the config as written. Workbench 0.20.0 and
+// later seeded `encoders: true` on every new device row, RLHT included, before
+// the schema forbade it there (#184). It never had an effect on an RLHT, so it
+// is dropped with a warning and those configs still load.
+void drop_rlht_encoders(YAML::Node &root) {
+    // A missing key reads as an invalid node, whose IsSequence() throws: test
+    // that it is defined first. Reads go through const nodes, which add nothing.
+    const YAML::Node &read = root;
+    if (!read.IsMap() || !read["devices"] || !read["devices"].IsSequence()) {
+        return;
+    }
+    for (YAML::Node device : root["devices"]) {
+        const YAML::Node &fields = device;
+        if (!fields.IsMap() || !fields["encoders"] || !fields["type"] || !fields["type"].IsScalar() ||
+            fields["type"].Scalar() != "rlht") {
+            continue;
+        }
+        const std::string id = fields["id"] && fields["id"].IsScalar() ? fields["id"].Scalar() : "(no id)";
+        logging::warning(
+            std::format("device '{}': encoders applies to DCMT only and is ignored on an RLHT; "
+                        "remove it from the config",
+                        id));
+        device.remove("encoders");
+    }
+}
+
+}  // namespace
+
 ProviderConfig load_config(const std::string &path) {
     YAML::Node root;
     try {
@@ -84,6 +115,8 @@ ProviderConfig load_config(const std::string &path) {
     } catch (const YAML::Exception &e) {
         throw std::runtime_error("Failed to parse config '" + path + "': " + e.what());
     }
+
+    drop_rlht_encoders(root);
 
     // Declare-once validation: every structural/semantic error, collected at
     // once, against the schema `--config-schema` advertises.
