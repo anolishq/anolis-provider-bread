@@ -103,6 +103,8 @@ cfg::Schema build_schema() {
                                   "set_setpoint and the PID tuning functions are left out for this device, "
                                   "since the firmware advertises them either way.")
                      .default_bool(true));
+    // RLHT has no motors, so no encoders (#184).
+    device.when("type", "rlht", cfg::When().forbid("encoders"));
 
     cfg::Object root(cfg::Openness::Closed);
     root.child("provider", std::move(provider));
