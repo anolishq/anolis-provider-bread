@@ -13,6 +13,27 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-25
+
+### Fixed
+
+- **`set_mode` advertises its modes as `allowed_values`** (#178, #186).
+  RLHT and DCMT `set_mode` took a free string whose values were listed
+  only in the argument's description, so no client could offer them as a
+  choice, and anolis could not check a call against them. The modes are
+  now `ArgSpec.allowed_values`, which anolis 0.1.53 publishes and enforces
+  (anolishq/anolis#479):
+  - RLHT: `closed_loop`, `open_loop`;
+  - DCMT: `open_loop`, plus `closed_position` and `closed_speed` for each
+    closed loop the capability flags advertise. With `encoders: false`,
+    `open_loop` alone.
+
+  The DCMT description is built from the same list: one that advertises a
+  single closed loop now names only that one. The full and open-loop-only
+  descriptions read as before. bread's own handling of `set_mode` is
+  unchanged. Under a runtime that enforces `allowed_values`, a DCMT that
+  advertises one closed loop has the other refused before bread sees it.
+
 ## [0.9.0] - 2026-10-25
 
 ### Added
