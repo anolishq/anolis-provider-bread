@@ -13,6 +13,25 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-26
+
+### Fixed
+
+- **The config schema offers `encoders` on DCMT devices only** (#184, #188).
+  It declared `devices[].encoders` for every device type, and only the
+  description said "DCMT only", so a client that renders the schema, such
+  as the workbench, showed "Encoders fitted" on every RLHT row.
+  `--config-schema` now forbids it on an RLHT (`devices.items.allOf`: if
+  `type` is `rlht`, then `encoders: false`).
+
+  A config with `encoders` on an RLHT still loads. The key never had an
+  effect there, and workbench 0.20.0 and later wrote it on every new device
+  row, so the loader drops it before validating and logs
+  `[WARN] device '<id>': encoders applies to DCMT only and is ignored on an
+  RLHT; remove it from the config`. A DCMT's `encoders` is untouched. The
+  workbench stops writing it, and strips it from existing RLHT rows, in
+  the release that vendors this schema (anolishq/anolis-workbench#640).
+
 ## [0.9.1] - 2026-10-25
 
 ### Fixed
