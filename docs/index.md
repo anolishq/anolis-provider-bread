@@ -17,7 +17,7 @@ The provider should stay organized around a small number of concrete responsibil
 - **Provider core**: ADPP transport, lifecycle, configuration, logging, health, and request handling.
 - **CRUMBS session layer**: Linux I2C or CRUMBS session management, scan-send-read primitives, timeout and retry behavior, bus access serialization, and diagnostics.
 - **BREAD shared helpers**: small shared logic for discovery, compatibility checks, and capability fallback where that duplication is genuinely structural.
-- **Device adapters**: one adapter per BREAD device type, each owning its ADPP metadata, signals, functions, and call or read translation.
+- **Device adapters**: one adapter per BREAD device type (RLHT, DCMT), each owning its call and read translation. The ADPP capability metadata (signals and functions) for both types is built in `src/devices/common/inventory.cpp`.
 
 A family-wide abstraction layer is not included; it would be speculative given the current single hardware family.
 
