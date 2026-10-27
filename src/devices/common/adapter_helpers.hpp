@@ -92,6 +92,13 @@ inline bool read_i16_le(const std::vector<uint8_t> &p, std::size_t off, int16_t 
 /** @brief Protobuf argument map type used by device function calls. */
 using ValueMap = google::protobuf::Map<std::string, anolis::deviceprovider::v1::Value>;
 
+/** @brief One call of a device's safe-output sequence (safe_outputs.hpp, #195). */
+struct SafeOutputStep {
+    uint32_t function_id = 0;
+    std::string name;
+    ValueMap args;
+};
+
 inline bool get_arg_bool(const ValueMap &args, const std::string &key, bool &out) {
     const auto it = args.find(key);
     if (it == args.end()) return false;

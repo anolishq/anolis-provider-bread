@@ -13,7 +13,29 @@ commit messages only.
 
 ## [Unreleased]
 
+Upgrade notes for operators:
+
+- **A provider start now turns every output off.** A provider restart,
+  including one the runtime makes after a crash, used to leave relays, motor
+  PWM and heater duty as last commanded. To keep a running process going
+  across a restart, set `provider.outputs_on_startup: leave`, with the
+  runtime's `safety.on_startup: leave`.
+
 ### Fixed
+
+- **Startup drives every output to a safe value** (#195). After discovery,
+  before the command watchdogs are armed and the provider reports ready, each
+  DCMT is set to open loop at PWM 0/0 (brakes untouched) and each RLHT to
+  setpoints 0/0, open loop and duty 0/0: the sequence the bioreactor's
+  `safety.safe_state` hooks use. The same runs when a device comes back after
+  I/O failures, such as a reboot, a power cut or a re-address. Each call is
+  confirmed from GET_ACK like any setter call, and a step that fails does not
+  stop the rest. Device health carries `safe_outputs`: `set`, `not set:
+  <step: reason>` or `left`. A device whose outputs were not set reports
+  `STATE_FAULT`, with the message `safe outputs not set: ...`, until a later
+  attempt succeeds.
+- **`provider.outputs_on_startup`** (`safe`, the default, or `leave`) chooses
+  whether that happens.
 
 - **A DCMT motor command is refused while that motor's brake is engaged**
   (#202). A nonzero `set_open_loop` PWM or `set_setpoint` target for a

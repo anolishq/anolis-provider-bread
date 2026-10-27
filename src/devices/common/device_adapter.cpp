@@ -23,10 +23,12 @@ AdapterCallResult unknown_transmit(crumbs::Session & /*session*/, const inventor
                                    const crumbs::RawFrame & /*frame*/) {
     return {false, Status::CODE_UNIMPLEMENTED, "unsupported device type"};
 }
+std::vector<SafeOutputStep> unknown_safe_output_steps() { return {}; }
 
-const DeviceAdapter kRlhtAdapter{rlht::read_signals, rlht::build_frame, rlht::transmit};
-const DeviceAdapter kDcmtAdapter{dcmt::read_signals, dcmt::build_frame, dcmt::transmit};
-const DeviceAdapter kUnknownAdapter{unknown_read_signals, unknown_build_frame, unknown_transmit};
+const DeviceAdapter kRlhtAdapter{rlht::read_signals, rlht::build_frame, rlht::transmit, rlht::safe_output_steps};
+const DeviceAdapter kDcmtAdapter{dcmt::read_signals, dcmt::build_frame, dcmt::transmit, dcmt::safe_output_steps};
+const DeviceAdapter kUnknownAdapter{unknown_read_signals, unknown_build_frame, unknown_transmit,
+                                    unknown_safe_output_steps};
 
 }  // namespace
 

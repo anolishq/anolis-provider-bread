@@ -12,6 +12,7 @@
 #include "crumbs/session.hpp"
 #include "devices/common/device_adapter.hpp"
 #include "devices/common/inventory.hpp"
+#include "devices/common/safe_outputs.hpp"
 #include "devices/common/set_confirm.hpp"
 #include "devices/common/watchdog.hpp"
 #include "logging/logger.hpp"
@@ -28,15 +29,25 @@ namespace adpp = anolis::deviceprovider::v1;
 namespace sdk = anolis::provider_sdk;
 
 // After a successful operation, consume the session's address-recovery signal
-// and re-apply per-device session state that a device reboot resets — today
-// the firmware command watchdog (#112). Covers e-stop wirings that power-cycle
-// the backplane: the board reboots disarmed and is re-armed on first contact.
-void handle_recovery(crumbs::Session* session, const inventory::InventoryDevice& device) {
+// and re-apply per-device session state that a device reboot resets — the
+// safe outputs, unless the config says leave (#195), and the firmware command
+// watchdog (#112). Covers e-stop wirings that power-cycle the backplane: the
+// board reboots disarmed and is re-armed on first contact.
+void handle_recovery(crumbs::Session* session, const inventory::InventoryDevice& device, const ProviderConfig& config) {
     if (session == nullptr || !session->take_recovery(static_cast<uint8_t>(device.address))) {
         return;
     }
-    logging::info("device " + device.descriptor.device_id() + " (" + format_i2c_address(device.address) +
-                  ") recovered after I/O failures");
+    const std::string& id = device.descriptor.device_id();
+    logging::info("device " + id + " (" + format_i2c_address(device.address) + ") recovered after I/O failures");
+    if (config.outputs_on_startup == OutputsOnStartup::Safe) {
+        const safe_outputs::Result result = safe_outputs::drive(*session, device);
+        if (result.ok) {
+            logging::info("device " + id + ": outputs set safe after recovery");
+        } else {
+            logging::warning("device " + id + ": safe outputs not set after recovery: " + result.failures);
+        }
+        runtime::record_safe_outputs(id, safe_outputs::to_metric(result));
+    }
     watchdog::arm_if_configured(*session, device, "recovery");
 }
 
@@ -143,6 +154,15 @@ sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& de
         // unconfirmed on CRUMBS older than 1600. A successful call carries no
         // message to the runtime, so this is where "unconfirmed" shows.
         extra.metrics["set_confirmation"] = to_string(set_confirmation(*device));
+        // Whether startup, or the last recovery, set this device's outputs
+        // safe (#195). A device it could not set is a FAULT until one does.
+        if (const auto safe = state.safe_outputs.find(device_id); safe != state.safe_outputs.end()) {
+            extra.metrics["safe_outputs"] = safe->second;
+            if (safe->second.rfind("not set", 0) == 0) {
+                extra.state = adpp::DeviceHealth::STATE_FAULT;
+                extra.message = "safe outputs " + safe->second;
+            }
+        }
         if (crumbs::Session* session = runtime::session()) {
             const crumbs::AddressStats stats = session->stats_for(static_cast<uint8_t>(device->address));
             extra.metrics["io_ok"] = std::to_string(stats.ok);
@@ -244,7 +264,7 @@ sdk::AdapterReadResult BreadProviderRuntime::read(const std::string& device_id,
     // adapter (should_include / is_default_signal), not here.
     AdapterReadResult br = adapter_for(device->type).read_signals(*session, *device, signal_ids);
     if (br.ok) {
-        handle_recovery(session, *device);
+        handle_recovery(session, *device, state.config);
     }
     sdk::AdapterReadResult out;
     out.ok = br.ok;
@@ -274,7 +294,7 @@ sdk::AdapterCallResult BreadProviderRuntime::call(const std::string& device_id, 
     AdapterCallResult br =
         anolis_provider_bread::call(adapter_for(device->type), runtime::session(), *device, function_id, args);
     if (br.ok) {
-        handle_recovery(runtime::session(), *device);
+        handle_recovery(runtime::session(), *device, state.config);
     }
     return {br.ok, br.error_code, std::move(br.error_message)};
 }

@@ -24,6 +24,19 @@ enum class DiscoveryMode {
 };
 
 /**
+ * @brief What the provider does to device outputs when it starts, and when a
+ * device comes back after I/O failures (#195).
+ *
+ * `Safe` drives them to safe values (safe_outputs.hpp). `Leave` leaves them as
+ * they are, for a machine where a restart must not interrupt a running
+ * process, alongside the runtime's `safety.on_startup: leave`.
+ */
+enum class OutputsOnStartup {
+    Safe,
+    Leave,
+};
+
+/**
  * @brief One expected device entry from the provider config.
  *
  * `address` and `type` together define the expected hardware identity used to
@@ -51,6 +64,7 @@ struct DeviceSpec {
 struct ProviderConfig {
     std::string config_file_path;
     std::string provider_name = "anolis-provider-bread";
+    OutputsOnStartup outputs_on_startup = OutputsOnStartup::Safe;
     std::string bus_path;
     int query_delay_us = 10000;
     int timeout_ms = 100;
@@ -69,11 +83,17 @@ ProviderConfig load_config(const std::string &path);
 /** @brief Parse a config string into a discovery mode. */
 DiscoveryMode parse_discovery_mode(const std::string &value);
 
+/** @brief Parse a config string into an outputs-on-startup policy. */
+OutputsOnStartup parse_outputs_on_startup(const std::string &value);
+
 /** @brief Parse a config string into a supported BREAD device type. */
 DeviceType parse_device_type(const std::string &value);
 
 /** @brief Convert a discovery mode enum to its config/debug string form. */
 std::string to_string(DiscoveryMode mode);
+
+/** @brief Convert an outputs-on-startup policy to its config string form. */
+std::string to_string(OutputsOnStartup policy);
 
 /** @brief Convert a device type enum to its config/debug string form. */
 std::string to_string(DeviceType type);

@@ -32,6 +32,7 @@ struct DeviceAdapter {
     AdapterCallResult (*build_frame)(uint32_t function_id, const ValueMap &args, crumbs::RawFrame &frame);
     AdapterCallResult (*transmit)(crumbs::Session &session, const inventory::InventoryDevice &device,
                                   const crumbs::RawFrame &frame);
+    std::vector<SafeOutputStep> (*safe_output_steps)();
 };
 
 /** @brief The single dispatch site — exhaustive over DeviceType. */

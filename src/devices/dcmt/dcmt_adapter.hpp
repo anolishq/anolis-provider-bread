@@ -56,4 +56,7 @@ AdapterCallResult transmit(crumbs::Session &session, const inventory::InventoryD
 AdapterCallResult call(crumbs::Session &session, const inventory::InventoryDevice &device, uint32_t function_id,
                        const ValueMap &args);
 
+/** @brief The calls that drive this device's outputs safe, in order (safe_outputs.hpp). */
+std::vector<SafeOutputStep> safe_output_steps();
+
 }  // namespace anolis_provider_bread::dcmt

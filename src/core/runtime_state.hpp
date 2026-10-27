@@ -49,7 +49,13 @@ struct RuntimeState {
     // mock mode. When one is unmet, or the bus will not open, the provider stays
     // up and not ready with no devices instead of exiting.
     std::vector<anolis::provider_sdk::host_check::Requirement> host_requirements;
+    // Per device id, the `safe_outputs` health metric (#195): "set", "not set:
+    // <why>", or "left" under provider.outputs_on_startup: leave.
+    std::map<std::string, std::string> safe_outputs;
 };
+
+/** @brief Record a device's `safe_outputs` metric after it was driven safe again. */
+void record_safe_outputs(const std::string &device_id, std::string metric);
 
 /** @brief Reset runtime state and destroy any live session/transport pair. */
 void reset();

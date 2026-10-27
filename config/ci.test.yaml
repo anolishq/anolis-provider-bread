@@ -1,5 +1,8 @@
 provider:
   name: bread-ci-test
+  # The shell test checks that health reports no contact before any device
+  # I/O (#87); safe outputs at startup would be the first I/O (#195).
+  outputs_on_startup: leave
 
 hardware:
   bus_path: mock://ci-test
