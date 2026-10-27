@@ -6,7 +6,7 @@ BREAD hardware provider for the Anolis runtime.
 
 Implements the Anolis Device Provider Protocol (ADPP) v1 over BREAD-over-CRUMBS, exposing RLHT
 and DCMT devices to the Anolis runtime via framed stdio. Supports Linux hardware integration and a
-no-hardware build for development and CI.
+`mock://` bus path that runs without hardware for development and CI.
 
 Repository documentation:
 
@@ -44,8 +44,11 @@ providers:
     timeout_ms: 5000
 ```
 
-A sample provider config is at `config/example.local.yaml` in the source. See
-[docs/index.md](docs/index.md) for device types, signal surfaces, and hardware wiring.
+A sample provider config is at `config/example.local.yaml` in the source. The `DeviceType`
+enum is in `src/devices/common/device_type.hpp`, and the accepted `devices[].type` values
+(`rlht`, `dcmt`) are declared in `src/config/config_schema.cpp`. Signals and functions are declared in
+`src/devices/common/inventory.cpp`, and read and call handling is in `src/devices/rlht/` and
+`src/devices/dcmt/`.
 
 ### Build from source (contributors / hardware builds)
 

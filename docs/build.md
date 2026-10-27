@@ -23,7 +23,7 @@ A relative `CRUMBS_DIR` or `BREAD_CONTRACTS_DIR` resolves against this repo's ro
 
 ## Prerequisites
 
-- CMake 3.20 or newer for the Ninja presets (Linux, macOS); CMake 4.2 or newer for the
+- CMake 3.24 or newer for the Ninja presets (Linux, macOS); CMake 4.2 or newer for the
   Windows presets, whose `Visual Studio 18 2026` generator was added in CMake 4.2
 - Ninja or Visual Studio generators
 - `VCPKG_ROOT` set to a working vcpkg installation
@@ -65,18 +65,19 @@ Install vcpkg:
 ```powershell
 git clone https://github.com/microsoft/vcpkg.git $env:USERPROFILE\vcpkg
 & "$env:USERPROFILE\vcpkg\bootstrap-vcpkg.bat"
-[Environment]::SetEnvironmentVariable("VCPKG_ROOT", "$env:USERPROFILE\\vcpkg", "User")
+[Environment]::SetEnvironmentVariable("VCPKG_ROOT", "$env:USERPROFILE\vcpkg", "User")
 $env:VCPKG_ROOT = [Environment]::GetEnvironmentVariable("VCPKG_ROOT", "User")
 Test-Path "$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
 ```
 
 ## Configure And Build
 
-One binary per platform covers both hardware and no-hardware operation. Hardware
+On Linux, one binary covers both hardware and no-hardware operation. Hardware
 support is always compiled into the Linux binary; whether the provider touches
 real hardware is decided at runtime by `hardware.bus_path` in the config (see
 [Running The Provider Manually](#running-the-provider-manually)), not by a build
-flag. The presets below build and test without real hardware on all platforms,
+flag. Windows and macOS builds are config-seeded only, whatever `hardware.bus_path`
+says. The presets below build and test without real hardware on all platforms,
 covering config loading, CRUMBS session logic, BREAD inventory, and ADPP handler
 dispatch.
 
@@ -106,7 +107,8 @@ builds above already include hardware capability on Linux (the SDK's Linux I2C b
 is always compiled in).
 To work against real CRUMBS and BREAD hardware, run that same binary with a config
 whose `hardware.bus_path` points at a real device node (e.g. `/dev/i2c-1`); any
-non-`mock://` path opens a live CRUMBS session.
+non-`mock://` path makes the provider check host requirements and then open a live
+CRUMBS session on that bus.
 
 On ARM hosts (for example Raspberry Pi), the default preset uses vcpkg's host-default
 triplet. If you need an explicit override, pass `-DVCPKG_TARGET_TRIPLET=<triplet>`
@@ -126,12 +128,15 @@ Start the provider for ADPP clients:
 .\build\dev-windows-debug\Debug\anolis-provider-bread.exe --config config\example.local.yaml
 ```
 
-The committed sample config seeds one RLHT and one DCMT device so `Hello`, `WaitReady`,
-`ListDevices`, `DescribeDevice`, and `GetHealth` are testable without real hardware.
+The committed sample config declares one RLHT and one DCMT device on `/dev/i2c-1`. On Windows
+and macOS it seeds them without bus access, so `Hello`, `WaitReady`, `ListDevices`,
+`DescribeDevice`, and `GetHealth` are testable without real hardware.
 
 To exercise the config-seeded inventory without hardware, set `hardware.bus_path` to a
-`mock://...` value (as in `config/ci.test.yaml`). A real bus path that cannot be opened
-makes startup fail fast rather than silently falling back to a seeded inventory.
+`mock://...` value (as in `config/ci.test.yaml`). On Linux, a real bus path that cannot be opened,
+or whose host requirements are unmet, does not fall back to a seeded inventory: the provider
+keeps serving ADPP but reports not ready, with every configured device listed as missing and
+the reason given.
 
 ## Test Taxonomy
 
@@ -162,10 +167,11 @@ ctest --preset dev-debug
 
 | Preset | Warnings as errors | Purpose |
 |---|---|---|
-| `ci-linux-release` | Yes | Automated CI on every push and PR (Linux) |
-| `ci-windows-release` | Yes | Automated CI on every push and PR (Windows) |
+| `ci-linux-release` | Yes | CI on pushes to `main`, PRs against `main` and manual dispatch; skipped when only `docs/`, Markdown, PNG or SVG files change (Linux x64) |
+| `ci-linux-arm64-release` | Yes | Same triggers as `ci-linux-release`, run natively on `ubuntu-24.04-arm` (Linux arm64) |
+| `ci-windows-release` | Yes | Same triggers as `ci-linux-release` (Windows) |
 
-The `ci-linux-release` and `ci-windows-release` lanes run automatically via GitHub Actions
+The `ci-linux-release`, `ci-linux-arm64-release` and `ci-windows-release` lanes run automatically via GitHub Actions
 (`.github/workflows/ci.yml`). They check out only this repo, fetch the pinned dependencies at
 configure time, and exercise the provider against a `mock://` bus (no I2C hardware).
 
@@ -175,8 +181,11 @@ the released binary on the Linux host with a real `hardware.bus_path` pointing a
 ## Notes
 
 - `CRUMBS` and `bread-crumbs-contracts` are source dependencies for all builds, fetched as described in [Dependencies](#dependencies).
-- Hardware vs config-seeded operation is selected at runtime by `hardware.bus_path` (`mock://...` vs a real path), not by a build flag.
+- On Linux, hardware vs config-seeded operation is selected at runtime by `hardware.bus_path` (`mock://...` vs a real path), not by a build flag. Windows and macOS builds are always config-seeded.
 - Only the portable CRUMBS codec is built (`CRUMBS_ENABLE_LINUX_HAL` is forced `OFF`); raw I2C goes through the SDK's Linux I2C bus.
-- The CRUMBS session layer (`src/crumbs/`) owns scan/send/read/query-read behavior only.
+- The CRUMBS session layer (`src/crumbs/`) owns bus and session behavior (open, scan, send, read, query-read, retries, error
+  normalization, and per-address I/O stats, recovery and rejection tracking), plus the CRUMBS
+  transport and the canned mock bus. The session logic carries no RLHT/DCMT semantics; the canned
+  mock bus holds fixed RLHT/DCMT state replies for mock mode.
 - Inventory and compatibility code (`src/devices/common/`) uses `bread-crumbs-contracts` for type
   IDs, baseline capability profiles, and compatibility rules.
