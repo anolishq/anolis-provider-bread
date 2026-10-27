@@ -13,6 +13,11 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-27
+
+0.10.0 is a minor release because an existing config behaves differently on
+restart, which `docs/versioning.md` counts as breaking.
+
 Upgrade notes for operators:
 
 - **A provider start now turns every output off.** A provider restart,
@@ -20,8 +25,10 @@ Upgrade notes for operators:
   PWM and heater duty as last commanded. To keep a running process going
   across a restart, set `provider.outputs_on_startup: leave`, with the
   runtime's `safety.on_startup: leave`.
+- **A nonzero motor command to a braked DCMT is now refused.** It used to be
+  confirmed OK and move nothing. Release the brake with `set_brake` first.
 
-### Fixed
+### Changed
 
 - **Startup drives every output to a safe value** (#195). After discovery,
   before the command watchdogs are armed and the provider reports ready, each
@@ -34,8 +41,13 @@ Upgrade notes for operators:
   <step: reason>` or `left`. A device whose outputs were not set reports
   `STATE_FAULT`, with the message `safe outputs not set: ...`, until a later
   attempt succeeds.
+
+### Added
+
 - **`provider.outputs_on_startup`** (`safe`, the default, or `leave`) chooses
-  whether that happens.
+  whether startup and recovery drive the outputs safe (#195).
+
+### Fixed
 
 - **A DCMT motor command is refused while that motor's brake is engaged**
   (#202). A nonzero `set_open_loop` PWM or `set_setpoint` target for a
