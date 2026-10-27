@@ -10,6 +10,7 @@ add_executable(provider_unit_tests
     rlht_adapter_test.cpp
     set_confirm_test.cpp
     startup_discovery_test.cpp
+    watchdog_keepalive_test.cpp
     watchdog_test.cpp
 )
 

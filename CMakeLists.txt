@@ -172,6 +172,7 @@ add_library(anolis_provider_bread_core STATIC
     src/devices/common/inventory.cpp
     src/devices/common/set_confirm.cpp
     src/devices/common/watchdog.cpp
+    src/devices/common/watchdog_keepalive.cpp
     src/devices/rlht/rlht_adapter.cpp
     src/devices/dcmt/dcmt_adapter.cpp
 )

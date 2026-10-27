@@ -45,7 +45,7 @@ jobs:
           sudo apt-get install -y ninja-build g++
 
       - name: Setup vcpkg
-        uses: anolishq/.github/.github/actions/setup-vcpkg@a9b3d134acbcc7dcd6da02c1a345a1fbdca15064 # v2.4
+        uses: anolishq/.github/.github/actions/setup-vcpkg@f79b717dbf5b2153fbe5d390894dd5432af5dbe1 # v2.5
         with:
           triplet: x64-linux-static
 
@@ -90,7 +90,7 @@ jobs:
 
   valgrind:
     name: Valgrind leak-check
-    uses: anolishq/.github/.github/workflows/valgrind-leak.yml@260e6a2c364562a14e1f35a118dbea6e0ada9041 # v2
+    uses: anolishq/.github/.github/workflows/valgrind-leak.yml@0199b6cc7cb73a02d58f75ec8ed763ac40e54dca # v2
     with:
       build-preset: ci-linux-release
       build-target: anolis-provider-bread

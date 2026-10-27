@@ -91,4 +91,10 @@ RuntimeState snapshot();
  */
 crumbs::Session *session();
 
+/**
+ * @brief The runtime has read or called `device_id`: stop feeding its armed
+ * watchdog (#190). A no-op once feeding has stopped.
+ */
+void note_contact(const std::string &device_id);
+
 }  // namespace anolis_provider_bread::runtime
