@@ -273,6 +273,25 @@ command, the provider reads the board's state (one GET_STATE) to check the
 brakes. A zero command is always sent, and so is any command when that read
 fails.
 
+### A device reports FAULT: safe outputs not set
+
+At startup, and when a device comes back after I/O failures, the provider sets
+its outputs safe: a DCMT to open loop at PWM 0/0, an RLHT to setpoints 0/0,
+open loop and duty 0/0. A step the device refuses, or that never arrives, is
+logged and leaves the device at `STATE_FAULT`:
+
+```text
+[WARN] device rlht0: safe outputs not set: set_setpoints: refused: ESTOP
+```
+
+Its health carries the same text in `metrics["safe_outputs"]`, and the other
+steps were still sent. A refusal names the firmware's reason: an e-stop in
+force or a tripped command watchdog refuses commands until it is released.
+Read the device back to see which outputs are off. The FAULT clears when a
+later attempt succeeds, at the next provider start or the device's next
+recovery. With `provider.outputs_on_startup: leave`, nothing is sent and
+`safe_outputs` reads `left`.
+
 ### Common session error codes and fixes
 
 | Code | Meaning | Fix |
@@ -295,6 +314,7 @@ The `GetHealth` RPC returns a snapshot. Key fields:
 provider.state                                  — STATE_DEGRADED if any configured device is missing or the provider is not ready
 provider.metrics["startup_initialized_devices"] — number of devices in inventory
 provider.metrics["startup_failed_devices"]      — configured devices not in inventory
+device.metrics["safe_outputs"]                  — "set", "not set: <step: reason>" (the device is STATE_FAULT), or "left"
 ```
 
 The `WaitReady` diagnostics carry these keys:

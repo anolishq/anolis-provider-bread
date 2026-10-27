@@ -101,6 +101,34 @@ discovery:
     EXPECT_NE(summarize_config(parsed).find("hardware.max_bus_hz=50000"), std::string::npos);
 }
 
+TEST(ProviderConfigTest, OutputsOnStartupDefaultsToSafe) {
+    // #195: a provider drives outputs safe at startup unless told to leave them.
+    EXPECT_EQ(ProviderConfig{}.outputs_on_startup, OutputsOnStartup::Safe);
+    const TempConfigFile config(R"(
+provider:
+  outputs_on_startup: leave
+hardware:
+  bus_path: /dev/i2c-1
+discovery:
+  mode: scan
+)");
+    const ProviderConfig parsed = load_config(config.path().string());
+    EXPECT_EQ(parsed.outputs_on_startup, OutputsOnStartup::Leave);
+    EXPECT_NE(summarize_config(parsed).find("provider.outputs_on_startup=leave"), std::string::npos);
+}
+
+TEST(ProviderConfigTest, RejectsAnUnknownOutputsOnStartup) {
+    expect_config_error(R"(
+provider:
+  outputs_on_startup: off
+hardware:
+  bus_path: /dev/i2c-1
+discovery:
+  mode: scan
+)",
+                        "outputs_on_startup");
+}
+
 TEST(ProviderConfigTest, RejectsNonPositiveMaxBusHz) {
     expect_config_error(R"(
 hardware:
@@ -293,6 +321,7 @@ discovery:
     // ...and the declared schema carries those same values as its defaults.
     // Found-flags keep the loop from passing vacuously if a key is renamed.
     bool checked_name = false;
+    bool checked_outputs = false;
     bool checked_hardware = false;
     bool checked_watchdog = false;
     bool checked_discovery = false;
@@ -304,6 +333,12 @@ discovery:
                     ASSERT_TRUE(field.field->spec().default_string.has_value());
                     EXPECT_EQ(*field.field->spec().default_string, defaults.provider_name);
                     checked_name = true;
+                }
+                if (field.key == "outputs_on_startup") {
+                    ASSERT_TRUE(field.field->spec().default_string.has_value());
+                    EXPECT_EQ(*field.field->spec().default_string, to_string(defaults.outputs_on_startup));
+                    EXPECT_EQ(parsed.outputs_on_startup, defaults.outputs_on_startup);
+                    checked_outputs = true;
                 }
             }
         }
@@ -349,6 +384,7 @@ discovery:
         }
     }
     EXPECT_TRUE(checked_name);
+    EXPECT_TRUE(checked_outputs);
     EXPECT_TRUE(checked_hardware);
     EXPECT_TRUE(checked_watchdog);
     EXPECT_TRUE(checked_discovery);

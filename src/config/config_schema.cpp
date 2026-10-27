@@ -24,6 +24,16 @@ cfg::Schema build_schema() {
                        .description("Stable identifier for this provider instance.")
                        .pattern(kIdentifierPattern)
                        .default_string("anolis-provider-bread"));
+    provider.field(cfg::string_field("outputs_on_startup")
+                       .title("Outputs on startup")
+                       .enum_value("safe", "Drive outputs safe")
+                       .enum_value("leave", "Leave outputs as they are")
+                       .default_string("safe")
+                       .description("What the provider does to device outputs when it starts, and when a device "
+                                    "comes back after I/O failures. safe sets each DCMT to open loop at PWM 0 and "
+                                    "each RLHT to setpoints 0, open loop and duty 0. leave keeps them as they are, "
+                                    "for a process that must not be interrupted by a restart; set it together with "
+                                    "the runtime's safety.on_startup: leave."));
 
     cfg::Object hardware(cfg::Openness::Closed);
     hardware.field(cfg::string_field("bus_path")

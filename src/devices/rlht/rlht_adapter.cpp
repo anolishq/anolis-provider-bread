@@ -318,4 +318,24 @@ AdapterCallResult call(crumbs::Session &session, const inventory::InventoryDevic
     return transmit(session, device, frame);
 }
 
+// Each step is safe if another is lost (#195): a zero setpoint turns a closed
+// loop off on current firmware, open loop stops the PID driving the relays,
+// and zero duty leaves both open. Mode goes before duty because the slice
+// ignores set_open_duty_pct in closed loop.
+std::vector<SafeOutputStep> safe_output_steps() {
+    std::vector<SafeOutputStep> steps(3);
+    steps[0].function_id = 2;
+    steps[0].name = "set_setpoints";
+    steps[0].args["setpoint1_c"] = make_double_val(0.0);
+    steps[0].args["setpoint2_c"] = make_double_val(0.0);
+    steps[1].function_id = 1;
+    steps[1].name = "set_mode";
+    steps[1].args["mode"] = make_string_val("open_loop");
+    steps[2].function_id = 6;
+    steps[2].name = "set_open_duty_pct";
+    steps[2].args["duty1_pct"] = make_uint64_val(0);
+    steps[2].args["duty2_pct"] = make_uint64_val(0);
+    return steps;
+}
+
 }  // namespace anolis_provider_bread::rlht

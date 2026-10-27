@@ -22,7 +22,12 @@
  *     fixed-count i2c-dev read of a short CRUMBS frame yields;
  *   - every command frame other than SET_REPLY is counted for GET_ACK, as a
  *     CRUMBS 0.16 peripheral counts it: applied, or refused, rejected or lost
- *     where a test injects that.
+ *     where a test injects that;
+ *   - an applied output SET changes what GET_STATE reports: DCMT mode and
+ *     open-loop PWM, RLHT mode, setpoints and open-loop duty, with each relay
+ *     flag following its channel's on-time. Each device starts with outputs on
+ *     (DCMT driving both motors, RLHT relay 1 energized), so a test can show
+ *     them turned off (anolishq/anolis-provider-bread#195).
  *
  * Seed device types with `add_device` before opening (as `MockTransport` did).
  */
@@ -33,6 +38,7 @@
 #include <map>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "anolis/provider_sdk/i2c/i2c_bus.hpp"
 #include "anolis/provider_sdk/i2c/i2c_status.hpp"
@@ -107,7 +113,21 @@ private:
         int ack_read_skip = 0;
         int ack_read_failures = 0;
         std::map<uint8_t, int> writes_by_opcode;
+        // Output state that GET_STATE reports, changed by applied SETs.
+        uint8_t dcmt_mode = 0;  // DCMT_MODE_OPEN_LOOP
+        int16_t dcmt_m1_pwm = 100;
+        int16_t dcmt_m2_pwm = -100;
+        uint8_t rlht_mode = 1;  // RLHT_MODE_OPEN_LOOP
+        int16_t rlht_sp1_deci_c = 300;
+        int16_t rlht_sp2_deci_c = 300;
+        uint16_t rlht_on1_ms = 500;
+        uint16_t rlht_on2_ms = 0;
+        uint16_t rlht_period1_ms = 1000;
+        uint16_t rlht_period2_ms = 1000;
     };
+
+    static std::vector<uint8_t> build_rlht_state_payload(const DeviceState &dev);
+    static std::vector<uint8_t> build_dcmt_state_payload(const DeviceState &dev);
 
     // Decode a request frame and record the pending reply / watchdog state.
     void apply_write(uint8_t address, const uint8_t *tx_data, size_t tx_len);

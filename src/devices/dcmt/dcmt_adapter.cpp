@@ -354,4 +354,18 @@ AdapterCallResult call(crumbs::Session &session, const inventory::InventoryDevic
     return transmit(session, device, frame);
 }
 
+// Open loop first, so the zero PWM is the command the motors follow; then
+// both motors at zero. The brakes are left as they are (#195).
+std::vector<SafeOutputStep> safe_output_steps() {
+    std::vector<SafeOutputStep> steps(2);
+    steps[0].function_id = 3;
+    steps[0].name = "set_mode";
+    steps[0].args["mode"] = make_string_val("open_loop");
+    steps[1].function_id = 1;
+    steps[1].name = "set_open_loop";
+    steps[1].args["motor1_pwm"] = make_int64_val(0);
+    steps[1].args["motor2_pwm"] = make_int64_val(0);
+    return steps;
+}
+
 }  // namespace anolis_provider_bread::dcmt

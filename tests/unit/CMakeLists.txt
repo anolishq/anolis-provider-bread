@@ -1,6 +1,7 @@
 add_executable(provider_unit_tests
     bread_inventory_test.cpp
     bread_provider_runtime_test.cpp
+    canned_outputs_test.cpp
     crumbs_canned_bus_test.cpp
     crumbs_session_test.cpp
     dcmt_adapter_test.cpp
@@ -8,6 +9,7 @@ add_executable(provider_unit_tests
     crumbs_transport_test.cpp
     provider_config_test.cpp
     rlht_adapter_test.cpp
+    safe_outputs_test.cpp
     set_confirm_test.cpp
     startup_discovery_test.cpp
     watchdog_keepalive_test.cpp

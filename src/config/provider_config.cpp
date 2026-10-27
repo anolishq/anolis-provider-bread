@@ -39,6 +39,17 @@ DiscoveryMode parse_discovery_mode(const std::string &value) {
     throw std::runtime_error("Invalid discovery.mode: '" + value + "'");
 }
 
+OutputsOnStartup parse_outputs_on_startup(const std::string &value) {
+    if (value == "safe") {
+        return OutputsOnStartup::Safe;
+    }
+    if (value == "leave") {
+        return OutputsOnStartup::Leave;
+    }
+
+    throw std::runtime_error("Invalid provider.outputs_on_startup: '" + value + "'");
+}
+
 DeviceType parse_device_type(const std::string &value) {
     if (value == "rlht") {
         return DeviceType::Rlht;
@@ -56,6 +67,17 @@ std::string to_string(DiscoveryMode mode) {
             return "scan";
         case DiscoveryMode::Manual:
             return "manual";
+    }
+
+    return "unknown";
+}
+
+std::string to_string(OutputsOnStartup policy) {
+    switch (policy) {
+        case OutputsOnStartup::Safe:
+            return "safe";
+        case OutputsOnStartup::Leave:
+            return "leave";
     }
 
     return "unknown";
@@ -134,6 +156,9 @@ ProviderConfig load_config(const std::string &path) {
     if (const auto name = sdkcfg::as_string(root["provider"]["name"])) {
         config.provider_name = *name;
     }
+    if (const auto policy = sdkcfg::as_string(root["provider"]["outputs_on_startup"])) {
+        config.outputs_on_startup = parse_outputs_on_startup(*policy);
+    }
 
     const YAML::Node hardware = root["hardware"];
     if (const auto bus_path = sdkcfg::as_string(hardware["bus_path"])) {
@@ -198,9 +223,10 @@ std::string summarize_config(const ProviderConfig &config) {
     std::ostringstream out;
     // The summary is intentionally compact and stable so startup logs can show
     // the effective config without dumping the full YAML file.
-    out << "provider.name=" << config.provider_name << ", hardware.bus_path=" << config.bus_path
-        << ", hardware.query_delay_us=" << config.query_delay_us << ", hardware.timeout_ms=" << config.timeout_ms
-        << ", hardware.retry_count=" << config.retry_count;
+    out << "provider.name=" << config.provider_name
+        << ", provider.outputs_on_startup=" << to_string(config.outputs_on_startup)
+        << ", hardware.bus_path=" << config.bus_path << ", hardware.query_delay_us=" << config.query_delay_us
+        << ", hardware.timeout_ms=" << config.timeout_ms << ", hardware.retry_count=" << config.retry_count;
     if (config.max_bus_hz) {
         out << ", hardware.max_bus_hz=" << *config.max_bus_hz;
     }

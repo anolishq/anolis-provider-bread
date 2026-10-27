@@ -25,6 +25,7 @@
 #include "crumbs/crumbs_transport.hpp"
 #include "crumbs/session.hpp"
 #include "devices/common/bread_compatibility.hpp"
+#include "devices/common/safe_outputs.hpp"
 #include "devices/common/watchdog.hpp"
 #include "devices/common/watchdog_keepalive.hpp"
 #include "logging/logger.hpp"
@@ -109,6 +110,27 @@ void reset() {
 
 namespace {
 
+// #195: before the watchdogs are armed and the provider reports ready, so a
+// restart leaves no output as last commanded unless the config says leave.
+void apply_outputs_policy(crumbs::Session &session, const ProviderConfig &config,
+                          const std::vector<inventory::InventoryDevice> &devices,
+                          std::map<std::string, std::string> &metrics) {
+    for (const auto &device : devices) {
+        const std::string &id = device.descriptor.device_id();
+        if (config.outputs_on_startup == OutputsOnStartup::Leave) {
+            metrics[id] = "left";
+            continue;
+        }
+        const safe_outputs::Result result = safe_outputs::drive(session, device);
+        metrics[id] = safe_outputs::to_metric(result);
+        if (result.ok) {
+            logging::info("device " + id + ": outputs set safe");
+        } else {
+            logging::warning("device " + id + ": safe outputs not set: " + result.failures);
+        }
+    }
+}
+
 // `deadline` is read only on the Linux hardware path; other builds are mock-only.
 void initialize_until(const ProviderConfig &config,
                       [[maybe_unused]] std::optional<std::chrono::steady_clock::time_point> deadline) {
@@ -141,6 +163,7 @@ void initialize_until(const ProviderConfig &config,
         }
 
         startup::DiscoveryResult discovery = startup::run_discovery(*sess, config, deadline);
+        apply_outputs_policy(*sess, config, discovery.devices, state.safe_outputs);
 
         // Arm configured firmware command watchdogs once the roster is known
         // (#112). Capability gating and failure logging live in the helper.
@@ -216,8 +239,9 @@ void initialize_until(const ProviderConfig &config,
         throw std::runtime_error("failed to open mock CRUMBS bus '" + config.bus_path + "': " + open_status.message);
     }
 
-    // Mirror the hardware path so mock rehearsals exercise watchdog arming
-    // (the canned bus simulates the arming state for GET_WATCHDOG queries).
+    // Mirror the hardware path so mock rehearsals exercise the safe outputs
+    // and watchdog arming (the canned bus simulates both).
+    apply_outputs_policy(*sess, config, state.devices, state.safe_outputs);
     for (const auto &device : state.devices) {
         watchdog::arm_if_configured(*sess, device, "startup");
     }
@@ -256,6 +280,11 @@ void initialize(const ProviderConfig &config, std::chrono::milliseconds budget) 
         state.started_at = std::chrono::system_clock::now();
         publish_not_ready(std::move(state), std::string("start-up failed: ") + e.what());
     }
+}
+
+void record_safe_outputs(const std::string &device_id, std::string metric) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    g_state.safe_outputs[device_id] = std::move(metric);
 }
 
 RuntimeState snapshot() {

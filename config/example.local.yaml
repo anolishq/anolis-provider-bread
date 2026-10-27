@@ -1,5 +1,10 @@
 provider:
   name: bread-lab
+  # At startup, and when a device comes back after I/O failures, the provider
+  # sets each DCMT to open loop at PWM 0 and each RLHT to setpoints 0, open
+  # loop and duty 0. leave keeps outputs as they are, for a process a restart
+  # must not interrupt; set it with the runtime's safety.on_startup: leave.
+  # outputs_on_startup: safe
 
 hardware:
   bus_path: /dev/i2c-1

@@ -170,6 +170,7 @@ add_library(anolis_provider_bread_core STATIC
     src/devices/common/bread_compatibility.cpp
     src/devices/common/device_adapter.cpp
     src/devices/common/inventory.cpp
+    src/devices/common/safe_outputs.cpp
     src/devices/common/set_confirm.cpp
     src/devices/common/watchdog.cpp
     src/devices/common/watchdog_keepalive.cpp

@@ -16,6 +16,7 @@
 #include "core/host_check.hpp"
 #include "core/runtime_state.hpp"
 #include "crumbs/session.hpp"
+#include "devices/common/adapter_helpers.hpp"
 #include "devices/common/device_type.hpp"
 #include "protocol.pb.h"
 
@@ -110,10 +111,11 @@ TEST(BreadProviderRuntimeTest, ReadDcmtStateThroughCannedBus) {
     auto rt = make_ready_runtime();
 
     // The canned DCMT state is the module major 2 layout, estop_count included.
+    // Startup has stopped its motors (#195).
     const anolis::provider_sdk::AdapterReadResult result = rt.read("dcmt0", {"motor1_value", "estop_count"});
     ASSERT_TRUE(result.ok) << result.error_message;
     ASSERT_EQ(result.values.size(), 2u);
-    EXPECT_EQ(result.values.at(0).value().int64_value(), 100);
+    EXPECT_EQ(result.values.at(0).value().int64_value(), 0);
     EXPECT_EQ(result.values.at(1).signal_id(), "estop_count");
     EXPECT_EQ(result.values.at(1).value().uint64_value(), 0u);
 }
@@ -285,9 +287,11 @@ TEST(BreadProviderRuntimeTest, HealthSkipsWatchdogQueryWhileDeviceIsFailing) {
         return stats.ok + stats.failed;
     };
 
-    // A read with no query pending fails on the canned bus, as a dead bus would.
+    // A query for a reply the canned device has none for fails, as a dead bus
+    // would. (A bare read is no longer enough: the safe outputs' confirmation
+    // leaves a query pending, #195.)
     anolis_provider_bread::crumbs::RawFrame frame;
-    ASSERT_FALSE(session->read(0x09, frame));
+    ASSERT_FALSE(session->query_read(0x09, 0x7E, frame));
     ASSERT_TRUE(session->last_op_failed(0x09));
 
     const auto before = io_count();
@@ -389,4 +393,133 @@ TEST(BreadProviderRuntimeTest, AFailedStartUpLeavesTheProviderUpAndNotReady) {
     EXPECT_EQ(state.startup_message.rfind("start-up failed: failed to open mock CRUMBS bus", 0), 0u)
         << state.startup_message;
     ASSERT_EQ(state.missing_expected_ids.size(), 2u);
+}
+
+// #195: startup drives each device's outputs to safe values, the sequence the
+// bioreactor's safety.safe_state hooks use. The canned devices start with
+// outputs on: a DCMT driving both motors, an RLHT with relay 1 energized.
+namespace {
+
+const anolis::deviceprovider::v1::Value* find_signal(const anolis::provider_sdk::AdapterReadResult& read,
+                                                     const std::string& id) {
+    for (const auto& value : read.values) {
+        if (value.signal_id() == id) {
+            return &value.value();
+        }
+    }
+    return nullptr;
+}
+
+std::string metric(const anolis::provider_sdk::DeviceHealthExtra& health, const std::string& key) {
+    const auto it = health.metrics.find(key);
+    return it == health.metrics.end() ? "(absent)" : it->second;
+}
+
+}  // namespace
+
+TEST(BreadProviderRuntimeTest, StartupLeavesTheMotorsStopped) {
+    auto rt = make_ready_runtime();
+    const auto read = rt.read("dcmt0", {"mode", "motor1_value", "motor2_value"});
+    ASSERT_TRUE(read.ok) << read.error_message;
+    ASSERT_NE(find_signal(read, "mode"), nullptr);
+    EXPECT_EQ(find_signal(read, "mode")->string_value(), "open_loop");
+    EXPECT_EQ(find_signal(read, "motor1_value")->int64_value(), 0);
+    EXPECT_EQ(find_signal(read, "motor2_value")->int64_value(), 0);
+}
+
+TEST(BreadProviderRuntimeTest, StartupLeavesTheHeaterRelaysOff) {
+    auto rt = make_ready_runtime();
+    const auto read = rt.read("rlht0", {"mode", "relay1_on", "relay2_on", "setpoint1_c", "setpoint2_c"});
+    ASSERT_TRUE(read.ok) << read.error_message;
+    ASSERT_NE(find_signal(read, "mode"), nullptr);
+    EXPECT_EQ(find_signal(read, "mode")->string_value(), "open_loop");
+    EXPECT_FALSE(find_signal(read, "relay1_on")->bool_value());
+    EXPECT_FALSE(find_signal(read, "relay2_on")->bool_value());
+    EXPECT_DOUBLE_EQ(find_signal(read, "setpoint1_c")->double_value(), 0.0);
+    EXPECT_DOUBLE_EQ(find_signal(read, "setpoint2_c")->double_value(), 0.0);
+}
+
+TEST(BreadProviderRuntimeTest, HealthSaysTheSafeOutputsWereSet) {
+    const auto rt = make_ready_runtime();
+    EXPECT_EQ(metric(rt.device_health("dcmt0"), "safe_outputs"), "set");
+    EXPECT_EQ(metric(rt.device_health("rlht0"), "safe_outputs"), "set");
+    EXPECT_FALSE(rt.device_health("dcmt0").state.has_value());
+}
+
+TEST(BreadProviderRuntimeTest, ASafeOutputThatCannotBeSetIsAFaultInHealth) {
+    // Every bus operation NAKs, and in mock mode the safe writes are the first.
+    anolis_provider_bread::runtime::reset();
+    auto config = make_mock_config();
+    config.bus_path = "mock://unit-test?nak_every=1";
+    anolis_provider_bread::runtime::initialize(config);
+    const anolis_provider_bread::BreadProviderRuntime rt;
+
+    const auto health = rt.device_health("dcmt0");
+    EXPECT_EQ(metric(health, "safe_outputs").rfind("not set: ", 0), 0u) << metric(health, "safe_outputs");
+    ASSERT_TRUE(health.state.has_value());
+    EXPECT_EQ(*health.state, adpp::DeviceHealth::STATE_FAULT);
+    ASSERT_TRUE(health.message.has_value());
+    EXPECT_NE(health.message->find("safe outputs not set"), std::string::npos) << *health.message;
+    EXPECT_TRUE(anolis_provider_bread::runtime::snapshot().ready);  // still up, and says why
+}
+
+TEST(BreadProviderRuntimeTest, LeaveKeepsTheOutputsAsTheyWere) {
+    anolis_provider_bread::runtime::reset();
+    auto config = make_mock_config();
+    config.outputs_on_startup = anolis_provider_bread::OutputsOnStartup::Leave;
+    anolis_provider_bread::runtime::initialize(config);
+    auto rt = anolis_provider_bread::BreadProviderRuntime{};
+
+    const auto dcmt = rt.read("dcmt0", {"motor1_value"});
+    ASSERT_TRUE(dcmt.ok) << dcmt.error_message;
+    EXPECT_EQ(find_signal(dcmt, "motor1_value")->int64_value(), 100);
+    const auto rlht = rt.read("rlht0", {"relay1_on"});
+    ASSERT_TRUE(rlht.ok) << rlht.error_message;
+    EXPECT_TRUE(find_signal(rlht, "relay1_on")->bool_value());
+    EXPECT_EQ(metric(rt.device_health("dcmt0"), "safe_outputs"), "left");
+    EXPECT_FALSE(rt.device_health("dcmt0").state.has_value());
+}
+
+namespace {
+
+// Starts dcmt0's motors, then fails one operation on it, so the next
+// successful one marks it recovered, as after a reboot or a power cut.
+void run_the_motors_then_lose_contact(anolis_provider_bread::BreadProviderRuntime& rt) {
+    anolis::provider_sdk::ValueMap args;
+    args["motor1_pwm"] = anolis_provider_bread::make_int64_val(80);
+    args["motor2_pwm"] = anolis_provider_bread::make_int64_val(80);
+    const auto started = rt.call("dcmt0", 1u, args);  // set_open_loop
+    ASSERT_TRUE(started.ok) << started.error_message;
+    anolis_provider_bread::crumbs::RawFrame frame;
+    ASSERT_FALSE(anolis_provider_bread::runtime::session()->query_read(0x09, 0x7E, frame));
+}
+
+}  // namespace
+
+TEST(BreadProviderRuntimeTest, ADeviceThatRecoversIsDrivenSafeAgain) {
+    auto rt = make_ready_runtime();
+    run_the_motors_then_lose_contact(rt);
+
+    const ClogCapture log;
+    ASSERT_TRUE(rt.read("dcmt0", {}).ok);  // the recovery
+    const auto after = rt.read("dcmt0", {"motor1_value", "motor2_value"});
+    ASSERT_TRUE(after.ok) << after.error_message;
+    EXPECT_EQ(find_signal(after, "motor1_value")->int64_value(), 0);
+    EXPECT_EQ(find_signal(after, "motor2_value")->int64_value(), 0);
+    EXPECT_NE(log.text().find("dcmt0: outputs set safe after recovery"), std::string::npos) << log.text();
+    EXPECT_EQ(metric(rt.device_health("dcmt0"), "safe_outputs"), "set");
+}
+
+TEST(BreadProviderRuntimeTest, LeaveDoesNotTouchADeviceThatRecovers) {
+    anolis_provider_bread::runtime::reset();
+    auto config = make_mock_config();
+    config.outputs_on_startup = anolis_provider_bread::OutputsOnStartup::Leave;
+    anolis_provider_bread::runtime::initialize(config);
+    auto rt = anolis_provider_bread::BreadProviderRuntime{};
+    run_the_motors_then_lose_contact(rt);
+
+    ASSERT_TRUE(rt.read("dcmt0", {}).ok);  // the recovery
+    const auto after = rt.read("dcmt0", {"motor1_value"});
+    ASSERT_TRUE(after.ok) << after.error_message;
+    EXPECT_EQ(find_signal(after, "motor1_value")->int64_value(), 80);
 }
