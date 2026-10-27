@@ -13,6 +13,20 @@ commit messages only.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Armed board watchdogs are fed until the runtime's first call** (#190).
+  Bread arms each board's command watchdog at the end of discovery, and
+  nothing reached the boards again until the runtime's first read or call.
+  That call waits for every other provider to start: about 4.8-4.9 s of a
+  5000 ms timeout on the reference rig. Arming later would not help, because
+  a board stays armed across a provider restart. From arming, bread now sends
+  each armed device a `GET_WATCHDOG` read every quarter of its timeout, until
+  that device's first `ReadSignals` or `Call`. The log then says how long the
+  call took ("first call N ms after arming"). Feeding stops for every device
+  30 s after arming, with a warning naming the devices still uncalled, so a
+  runtime that never starts calling still lets the boards trip.
+
 ## [0.9.2] - 2026-10-26
 
 ### Fixed

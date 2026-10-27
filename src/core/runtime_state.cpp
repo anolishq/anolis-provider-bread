@@ -26,6 +26,7 @@
 #include "crumbs/session.hpp"
 #include "devices/common/bread_compatibility.hpp"
 #include "devices/common/watchdog.hpp"
+#include "devices/common/watchdog_keepalive.hpp"
 #include "logging/logger.hpp"
 
 #if defined(__linux__)
@@ -42,6 +43,9 @@ RuntimeState g_state;
 // last).
 std::unique_ptr<crumbs::Transport> g_transport;
 std::unique_ptr<crumbs::Session> g_session;
+// Feeds g_session's armed watchdogs until the runtime's first call (#190).
+// Stopped before the session it uses is destroyed.
+std::unique_ptr<watchdog::Keepalive> g_keepalive;
 
 bool is_mock_mode(const ProviderConfig &config) { return config.bus_path.rfind("mock://", 0) == 0; }
 
@@ -72,12 +76,15 @@ void publish_not_ready(RuntimeState state, const std::string &reason) {
 
     std::unique_ptr<crumbs::Session> old_session;
     std::unique_ptr<crumbs::Transport> old_transport;
+    std::unique_ptr<watchdog::Keepalive> old_keepalive;
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_state = std::move(state);
+        old_keepalive = std::move(g_keepalive);
         old_session = std::move(g_session);
         old_transport = std::move(g_transport);
     }
+    old_keepalive.reset();
 }
 
 }  // namespace
@@ -87,12 +94,15 @@ void reset() {
     // does not block unrelated snapshot readers longer than necessary.
     std::unique_ptr<crumbs::Session> old_session;
     std::unique_ptr<crumbs::Transport> old_transport;
+    std::unique_ptr<watchdog::Keepalive> old_keepalive;
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_state = RuntimeState{};
+        old_keepalive = std::move(g_keepalive);
         old_session = std::move(g_session);
         old_transport = std::move(g_transport);
     }
+    old_keepalive.reset();
     // old_session destroyed first (stack unwind order), then old_transport.
     // Correct.
 }
@@ -137,6 +147,7 @@ void initialize_until(const ProviderConfig &config,
         for (const auto &device : discovery.devices) {
             watchdog::arm_if_configured(*sess, device, "startup");
         }
+        auto keepalive = std::make_unique<watchdog::Keepalive>(*sess, discovery.devices);
 
         state.devices = std::move(discovery.devices);
         state.inventory_mode = discovery.inventory_mode;
@@ -153,16 +164,21 @@ void initialize_until(const ProviderConfig &config,
 
         std::unique_ptr<crumbs::Session> old_session;
         std::unique_ptr<crumbs::Transport> old_transport;
+        std::unique_ptr<watchdog::Keepalive> old_keepalive;
+        keepalive->start();
         {
             // Publish the new runtime snapshot and its session together so callers
             // do not see a new inventory with an old session, or vice versa.
             std::lock_guard<std::mutex> lock(g_mutex);
             g_state = std::move(state);
+            old_keepalive = std::move(g_keepalive);
             old_session = std::move(g_session);
             old_transport = std::move(g_transport);
             g_session = std::move(sess);
             g_transport = std::move(transport);
+            g_keepalive = std::move(keepalive);
         }
+        old_keepalive.reset();
         // Old session/transport destroyed here, outside the lock.
         return;
     }
@@ -205,17 +221,23 @@ void initialize_until(const ProviderConfig &config,
     for (const auto &device : state.devices) {
         watchdog::arm_if_configured(*sess, device, "startup");
     }
+    auto keepalive = std::make_unique<watchdog::Keepalive>(*sess, state.devices);
 
     std::unique_ptr<crumbs::Session> old_session;
     std::unique_ptr<crumbs::Transport> old_transport;
+    std::unique_ptr<watchdog::Keepalive> old_keepalive;
+    keepalive->start();
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_state = std::move(state);
+        old_keepalive = std::move(g_keepalive);
         old_session = std::move(g_session);
         old_transport = std::move(g_transport);
         g_session = std::move(sess);
         g_transport = std::move(transport);
+        g_keepalive = std::move(keepalive);
     }
+    old_keepalive.reset();
     // Old session/transport destroyed here, outside the lock.
 }
 
@@ -244,6 +266,13 @@ RuntimeState snapshot() {
 crumbs::Session *session() {
     std::lock_guard<std::mutex> lock(g_mutex);
     return g_session.get();
+}
+
+void note_contact(const std::string &device_id) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (g_keepalive) {
+        g_keepalive->contacted(device_id);
+    }
 }
 
 }  // namespace anolis_provider_bread::runtime

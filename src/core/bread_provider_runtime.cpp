@@ -231,6 +231,7 @@ sdk::AdapterReadResult BreadProviderRuntime::read(const std::string& device_id,
     if (device == nullptr) {
         return {false, adpp::Status::CODE_NOT_FOUND, "unknown device_id", {}};
     }
+    runtime::note_contact(device_id);
     crumbs::Session* session = runtime::session();
     if (session == nullptr) {
         return {false,
@@ -260,6 +261,7 @@ sdk::AdapterCallResult BreadProviderRuntime::call(const std::string& device_id, 
     if (device == nullptr) {
         return sdk::call_not_found("unknown device_id");
     }
+    runtime::note_contact(device_id);
     // The SDK already resolved §6.2 (function_id is final); verify it exists.
     if (!inventory::function_exists(*device, function_id, "")) {
         return sdk::call_not_found("unknown function_id");
