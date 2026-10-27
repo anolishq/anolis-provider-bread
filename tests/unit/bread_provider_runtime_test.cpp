@@ -390,3 +390,71 @@ TEST(BreadProviderRuntimeTest, AFailedStartUpLeavesTheProviderUpAndNotReady) {
         << state.startup_message;
     ASSERT_EQ(state.missing_expected_ids.size(), 2u);
 }
+
+// #195: startup drives each device's outputs to safe values, the sequence the
+// bioreactor's safety.safe_state hooks use. The canned devices start with
+// outputs on: a DCMT driving both motors, an RLHT with relay 1 energized.
+namespace {
+
+const anolis::deviceprovider::v1::Value* find_signal(const anolis::provider_sdk::AdapterReadResult& read,
+                                                     const std::string& id) {
+    for (const auto& value : read.values) {
+        if (value.signal_id() == id) {
+            return &value.value();
+        }
+    }
+    return nullptr;
+}
+
+std::string metric(const anolis::provider_sdk::DeviceHealthExtra& health, const std::string& key) {
+    const auto it = health.metrics.find(key);
+    return it == health.metrics.end() ? "(absent)" : it->second;
+}
+
+}  // namespace
+
+TEST(BreadProviderRuntimeTest, StartupLeavesTheMotorsStopped) {
+    auto rt = make_ready_runtime();
+    const auto read = rt.read("dcmt0", {"mode", "motor1_value", "motor2_value"});
+    ASSERT_TRUE(read.ok) << read.error_message;
+    ASSERT_NE(find_signal(read, "mode"), nullptr);
+    EXPECT_EQ(find_signal(read, "mode")->string_value(), "open_loop");
+    EXPECT_EQ(find_signal(read, "motor1_value")->int64_value(), 0);
+    EXPECT_EQ(find_signal(read, "motor2_value")->int64_value(), 0);
+}
+
+TEST(BreadProviderRuntimeTest, StartupLeavesTheHeaterRelaysOff) {
+    auto rt = make_ready_runtime();
+    const auto read = rt.read("rlht0", {"mode", "relay1_on", "relay2_on", "setpoint1_c", "setpoint2_c"});
+    ASSERT_TRUE(read.ok) << read.error_message;
+    ASSERT_NE(find_signal(read, "mode"), nullptr);
+    EXPECT_EQ(find_signal(read, "mode")->string_value(), "open_loop");
+    EXPECT_FALSE(find_signal(read, "relay1_on")->bool_value());
+    EXPECT_FALSE(find_signal(read, "relay2_on")->bool_value());
+    EXPECT_DOUBLE_EQ(find_signal(read, "setpoint1_c")->double_value(), 0.0);
+    EXPECT_DOUBLE_EQ(find_signal(read, "setpoint2_c")->double_value(), 0.0);
+}
+
+TEST(BreadProviderRuntimeTest, HealthSaysTheSafeOutputsWereSet) {
+    const auto rt = make_ready_runtime();
+    EXPECT_EQ(metric(rt.device_health("dcmt0"), "safe_outputs"), "set");
+    EXPECT_EQ(metric(rt.device_health("rlht0"), "safe_outputs"), "set");
+    EXPECT_FALSE(rt.device_health("dcmt0").state.has_value());
+}
+
+TEST(BreadProviderRuntimeTest, ASafeOutputThatCannotBeSetIsAFaultInHealth) {
+    // Every bus operation NAKs, and in mock mode the safe writes are the first.
+    anolis_provider_bread::runtime::reset();
+    auto config = make_mock_config();
+    config.bus_path = "mock://unit-test?nak_every=1";
+    anolis_provider_bread::runtime::initialize(config);
+    const anolis_provider_bread::BreadProviderRuntime rt;
+
+    const auto health = rt.device_health("dcmt0");
+    EXPECT_EQ(metric(health, "safe_outputs").rfind("not set: ", 0), 0u) << metric(health, "safe_outputs");
+    ASSERT_TRUE(health.state.has_value());
+    EXPECT_EQ(*health.state, adpp::DeviceHealth::STATE_FAULT);
+    ASSERT_TRUE(health.message.has_value());
+    EXPECT_NE(health.message->find("safe outputs not set"), std::string::npos) << *health.message;
+    EXPECT_TRUE(anolis_provider_bread::runtime::snapshot().ready);  // still up, and says why
+}
