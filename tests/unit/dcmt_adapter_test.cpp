@@ -657,5 +657,70 @@ TEST_F(DcmtAdapterTest, Call_ClearWatchdogTrip_SendsEmptyClearFrame) {
     EXPECT_TRUE(frame.payload.empty());
 }
 
+// ---------------------------------------------------------------------------
+// #202: a motor command to a motor whose brake is engaged is refused
+// ---------------------------------------------------------------------------
+
+const crumbs::RawFrame *sent_with_opcode(const AdapterTestTransport &transport, uint8_t opcode) {
+    for (const auto &[address, frame] : transport.sent_frames) {
+        if (frame.opcode == opcode) {
+            return &frame;
+        }
+    }
+    return nullptr;
+}
+
+TEST_F(DcmtAdapterTest, Call_SetOpenLoop_RefusedWhileThatMotorsBrakeIsEngaged) {
+    script_state_reply(make_open_loop_payload(0, 0, 0x02u, 0u));  // motor2 braked
+    const auto result =
+        call(session, device, 1u, make_args({{"motor1_pwm", make_int64_val(0)}, {"motor2_pwm", make_int64_val(120)}}));
+
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_FAILED_PRECONDITION);
+    EXPECT_NE(result.error_message.find("motor2"), std::string::npos) << result.error_message;
+    EXPECT_NE(result.error_message.find("set_brake"), std::string::npos) << result.error_message;
+    EXPECT_EQ(sent_with_opcode(transport, DCMT_OP_SET_OPEN_LOOP), nullptr);
+}
+
+TEST_F(DcmtAdapterTest, Call_SetSetpoint_RefusedWhileThatMotorsBrakeIsEngaged) {
+    script_state_reply(make_closed_speed_payload(0, 0, 0, 0, 0x01u, 0u));  // motor1 braked
+    const auto result = call(session, device, 4u,
+                             make_args({{"motor1_target", make_int64_val(500)}, {"motor2_target", make_int64_val(0)}}));
+
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_FAILED_PRECONDITION);
+    EXPECT_NE(result.error_message.find("motor1"), std::string::npos) << result.error_message;
+    EXPECT_EQ(sent_with_opcode(transport, DCMT_OP_SET_SETPOINT), nullptr);
+}
+
+TEST_F(DcmtAdapterTest, Call_SetOpenLoop_ZeroIsSentWhileBraked) {
+    // A stop must always go out: safe states and mode hooks send zeros.
+    script_state_reply(make_open_loop_payload(0, 0, 0x03u, 0u));
+    const auto result =
+        call(session, device, 1u, make_args({{"motor1_pwm", make_int64_val(0)}, {"motor2_pwm", make_int64_val(0)}}));
+
+    EXPECT_TRUE(result.ok) << result.error_message;
+    EXPECT_NE(sent_with_opcode(transport, DCMT_OP_SET_OPEN_LOOP), nullptr);
+}
+
+TEST_F(DcmtAdapterTest, Call_SetOpenLoop_TheOtherMotorIsNotHeldByThisBrake) {
+    script_state_reply(make_open_loop_payload(0, 0, 0x02u, 0u));  // only motor2 braked
+    const auto result =
+        call(session, device, 1u, make_args({{"motor1_pwm", make_int64_val(100)}, {"motor2_pwm", make_int64_val(0)}}));
+
+    EXPECT_TRUE(result.ok) << result.error_message;
+    EXPECT_NE(sent_with_opcode(transport, DCMT_OP_SET_OPEN_LOOP), nullptr);
+}
+
+TEST_F(DcmtAdapterTest, Call_SetOpenLoop_SentWhenTheStateCannotBeRead) {
+    // No GET_STATE reply is scripted: the check cannot tell, so the command
+    // goes out as it did before the check.
+    const auto result =
+        call(session, device, 1u, make_args({{"motor1_pwm", make_int64_val(100)}, {"motor2_pwm", make_int64_val(0)}}));
+
+    EXPECT_TRUE(result.ok) << result.error_message;
+    EXPECT_NE(sent_with_opcode(transport, DCMT_OP_SET_OPEN_LOOP), nullptr);
+}
+
 }  // namespace
 }  // namespace anolis_provider_bread::dcmt
