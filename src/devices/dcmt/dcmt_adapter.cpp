@@ -306,6 +306,34 @@ AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args, crumbs
 
 AdapterCallResult transmit(crumbs::Session &session, const inventory::InventoryDevice &device,
                            const crumbs::RawFrame &frame) {
+    // A nonzero motor command to a motor whose brake is engaged would be
+    // confirmed and move nothing (#202): read the brakes first and refuse it.
+    // A zero command always goes out, since safe states and mode hooks stop
+    // motors that way. If the state can't be read, the command goes out as it
+    // did before: this check says why nothing moves, it isn't an interlock.
+    if (frame.opcode == DCMT_OP_SET_OPEN_LOOP || frame.opcode == DCMT_OP_SET_SETPOINT) {
+        int16_t command1 = 0, command2 = 0;
+        crumbs::RawFrame state_frame;
+        DcmtState state;
+        if (read_i16_le(frame.payload, 0u, command1) && read_i16_le(frame.payload, 2u, command2) &&
+            (command1 != 0 || command2 != 0) &&
+            session.query_read(static_cast<uint8_t>(device.address), DCMT_OP_GET_STATE, state_frame).ok() &&
+            state_frame.type_id == DCMT_TYPE_ID && state_frame.opcode == DCMT_OP_GET_STATE &&
+            parse_state(state_frame.payload, state)) {
+            for (const int motor : {1, 2}) {
+                const int16_t command = motor == 1 ? command1 : command2;
+                const bool braked = (state.brakes & (motor == 1 ? 0x01u : 0x02u)) != 0u;
+                if (command != 0 && braked) {
+                    const std::string m = "motor" + std::to_string(motor);
+                    std::string message = m;
+                    message += " brake is engaged, so the command would not move it; release it first with set_brake (";
+                    message += m;
+                    message += "_brake: false)";
+                    return {false, anolis::deviceprovider::v1::Status::CODE_FAILED_PRECONDITION, message};
+                }
+            }
+        }
+    }
     // A device without encoders offers no closed-loop modes (#179); refuse
     // them here too, so a direct set_mode call cannot enter one.
     if (!device.encoders && frame.opcode == DCMT_OP_SET_MODE && !frame.payload.empty() &&
