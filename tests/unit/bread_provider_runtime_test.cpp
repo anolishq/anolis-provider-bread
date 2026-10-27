@@ -3,8 +3,11 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <iostream>
 #include <optional>
+#include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "anolis/provider_sdk/host_check.hpp"
@@ -43,6 +46,20 @@ anolis_provider_bread::ProviderConfig make_mock_config() {
     };
     return config;
 }
+
+// Collects what the provider logs at info/warning level (std::clog).
+class ClogCapture {
+public:
+    ClogCapture() : saved_(std::clog.rdbuf(captured_.rdbuf())) {}
+    ~ClogCapture() { std::clog.rdbuf(saved_); }
+    ClogCapture(const ClogCapture&) = delete;
+    ClogCapture& operator=(const ClogCapture&) = delete;
+    std::string text() const { return captured_.str(); }
+
+private:
+    std::ostringstream captured_;
+    std::streambuf* saved_;
+};
 
 anolis_provider_bread::BreadProviderRuntime make_ready_runtime() {
     anolis_provider_bread::runtime::reset();
@@ -141,6 +158,72 @@ TEST(BreadProviderRuntimeTest, ClearWatchdogTripCallableOnlyWhereAdvertised) {
     // rejected rather than sent.
     EXPECT_FALSE(rt.resolve_function_id("rlht0", "clear_watchdog_trip").has_value());
     EXPECT_EQ(rt.call("rlht0", 7, {}).error_code, adpp::Status::CODE_NOT_FOUND);
+}
+
+// #190: the boards are fed from arming until the runtime's first read or call
+// of each device, which ends the feeding and logs how long it took.
+TEST(BreadProviderRuntimeTest, FirstReadEndsTheWatchdogKeepalive) {
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 5000;  // dcmt0
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+    anolis_provider_bread::BreadProviderRuntime rt;
+
+    std::string log;
+    {
+        const ClogCapture capture;
+        ASSERT_TRUE(rt.read("dcmt0", {}).ok);
+        ASSERT_TRUE(rt.read("dcmt0", {}).ok);
+        log = capture.text();
+    }
+    const std::string line = "watchdog: dcmt0 (0x09) first call ";
+    ASSERT_NE(log.find(line), std::string::npos) << log;
+    EXPECT_EQ(log.find(line, log.find(line) + 1), std::string::npos) << log;
+    EXPECT_NE(log.find("fed every 1250 ms until then"), std::string::npos) << log;
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, ArmedBoardsAreFedUntilTheFirstRead) {
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 40;  // dcmt0: fed every 10 ms
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+    anolis_provider_bread::BreadProviderRuntime rt;
+    anolis_provider_bread::crumbs::Session* session = anolis_provider_bread::runtime::session();
+    ASSERT_NE(session, nullptr);
+
+    // Nothing but the keepalive talks to the bus here.
+    const uint64_t at_start = session->stats_for(0x09).ok;
+    std::this_thread::sleep_for(std::chrono::milliseconds{200});
+    EXPECT_GE(session->stats_for(0x09).ok, at_start + 2);
+
+    ASSERT_TRUE(rt.read("dcmt0", {}).ok);
+    const uint64_t after_read = session->stats_for(0x09).ok;
+    std::this_thread::sleep_for(std::chrono::milliseconds{60});
+    EXPECT_EQ(session->stats_for(0x09).ok, after_read) << "the first read ends the feeding";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, FirstCallEndsTheWatchdogKeepalive) {
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 5000;  // dcmt0
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+    anolis_provider_bread::BreadProviderRuntime rt;
+    const auto clear = rt.resolve_function_id("dcmt0", "clear_watchdog_trip");
+    ASSERT_TRUE(clear.has_value());
+
+    std::string log;
+    {
+        const ClogCapture capture;
+        ASSERT_TRUE(rt.call("dcmt0", *clear, {}).ok);
+        log = capture.text();
+    }
+    EXPECT_NE(log.find("watchdog: dcmt0 (0x09) first call "), std::string::npos) << log;
+
+    anolis_provider_bread::runtime::reset();
 }
 
 TEST(BreadProviderRuntimeTest, SeededHealthOmitsModuleVersion) {
