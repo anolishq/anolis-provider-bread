@@ -257,6 +257,22 @@ On older firmware, or when the GET_ACK read succeeded and the write then failed,
 
 The ADPP client receives an error status on the `Call` RPC.
 
+### A DCMT motor command refused: brake engaged
+
+A nonzero `set_open_loop` PWM or `set_setpoint` target for a motor whose brake
+is engaged is refused with `CODE_FAILED_PRECONDITION`:
+
+```text
+motor2 brake is engaged, so the command would not move it; release it first with set_brake (motor2_brake: false)
+```
+
+A watchdog trip engages both brakes, and `clear_watchdog_trip` leaves them
+engaged, so this is the usual state after downtime. Call `set_brake` with that
+motor's brake `false`, then send the command again. Before each nonzero motor
+command, the provider reads the board's state (one GET_STATE) to check the
+brakes. A zero command is always sent, and so is any command when that read
+fails.
+
 ### Common session error codes and fixes
 
 | Code | Meaning | Fix |

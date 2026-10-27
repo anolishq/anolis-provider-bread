@@ -13,6 +13,16 @@ commit messages only.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A DCMT motor command is refused while that motor's brake is engaged**
+  (#202). A nonzero `set_open_loop` PWM or `set_setpoint` target for a
+  braked motor was confirmed OK and moved nothing. It is now refused with
+  `CODE_FAILED_PRECONDITION`, naming the motor and `set_brake`. The provider
+  reads the board's state before each nonzero motor command. A zero command
+  is always sent, so safe states and mode hooks are unaffected, and so is a
+  command whose state read fails.
+
 ## [0.9.3] - 2026-10-27
 
 ### Fixed

@@ -106,6 +106,17 @@ static std::vector<uint8_t> make_closed_speed_payload(int16_t sp1, int16_t sp2, 
     return make_state_payload(DCMT_MODE_CLOSED_SPEED, 0, 0, sp1, sp2, 0, 0, spd1, spd2, brakes, estop);
 }
 
+// The first frame sent with `opcode`, or null: a motor command reads the
+// board's state before it sends, so the SET is not always the first frame.
+const crumbs::RawFrame *sent_with_opcode(const AdapterTestTransport &transport, uint8_t opcode) {
+    for (const auto &[address, frame] : transport.sent_frames) {
+        if (frame.opcode == opcode) {
+            return &frame;
+        }
+    }
+    return nullptr;
+}
+
 // ---------------------------------------------------------------------------
 // Test fixture
 // ---------------------------------------------------------------------------
@@ -422,7 +433,9 @@ TEST_F(DcmtAdapterTest, Call_SetOpenLoop_SendsCorrectPayload) {
     const auto result = call(session, device, 1u, args);
 
     ASSERT_TRUE(result.ok) << result.error_message;
-    const auto &f = transport.sent_frames.at(0).second;
+    const crumbs::RawFrame *sent = sent_with_opcode(transport, DCMT_OP_SET_OPEN_LOOP);
+    ASSERT_NE(sent, nullptr);
+    const auto &f = *sent;
     EXPECT_EQ(f.type_id, static_cast<uint8_t>(DCMT_TYPE_ID));
     EXPECT_EQ(f.opcode, static_cast<uint8_t>(DCMT_OP_SET_OPEN_LOOP));
     ASSERT_EQ(f.payload.size(), 4u);
@@ -512,7 +525,9 @@ TEST_F(DcmtAdapterTest, Call_SetSetpoint_SendsCorrectPayload) {
     const auto result = call(session, device, 4u, args);
 
     ASSERT_TRUE(result.ok);
-    const auto &payload = transport.sent_frames.at(0).second.payload;
+    const crumbs::RawFrame *sent = sent_with_opcode(transport, DCMT_OP_SET_SETPOINT);
+    ASSERT_NE(sent, nullptr);
+    const auto &payload = sent->payload;
     ASSERT_EQ(payload.size(), 4u);
 
     int16_t t1 = 0, t2 = 0;
@@ -660,15 +675,6 @@ TEST_F(DcmtAdapterTest, Call_ClearWatchdogTrip_SendsEmptyClearFrame) {
 // ---------------------------------------------------------------------------
 // #202: a motor command to a motor whose brake is engaged is refused
 // ---------------------------------------------------------------------------
-
-const crumbs::RawFrame *sent_with_opcode(const AdapterTestTransport &transport, uint8_t opcode) {
-    for (const auto &[address, frame] : transport.sent_frames) {
-        if (frame.opcode == opcode) {
-            return &frame;
-        }
-    }
-    return nullptr;
-}
 
 TEST_F(DcmtAdapterTest, Call_SetOpenLoop_RefusedWhileThatMotorsBrakeIsEngaged) {
     script_state_reply(make_open_loop_payload(0, 0, 0x02u, 0u));  // motor2 braked
