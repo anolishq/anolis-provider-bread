@@ -38,33 +38,48 @@ void append_u16_le(std::vector<uint8_t> &out, uint16_t value) {
 
 void append_i16_le(std::vector<uint8_t> &out, int16_t value) { append_u16_le(out, static_cast<uint16_t>(value)); }
 
-// RLHT GET_STATE: open-loop, relay 1 energized, two warm channels. 19 bytes,
-// matching rlht_adapter.cpp parse_state (moved verbatim from the former
-// MockTransport so mock values are unchanged).
-std::vector<uint8_t> build_rlht_state_payload() {
+uint16_t read_u16_le(const uint8_t *data) {
+    return static_cast<uint16_t>(data[0] | (static_cast<uint16_t>(data[1]) << 8));
+}
+
+int16_t read_i16_le(const uint8_t *data) { return static_cast<int16_t>(read_u16_le(data)); }
+
+}  // namespace
+
+// RLHT GET_STATE: two warm channels, and the mode, setpoints and on-times the
+// device holds; a relay is energized while its channel has on-time. 19 bytes,
+// matching rlht_adapter.cpp parse_state. Seeded open-loop with relay 1 on.
+std::vector<uint8_t> CrumbsCannedBus::build_rlht_state_payload(const DeviceState &dev) {
     std::vector<uint8_t> p;
-    append_u8(p, RLHT_MODE_OPEN_LOOP);
-    append_u8(p, RLHT_FLAG_RELAY1_ON);
+    append_u8(p, dev.rlht_mode);
+    uint8_t flags = 0;
+    if (dev.rlht_on1_ms > 0) {
+        flags |= RLHT_FLAG_RELAY1_ON;
+    }
+    if (dev.rlht_on2_ms > 0) {
+        flags |= RLHT_FLAG_RELAY2_ON;
+    }
+    append_u8(p, flags);
     append_i16_le(p, 250);
     append_i16_le(p, 255);
-    append_i16_le(p, 300);
-    append_i16_le(p, 300);
-    append_u16_le(p, 0);
-    append_u16_le(p, 0);
-    append_u16_le(p, 1000);
-    append_u16_le(p, 1000);
+    append_i16_le(p, dev.rlht_sp1_deci_c);
+    append_i16_le(p, dev.rlht_sp2_deci_c);
+    append_u16_le(p, dev.rlht_on1_ms);
+    append_u16_le(p, dev.rlht_on2_ms);
+    append_u16_le(p, dev.rlht_period1_ms);
+    append_u16_le(p, dev.rlht_period2_ms);
     append_u8(p, 0);
     return p;
 }
 
-// DCMT GET_STATE: open-loop, motors driven, brakes released, no e-stop
-// presses. 20 bytes, DCMT_STATE_FIXED_LEN (module major 2), matching
-// dcmt_adapter.cpp parse_state.
-std::vector<uint8_t> build_dcmt_state_payload() {
+// DCMT GET_STATE: the mode and open-loop PWM the device holds, brakes
+// released, no e-stop presses. 20 bytes, DCMT_STATE_FIXED_LEN (module major
+// 2), matching dcmt_adapter.cpp parse_state. Seeded driving both motors.
+std::vector<uint8_t> CrumbsCannedBus::build_dcmt_state_payload(const DeviceState &dev) {
     std::vector<uint8_t> p;
-    append_u8(p, DCMT_MODE_OPEN_LOOP);
-    append_i16_le(p, 100);
-    append_i16_le(p, -100);
+    append_u8(p, dev.dcmt_mode);
+    append_i16_le(p, dev.dcmt_m1_pwm);
+    append_i16_le(p, dev.dcmt_m2_pwm);
     append_i16_le(p, BREAD_INVALID_I16);
     append_i16_le(p, BREAD_INVALID_I16);
     append_i16_le(p, 0);
@@ -76,6 +91,8 @@ std::vector<uint8_t> build_dcmt_state_payload() {
     append_u8(p, 0);  // estop_count
     return p;
 }
+
+namespace {
 
 std::vector<uint8_t> build_watchdog_payload(uint16_t timeout_ms, bool tripped, uint8_t trip_count) {
     std::vector<uint8_t> p;
@@ -180,7 +197,20 @@ void CrumbsCannedBus::apply_write(uint8_t address, const uint8_t *tx_data, size_
         return;
     }
 
-    if (message.opcode == BREAD_OP_SET_WATCHDOG && message.data_len >= 2) {
+    if (dev.type_id == DCMT_TYPE_ID && message.opcode == DCMT_OP_SET_OPEN_LOOP && message.data_len >= 4) {
+        dev.dcmt_m1_pwm = read_i16_le(message.data);
+        dev.dcmt_m2_pwm = read_i16_le(message.data + 2);
+    } else if (dev.type_id == DCMT_TYPE_ID && message.opcode == DCMT_OP_SET_MODE && message.data_len >= 1) {
+        dev.dcmt_mode = message.data[0];
+    } else if (dev.type_id == RLHT_TYPE_ID && message.opcode == RLHT_OP_SET_MODE && message.data_len >= 1) {
+        dev.rlht_mode = message.data[0];
+    } else if (dev.type_id == RLHT_TYPE_ID && message.opcode == RLHT_OP_SET_SETPOINTS && message.data_len >= 4) {
+        dev.rlht_sp1_deci_c = read_i16_le(message.data);
+        dev.rlht_sp2_deci_c = read_i16_le(message.data + 2);
+    } else if (dev.type_id == RLHT_TYPE_ID && message.opcode == RLHT_OP_SET_OPEN_DUTY && message.data_len >= 2) {
+        dev.rlht_on1_ms = static_cast<uint16_t>(dev.rlht_period1_ms * message.data[0] / 100u);
+        dev.rlht_on2_ms = static_cast<uint16_t>(dev.rlht_period2_ms * message.data[1] / 100u);
+    } else if (message.opcode == BREAD_OP_SET_WATCHDOG && message.data_len >= 2) {
         it->second.watchdog_timeout_ms =
             static_cast<uint16_t>(message.data[0] | (static_cast<uint16_t>(message.data[1]) << 8));
     } else if (message.opcode == BREAD_OP_CLEAR_WATCHDOG_TRIP &&
@@ -209,9 +239,9 @@ I2cStatus CrumbsCannedBus::emit_reply(uint8_t address, uint8_t *rx_data, size_t 
     reply.opcode = dev.pending_reply_opcode;
     std::vector<uint8_t> payload;
     if (dev.type_id == RLHT_TYPE_ID && dev.pending_reply_opcode == RLHT_OP_GET_STATE) {
-        payload = build_rlht_state_payload();
+        payload = build_rlht_state_payload(dev);
     } else if (dev.type_id == DCMT_TYPE_ID && dev.pending_reply_opcode == DCMT_OP_GET_STATE) {
-        payload = build_dcmt_state_payload();
+        payload = build_dcmt_state_payload(dev);
     } else if (dev.pending_reply_opcode == BREAD_OP_GET_WATCHDOG) {
         payload = build_watchdog_payload(dev.watchdog_timeout_ms, dev.watchdog_tripped, dev.watchdog_trip_count);
     } else if (dev.pending_reply_opcode == CRUMBS_CMD_GET_ACK) {
