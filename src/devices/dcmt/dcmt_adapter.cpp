@@ -325,10 +325,11 @@ AdapterCallResult transmit(crumbs::Session &session, const inventory::InventoryD
                 const bool braked = (state.brakes & (motor == 1 ? 0x01u : 0x02u)) != 0u;
                 if (command != 0 && braked) {
                     const std::string m = "motor" + std::to_string(motor);
-                    return {
-                        false, anolis::deviceprovider::v1::Status::CODE_FAILED_PRECONDITION,
-                        m + " brake is engaged, so the command would not move it; release it first with set_brake (" +
-                            m + "_brake: false)"};
+                    std::string message = m;
+                    message += " brake is engaged, so the command would not move it; release it first with set_brake (";
+                    message += m;
+                    message += "_brake: false)";
+                    return {false, anolis::deviceprovider::v1::Status::CODE_FAILED_PRECONDITION, message};
                 }
             }
         }
