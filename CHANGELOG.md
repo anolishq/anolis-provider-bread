@@ -13,6 +13,8 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-10-27
+
 ### Fixed
 
 - **Armed board watchdogs are fed until the runtime's first call** (#190).
@@ -26,6 +28,16 @@ commit messages only.
   call took ("first call N ms after arming"). Feeding stops for every device
   30 s after arming, with a warning naming the devices still uncalled, so a
   runtime that never starts calling still lets the boards trip.
+
+### CI
+
+- Each Linux lane uploads its provider build as an artifact (#194); routine
+  dependency maintenance.
+
+### Docs
+
+- Statements the source contradicted are corrected in the README and the
+  build, troubleshooting and versioning docs (#196).
 
 ## [0.9.2] - 2026-10-26
 
