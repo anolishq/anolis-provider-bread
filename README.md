@@ -35,6 +35,8 @@ curl -fsSL "https://github.com/anolishq/anolis-provider-bread/releases/download/
 Provider-bread is started by the Anolis runtime as a subprocess — it is not run directly.
 Point your [`anolis`](https://github.com/anolishq/anolis/releases/latest) runtime config at it:
 
+<!-- validate: runtime-config -->
+
 ```yaml
 # in your anolis-runtime.yaml providers section:
 providers:
