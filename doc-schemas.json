@@ -1,0 +1,7 @@
+{
+  "schemas": {
+    "runtime-config": {
+      "url": "https://raw.githubusercontent.com/anolishq/anolis/v0.2.0/schemas/runtime/runtime-config.schema.json"
+    }
+  }
+}
