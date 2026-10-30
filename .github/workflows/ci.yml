@@ -53,7 +53,8 @@ jobs:
               - '**/*.hxx'
               - '.clang-tidy'
       # What the docs check lints and link-checks (docs/**, root *.md), plus its
-      # config, so the docs gate skips (and ok stays green) on PRs that touch none.
+      # config and the list of schemas it validates config blocks against, so the
+      # docs gate skips (and ok stays green) on PRs that touch none.
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: docsfilter
         with:
@@ -63,6 +64,7 @@ jobs:
               - '*.md'
               - '.markdownlint.jsonc'
               - '.github/workflows/ci.yml'
+              - 'doc-schemas.json'
 
   docs:
     name: Docs
