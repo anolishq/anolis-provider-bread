@@ -153,3 +153,21 @@ For hardware path issues, match the `[WARN]` / `[ERROR]` probe lines against [do
 
 A `mock://...` `bus_path` runs the provider without I2C hardware (config-seeded inventory).
 If a hardware-path behavior is hard to reproduce, first verify the same path through a `mock://` config-seeded inventory before debugging hardware specifically.
+
+## External contributions
+
+We welcome contributions from people using the project or genuinely interested
+in becoming involved.
+
+Before implementing changes, prospective contributors should engage through an
+issue or discussion, explain the problem or proposed improvement, and coordinate
+with maintainers.
+
+Open issues are not automatically invitations to submit implementations.
+Unsolicited pull requests from accounts without prior project involvement or
+maintainer coordination may be closed without review.
+
+Automated contribution farming, mass-submitted PRs, and superficial changes
+intended primarily to build contribution history are not accepted. AI-assisted
+contributions are welcome when contributors understand, validate, and take
+responsibility for their work.
