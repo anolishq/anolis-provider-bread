@@ -13,6 +13,13 @@ commit messages only.
 
 ## [Unreleased]
 
+### Changed
+
+- CI conformance harness: anolis-protocol 1.8.0 -> 1.9.0, which gates
+  `GetHealth`, fails a crash on `--config-schema` or `--check-host`, checks
+  Hello/manifest level agreement at L1 and checks that `--check-config` rejects
+  an invalid config.
+
 ## [0.10.0] - 2026-10-27
 
 0.10.0 is a minor release because an existing config behaves differently on
