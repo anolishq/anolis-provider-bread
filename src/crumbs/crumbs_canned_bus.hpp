@@ -24,9 +24,10 @@
  *     CRUMBS 0.16 peripheral counts it: applied, or refused, rejected or lost
  *     where a test injects that;
  *   - an applied output SET changes what GET_STATE reports: DCMT mode and
- *     open-loop PWM, RLHT mode, setpoints and open-loop duty, with each relay
- *     flag following its channel's on-time. Each device starts with outputs on
- *     (DCMT driving both motors, RLHT relay 1 energized), so a test can show
+ *     open-loop PWM, RLHT mode, setpoints, open-loop duty and thermocouple
+ *     selection, with each relay flag following its channel's on-time. Each
+ *     device starts with outputs on (DCMT driving both motors, RLHT relay 1
+ *     energized), so a test can show
  *     them turned off (anolishq/anolis-provider-bread#195).
  *
  * Seed device types with `add_device` before opening (as `MockTransport` did).
@@ -124,6 +125,9 @@ private:
         uint16_t rlht_on2_ms = 0;
         uint16_t rlht_period1_ms = 1000;
         uint16_t rlht_period2_ms = 1000;
+        // Slice_RLHT boots with channel 1 on thermocouple 1 and channel 2 on 2.
+        uint8_t rlht_tc1 = 1;
+        uint8_t rlht_tc2 = 2;
     };
 
     static std::vector<uint8_t> build_rlht_state_payload(const DeviceState &dev);

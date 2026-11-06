@@ -126,6 +126,54 @@ TEST_F(CannedOutputsTest, AnRlhtReportsTheModeAndSetpointsItIsSent) {
     EXPECT_DOUBLE_EQ(signal(after, "setpoint2_c").double_value(), 12.5);
 }
 
+// #222: the on-times and thermocouple selections come from the same GET_STATE
+// read as the other RLHT signals, through the real CRUMBS decode.
+TEST_F(CannedOutputsTest, AnRlhtReportsItsOnTimesAndTheThermocouplesItIsSent) {
+    const std::vector<std::string> ids = {"on1_ms", "on2_ms", "channel1_thermocouple", "channel2_thermocouple"};
+    AdapterReadResult before = rlht::read_signals(*session, rlht, ids);
+    ASSERT_TRUE(before.ok) << before.error_message;
+    EXPECT_EQ(signal(before, "on1_ms").uint64_value(), 500u);
+    EXPECT_EQ(signal(before, "on2_ms").uint64_value(), 0u);
+    // Slice_RLHT boots with channel 1 on thermocouple 1 and channel 2 on 2.
+    EXPECT_EQ(signal(before, "channel1_thermocouple").uint64_value(), 1u);
+    EXPECT_EQ(signal(before, "channel2_thermocouple").uint64_value(), 2u);
+
+    ValueMap duty;
+    duty["duty1_pct"] = make_uint64_val(0);
+    duty["duty2_pct"] = make_uint64_val(40);
+    ASSERT_TRUE(rlht::call(*session, rlht, 6u, duty).ok);  // set_open_duty_pct
+    ValueMap select;
+    select["channel1_thermocouple"] = make_uint64_val(2);
+    select["channel2_thermocouple"] = make_uint64_val(1);
+    const AdapterCallResult sent = rlht::call(*session, rlht, 5u, select);  // set_tc_select
+    ASSERT_TRUE(sent.ok) << sent.error_message;
+
+    AdapterReadResult after = rlht::read_signals(*session, rlht, ids);
+    ASSERT_TRUE(after.ok) << after.error_message;
+    EXPECT_EQ(signal(after, "on1_ms").uint64_value(), 0u);
+    EXPECT_EQ(signal(after, "on2_ms").uint64_value(), 400u);  // 40 % of the 1000 ms period
+    EXPECT_EQ(signal(after, "channel1_thermocouple").uint64_value(), 2u);
+    EXPECT_EQ(signal(after, "channel2_thermocouple").uint64_value(), 1u);
+}
+
+// A thermocouple change Slice_RLHT refuses because that heater is running from
+// its thermocouple surfaces as FAILED_PRECONDITION naming WRONG_MODE. (The
+// canned bus applies neither channel of a refused frame; the firmware still
+// applies the other channel, which the function description says.)
+TEST_F(CannedOutputsTest, ARefusedTcSelectIsFailedPreconditionNamingWrongMode) {
+    bus->refuse_next(kRlhtAddr, BREAD_REFUSE_WRONG_MODE);
+    ValueMap select;
+    select["channel1_thermocouple"] = make_uint64_val(2);
+    select["channel2_thermocouple"] = make_uint64_val(1);
+
+    const AdapterCallResult sent = rlht::call(*session, rlht, 5u, select);  // set_tc_select
+
+    EXPECT_FALSE(sent.ok);
+    EXPECT_EQ(sent.error_code, anolis::deviceprovider::v1::Status::CODE_FAILED_PRECONDITION);
+    EXPECT_NE(sent.error_message.find("WRONG_MODE"), std::string::npos) << sent.error_message;
+    EXPECT_EQ(bus->writes_of(kRlhtAddr, RLHT_OP_SET_TC_SELECT), 1);
+}
+
 TEST_F(CannedOutputsTest, ARefusedSetLeavesTheOutputsAsTheyWere) {
     bus->refuse_next(kDcmtAddr, BREAD_REFUSE_ESTOP);
     ValueMap args;

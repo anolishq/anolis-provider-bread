@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <string>
+
 #include "config/provider_config.hpp"
 
 namespace anolis_provider_bread {
@@ -102,6 +104,60 @@ TEST(StubInventoryTest, BuildsSeedInventoryForConfiguredDevices) {
     EXPECT_EQ(set_setpoint->args(1).name(), "motor2_target");
     EXPECT_EQ(set_setpoint->args(1).min_int64(), -32768);
     EXPECT_EQ(set_setpoint->args(1).max_int64(), 32767);
+}
+
+// set_tc_select chooses the thermocouple each heater channel follows, and
+// Slice_RLHT refuses anything but 1 or 2 (#221). GET_STATE's on-times and
+// selections are published as signals named to match (#222).
+TEST(StubInventoryTest, RlhtTcSelectNamesChannelsAndGetStateFieldsAreSignals) {
+    ProviderConfig config;
+    config.bus_path = "/dev/i2c-1";
+    config.devices = {DeviceSpec{"rlht0", DeviceType::Rlht, "Heater", 0x08}};
+
+    const auto devices = inventory::build_seed_inventory(config);
+    ASSERT_EQ(devices.size(), 1U);
+    const auto &caps = devices[0].capabilities;
+
+    const anolis::deviceprovider::v1::FunctionSpec *set_tc_select = nullptr;
+    for (const auto &fn : caps.functions()) {
+        if (fn.name() == "set_tc_select") {
+            set_tc_select = &fn;
+        }
+    }
+    ASSERT_NE(set_tc_select, nullptr);
+    ASSERT_EQ(set_tc_select->args_size(), 2);
+    EXPECT_EQ(set_tc_select->args(0).name(), "channel1_thermocouple");
+    EXPECT_EQ(set_tc_select->args(1).name(), "channel2_thermocouple");
+    for (const auto &arg : set_tc_select->args()) {
+        SCOPED_TRACE(arg.name());
+        EXPECT_EQ(arg.type(), anolis::deviceprovider::v1::VALUE_TYPE_UINT64);
+        EXPECT_TRUE(arg.required());
+        EXPECT_EQ(arg.min_uint64(), 1u);
+        EXPECT_EQ(arg.max_uint64(), 2u);
+    }
+
+    const auto find_signal = [&](const std::string &id) -> const anolis::deviceprovider::v1::SignalSpec * {
+        for (const auto &signal : caps.signals()) {
+            if (signal.signal_id() == id) {
+                return &signal;
+            }
+        }
+        return nullptr;
+    };
+    for (const char *id : {"on1_ms", "on2_ms"}) {
+        SCOPED_TRACE(id);
+        const auto *signal = find_signal(id);
+        ASSERT_NE(signal, nullptr);
+        EXPECT_EQ(signal->value_type(), anolis::deviceprovider::v1::VALUE_TYPE_UINT64);
+        EXPECT_EQ(signal->unit(), "ms");
+    }
+    for (const char *id : {"channel1_thermocouple", "channel2_thermocouple"}) {
+        SCOPED_TRACE(id);
+        const auto *signal = find_signal(id);
+        ASSERT_NE(signal, nullptr);
+        EXPECT_EQ(signal->value_type(), anolis::deviceprovider::v1::VALUE_TYPE_UINT64);
+        EXPECT_TRUE(signal->unit().empty());
+    }
 }
 
 }  // namespace

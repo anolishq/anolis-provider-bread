@@ -193,7 +193,7 @@ TEST_F(RlhtAdapterTest, ReadSignals_ClosedLoopState_ReturnsAllSignals) {
     script_state_reply(make_state_payload(RLHT_MODE_CLOSED_LOOP, RLHT_FLAG_RELAY1_ON, 2505,
                                           2510,        // t1=250.5°C, t2=251.0°C (deci-C)
                                           2000, 2010,  // sp1=200.0°C, sp2=201.0°C
-                                          500, 600,    // on1_ms, on2_ms (not exposed)
+                                          500, 600,    // on1_ms, on2_ms
                                           5000, 6000,  // period1_ms, period2_ms
                                           0x00));
 
@@ -248,6 +248,57 @@ TEST_F(RlhtAdapterTest, ReadSignals_ClosedLoopState_ReturnsAllSignals) {
     const auto *estop_sv = find("estop");
     ASSERT_NE(estop_sv, nullptr);
     EXPECT_FALSE(estop_sv->value().bool_value());
+}
+
+TEST_F(RlhtAdapterTest, ReadSignals_OnTimesAndThermocoupleSelects_DecodedFromGetState) {
+    // tc_select packs channel 1's thermocouple in bits 0-1 and channel 2's in
+    // bits 2-3 (bread-crumbs-contracts rlht_ops.h). 0x06: channel 1 follows
+    // thermocouple 2, channel 2 follows thermocouple 1 — the swapped mapping, so
+    // a decoder reading the wrong bits cannot pass.
+    script_state_reply(make_state_payload(RLHT_MODE_CLOSED_LOOP, RLHT_FLAG_RELAY1_ON, 2505, 2510, 2000, 2010,
+                                          4321,        // on1_ms
+                                          65535,       // on2_ms: full u16 range survives
+                                          5000, 6000,  // period1_ms, period2_ms
+                                          0x06));
+
+    const auto result =
+        read_signals(session, device, {"on1_ms", "on2_ms", "channel1_thermocouple", "channel2_thermocouple"});
+
+    ASSERT_TRUE(result.ok) << result.error_message;
+    ASSERT_EQ(result.values.size(), 4u);
+    EXPECT_EQ(result.values.at(0).signal_id(), "on1_ms");
+    EXPECT_EQ(result.values.at(0).value().uint64_value(), 4321u);
+    EXPECT_EQ(result.values.at(1).signal_id(), "on2_ms");
+    EXPECT_EQ(result.values.at(1).value().uint64_value(), 65535u);
+    EXPECT_EQ(result.values.at(2).signal_id(), "channel1_thermocouple");
+    EXPECT_EQ(result.values.at(2).value().uint64_value(), 2u);
+    EXPECT_EQ(result.values.at(3).signal_id(), "channel2_thermocouple");
+    EXPECT_EQ(result.values.at(3).value().uint64_value(), 1u);
+    for (const auto &sv : result.values) {
+        EXPECT_EQ(sv.quality(), anolis::deviceprovider::v1::SignalValue::QUALITY_OK) << sv.signal_id();
+    }
+}
+
+TEST_F(RlhtAdapterTest, ReadSignals_ThermocoupleSelectOutsideOneToTwo_RawValueWithFaultQuality) {
+    // 0x0C: channel 1's bits read 0, channel 2's read 3. Neither names a
+    // thermocouple, so each carries QUALITY_FAULT, as #109 marks the temperature
+    // sentinel, but keeps its raw value (the sentinel is replaced with 0.0). The
+    // in-range on-time is unaffected.
+    script_state_reply(
+        make_state_payload(RLHT_MODE_CLOSED_LOOP, 0x00, 2505, 2510, 2000, 2010, 700, 0, 5000, 6000, 0x0C));
+
+    const auto result = read_signals(session, device, {"on1_ms", "channel1_thermocouple", "channel2_thermocouple"});
+
+    ASSERT_TRUE(result.ok) << result.error_message;
+    ASSERT_EQ(result.values.size(), 3u);
+    EXPECT_EQ(result.values.at(0).signal_id(), "on1_ms");
+    EXPECT_EQ(result.values.at(0).quality(), anolis::deviceprovider::v1::SignalValue::QUALITY_OK);
+    EXPECT_EQ(result.values.at(1).signal_id(), "channel1_thermocouple");
+    EXPECT_EQ(result.values.at(1).value().uint64_value(), 0u);
+    EXPECT_EQ(result.values.at(1).quality(), anolis::deviceprovider::v1::SignalValue::QUALITY_FAULT);
+    EXPECT_EQ(result.values.at(2).signal_id(), "channel2_thermocouple");
+    EXPECT_EQ(result.values.at(2).value().uint64_value(), 3u);
+    EXPECT_EQ(result.values.at(2).quality(), anolis::deviceprovider::v1::SignalValue::QUALITY_FAULT);
 }
 
 TEST_F(RlhtAdapterTest, ReadSignals_OpenLoopState_ReturnsOpenLoopMode) {
@@ -565,6 +616,59 @@ TEST_F(RlhtAdapterTest, Call_SetPeriodsMs_OutsideRange_ReturnsOutOfRangeAndSends
         EXPECT_EQ(result.error_message, "period values must be in [100, 10000] ms");
         EXPECT_TRUE(transport.sent_frames.empty());
     }
+}
+
+TEST_F(RlhtAdapterTest, Call_SetTcSelect_SendsEachChannelsThermocouple) {
+    const auto args = make_args({
+        {"channel1_thermocouple", make_uint64_val(2u)},
+        {"channel2_thermocouple", make_uint64_val(1u)},
+    });
+
+    const auto result = call(session, device, 5u, args);
+
+    ASSERT_TRUE(result.ok) << result.error_message;
+    ASSERT_EQ(transport.sent_frames.size(), 1u);
+    const auto &f = transport.sent_frames.at(0).second;
+    EXPECT_EQ(f.opcode, static_cast<uint8_t>(RLHT_OP_SET_TC_SELECT));
+    ASSERT_EQ(f.payload.size(), 2u);
+    EXPECT_EQ(f.payload.at(0), 2u);
+    EXPECT_EQ(f.payload.at(1), 1u);
+}
+
+// Slice_RLHT refuses a selection other than 1 or 2 (BREAD_REFUSE_UNDEFINED_VALUE),
+// so the call is refused before a frame goes out (#221).
+TEST_F(RlhtAdapterTest, Call_SetTcSelect_OutsideOneToTwo_ReturnsOutOfRangeAndSendsNothing) {
+    const std::vector<std::pair<uint64_t, uint64_t>> cases = {
+        {0u, 1u}, {1u, 0u}, {3u, 2u}, {2u, 3u}, {255u, 1u}, {1u, 256u},
+    };
+    for (const auto &[tc1, tc2] : cases) {
+        SCOPED_TRACE(std::to_string(tc1) + ", " + std::to_string(tc2));
+        transport.sent_frames.clear();
+        const auto args = make_args({
+            {"channel1_thermocouple", make_uint64_val(tc1)},
+            {"channel2_thermocouple", make_uint64_val(tc2)},
+        });
+
+        const auto result = call(session, device, 5u, args);
+
+        EXPECT_FALSE(result.ok);
+        EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE);
+        EXPECT_EQ(result.error_message, "thermocouple values must be 1 or 2");
+        EXPECT_TRUE(transport.sent_frames.empty());
+    }
+}
+
+TEST_F(RlhtAdapterTest, Call_SetTcSelect_FormerArgNames_ReturnsInvalidArgument) {
+    const auto args = make_args({
+        {"tc1_index", make_uint64_val(1u)},
+        {"tc2_index", make_uint64_val(2u)},
+    });
+
+    const auto result = call(session, device, 5u, args);
+
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT);
+    EXPECT_TRUE(transport.sent_frames.empty());
 }
 
 TEST_F(RlhtAdapterTest, Call_SetOpenDutyPct_ValidRange_SendsTwoBytes) {

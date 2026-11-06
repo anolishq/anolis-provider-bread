@@ -68,7 +68,8 @@ std::vector<uint8_t> CrumbsCannedBus::build_rlht_state_payload(const DeviceState
     append_u16_le(p, dev.rlht_on2_ms);
     append_u16_le(p, dev.rlht_period1_ms);
     append_u16_le(p, dev.rlht_period2_ms);
-    append_u8(p, 0);
+    // tc_select: channel 1's thermocouple in bits 0-1, channel 2's in bits 2-3.
+    append_u8(p, static_cast<uint8_t>((dev.rlht_tc1 & 0x03u) | ((dev.rlht_tc2 & 0x03u) << 2)));
     return p;
 }
 
@@ -210,6 +211,9 @@ void CrumbsCannedBus::apply_write(uint8_t address, const uint8_t *tx_data, size_
     } else if (dev.type_id == RLHT_TYPE_ID && message.opcode == RLHT_OP_SET_OPEN_DUTY && message.data_len >= 2) {
         dev.rlht_on1_ms = static_cast<uint16_t>(dev.rlht_period1_ms * message.data[0] / 100u);
         dev.rlht_on2_ms = static_cast<uint16_t>(dev.rlht_period2_ms * message.data[1] / 100u);
+    } else if (dev.type_id == RLHT_TYPE_ID && message.opcode == RLHT_OP_SET_TC_SELECT && message.data_len >= 2) {
+        dev.rlht_tc1 = message.data[0];
+        dev.rlht_tc2 = message.data[1];
     } else if (message.opcode == BREAD_OP_SET_WATCHDOG && message.data_len >= 2) {
         it->second.watchdog_timeout_ms =
             static_cast<uint16_t>(message.data[0] | (static_cast<uint16_t>(message.data[1]) << 8));

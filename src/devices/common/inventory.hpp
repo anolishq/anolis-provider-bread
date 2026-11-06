@@ -6,6 +6,7 @@
  * BREAD devices.
  */
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -20,6 +21,12 @@ namespace anolis_provider_bread {
 // Device.provider_name so the two can never diverge (which would break the
 // {provider_name, device_id} identity). Not config-driven.
 inline constexpr const char *kProviderName = "anolis-provider-bread";
+
+// The thermocouples an RLHT heater channel can follow. Slice_RLHT refuses any
+// other SET_TC_SELECT value with BREAD_REFUSE_UNDEFINED_VALUE; the contracts
+// header defines no constant for it.
+inline constexpr uint64_t kRlhtThermocoupleMin = 1;
+inline constexpr uint64_t kRlhtThermocoupleMax = 2;
 }  // namespace anolis_provider_bread
 
 namespace anolis_provider_bread::inventory {
