@@ -13,12 +13,36 @@ commit messages only.
 
 ## [Unreleased]
 
+These changes need a minor release: `set_tc_select`'s arguments are renamed,
+so a caller using the old names is refused.
+
 ### Changed
 
+- **RLHT `set_tc_select` takes `channel1_thermocouple` and
+  `channel2_thermocouple`, each 1 or 2** (#221). The arguments were `tc1_index`
+  and `tc2_index`, declared 0 to 255, although each one chooses the
+  thermocouple a heater channel's closed loop follows and Slice_RLHT refuses
+  anything but 1 or 2. A value outside 1 to 2 is now refused with
+  `CODE_OUT_OF_RANGE` before a frame is sent, and a call with the old names
+  gets `CODE_INVALID_ARGUMENT`. The descriptions say that Slice_RLHT refuses a
+  change while that channel's heater runs in closed loop with a setpoint, and
+  that two channels' heaters should not share one thermocouple. The wire frame
+  is unchanged.
 - CI conformance harness: anolis-protocol 1.8.0 -> 1.9.0, which gates
   `GetHealth`, fails a crash on `--config-schema` or `--check-host`, checks
   Hello/manifest level agreement at L1 and checks that `--check-config` rejects
   an invalid config.
+
+### Added
+
+- **RLHT signals `on1_ms`, `on2_ms`, `channel1_thermocouple` and
+  `channel2_thermocouple`** (#222). They report each relay's on-time per
+  control period (ms) and the thermocouple (1 or 2) each channel's
+  closed loop follows, which GET_STATE already returned and the provider
+  dropped. They come from the same GET_STATE read as the other RLHT signals,
+  so polling them adds no bus traffic, and they are not in the default signal
+  set. Read them back after `set_tc_select`, or after a slice reboot, to check
+  which thermocouple each heater follows.
 
 ## [0.10.0] - 2026-10-27
 

@@ -23,8 +23,7 @@ namespace {
 // ---------------------------------------------------------------------------
 // RLHT GET_STATE wire layout is owned by bread-crumbs-contracts
 // (rlht_parse_state_payload). The adapter maps the parsed state onto the
-// stable ADPP signal surface; on-time and thermocouple-select fields are
-// parsed but not exposed as signals.
+// stable ADPP signal surface.
 // ---------------------------------------------------------------------------
 
 constexpr const char *kSigMode = "mode";
@@ -34,6 +33,10 @@ constexpr const char *kSigSp1 = "setpoint1_c";
 constexpr const char *kSigSp2 = "setpoint2_c";
 constexpr const char *kSigPeriod1 = "period1_ms";
 constexpr const char *kSigPeriod2 = "period2_ms";
+constexpr const char *kSigOn1 = "on1_ms";
+constexpr const char *kSigOn2 = "on2_ms";
+constexpr const char *kSigTc1 = "channel1_thermocouple";
+constexpr const char *kSigTc2 = "channel2_thermocouple";
 constexpr const char *kSigRelay1 = "relay1_on";
 constexpr const char *kSigRelay2 = "relay2_on";
 constexpr const char *kSigEstop = "estop";
@@ -48,6 +51,10 @@ struct RlhtState {
     int16_t sp2_dc = 0;
     uint16_t period1 = 0;
     uint16_t period2 = 0;
+    uint16_t on1 = 0;
+    uint16_t on2 = 0;
+    uint8_t tc1 = 0;
+    uint8_t tc2 = 0;
     uint8_t estop_count = 0;
 };
 
@@ -66,13 +73,19 @@ bool parse_state(const std::vector<uint8_t> &payload, RlhtState &out) {
     out.sp2_dc = raw.sp2_deci_c;
     out.period1 = raw.period1_ms;
     out.period2 = raw.period2_ms;
+    out.on1 = raw.on1_ms;
+    out.on2 = raw.on2_ms;
+    // Unpacked by the contracts parser from tc_select (bits 0-1 and 2-3).
+    out.tc1 = raw.tc1;
+    out.tc2 = raw.tc2;
     out.estop_count = raw.estop_count;
     return true;
 }
 
 // [§7.2] Curated default signal set returned for an empty signal_ids request:
-// measured temperatures + relay states. Setpoints, periods, mode, and estop are
-// excluded (config/target/fault, not routine telemetry).
+// measured temperatures + relay states. Setpoints, periods, on-times,
+// thermocouple selections, mode, and estop are excluded (config/target/fault,
+// not routine telemetry).
 bool is_default_signal(const char *id) {
     const std::string s(id);
     return s == kSigT1 || s == kSigT2 || s == kSigRelay1 || s == kSigRelay2;
@@ -153,6 +166,10 @@ AdapterReadResult read_signals(crumbs::Session &session, const inventory::Invent
         vals.push_back(make_signal_value(kSigPeriod1, make_uint64_val(s.period1)));
     if (should_include(signal_ids, kSigPeriod2))
         vals.push_back(make_signal_value(kSigPeriod2, make_uint64_val(s.period2)));
+    if (should_include(signal_ids, kSigOn1)) vals.push_back(make_signal_value(kSigOn1, make_uint64_val(s.on1)));
+    if (should_include(signal_ids, kSigOn2)) vals.push_back(make_signal_value(kSigOn2, make_uint64_val(s.on2)));
+    if (should_include(signal_ids, kSigTc1)) vals.push_back(make_signal_value(kSigTc1, make_uint64_val(s.tc1)));
+    if (should_include(signal_ids, kSigTc2)) vals.push_back(make_signal_value(kSigTc2, make_uint64_val(s.tc2)));
     if (should_include(signal_ids, kSigRelay1))
         vals.push_back(make_signal_value(kSigRelay1, make_bool_val((s.flags & RLHT_FLAG_RELAY1_ON) != 0u)));
     if (should_include(signal_ids, kSigRelay2))
@@ -263,13 +280,16 @@ AdapterCallResult build_frame(uint32_t function_id, const ValueMap &args, crumbs
         }
         case 5: {  // set_tc_select
             uint64_t tc1 = 0, tc2 = 0;
-            if (!get_arg_uint64(args, "tc1_index", tc1) || !get_arg_uint64(args, "tc2_index", tc2)) {
+            if (!get_arg_uint64(args, "channel1_thermocouple", tc1) ||
+                !get_arg_uint64(args, "channel2_thermocouple", tc2)) {
                 return {false, anolis::deviceprovider::v1::Status::CODE_INVALID_ARGUMENT,
-                        "missing or invalid args: tc1_index, tc2_index (uint64)"};
+                        "missing or invalid args: channel1_thermocouple, channel2_thermocouple (uint64)"};
             }
-            if (tc1 > 255u || tc2 > 255u) {
+            // Slice_RLHT refuses any other value with BREAD_REFUSE_UNDEFINED_VALUE (#221).
+            if (tc1 < kRlhtThermocoupleMin || tc1 > kRlhtThermocoupleMax || tc2 < kRlhtThermocoupleMin ||
+                tc2 > kRlhtThermocoupleMax) {
                 return {false, anolis::deviceprovider::v1::Status::CODE_OUT_OF_RANGE,
-                        "tc_index values must be in [0, 255]"};
+                        "thermocouple values must be 1 or 2"};
             }
             frame.opcode = RLHT_OP_SET_TC_SELECT;
             append_u8(frame.payload, static_cast<uint8_t>(tc1));

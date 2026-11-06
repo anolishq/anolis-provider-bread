@@ -126,6 +126,16 @@ constexpr const char *kDcmtClearTripDescription =
     "clear resumes nothing: the trip engaged both brakes and actuating commands sent while tripped "
     "were ignored, so command the device again afterwards, starting with set_brake(false, false).";
 
+constexpr const char *kTcSelectDescription =
+    "Choose the thermocouple each heater channel's closed loop follows. Heaters on two channels should not "
+    "share one thermocouple.";
+constexpr const char *kTcSelectChannel1Description =
+    "The thermocouple (1 or 2) channel 1's closed loop follows. A change is refused while that channel's "
+    "heater is running in closed loop with a setpoint.";
+constexpr const char *kTcSelectChannel2Description =
+    "The thermocouple (1 or 2) channel 2's closed loop follows. A change is refused while that channel's "
+    "heater is running in closed loop with a setpoint.";
+
 CapabilitySet build_rlht_capabilities(uint32_t flags) {
     CapabilitySet caps;
 
@@ -181,13 +191,18 @@ CapabilitySet build_rlht_capabilities(uint32_t flags) {
     }
 
     if ((flags & RLHT_CAP_TC_SELECT) != 0u) {
-        auto *set_tc_select = add_function(caps, 5, "set_tc_select", "Select RLHT thermocouple inputs.", CAT_CONFIG);
-        auto *tc1_arg = add_arg(*set_tc_select, "tc1_index", VT_UINT64, "Channel 1 thermocouple index.", true);
-        tc1_arg->set_min_uint64(0);
-        tc1_arg->set_max_uint64(255);
-        auto *tc2_arg = add_arg(*set_tc_select, "tc2_index", VT_UINT64, "Channel 2 thermocouple index.", true);
-        tc2_arg->set_min_uint64(0);
-        tc2_arg->set_max_uint64(255);
+        // Each argument names a heater channel and selects the thermocouple its
+        // closed loop follows. Slice_RLHT accepts only 1 or 2, and refuses to
+        // change a channel's selection while that heater runs from it (#221).
+        auto *set_tc_select = add_function(caps, 5, "set_tc_select", kTcSelectDescription, CAT_CONFIG);
+        for (const auto &[arg_name, arg_description] : {
+                 std::pair{"channel1_thermocouple", kTcSelectChannel1Description},
+                 std::pair{"channel2_thermocouple", kTcSelectChannel2Description},
+             }) {
+            auto *arg = add_arg(*set_tc_select, arg_name, VT_UINT64, arg_description, true);
+            arg->set_min_uint64(kRlhtThermocoupleMin);
+            arg->set_max_uint64(kRlhtThermocoupleMax);
+        }
     }
 
     if ((flags & RLHT_CAP_OPEN_DUTY_CONTROL) != 0u) {
@@ -218,6 +233,11 @@ CapabilitySet build_rlht_capabilities(uint32_t flags) {
     add_signal(caps, "setpoint2_c", "Channel 2 target temperature.", VT_DOUBLE, "C");
     add_signal(caps, "period1_ms", "Relay 1 control period.", VT_UINT64, "ms");
     add_signal(caps, "period2_ms", "Relay 2 control period.", VT_UINT64, "ms");
+    // Read from the same GET_STATE reply as the signals above (#222).
+    add_signal(caps, "on1_ms", "Relay 1 on-time per control period.", VT_UINT64, "ms");
+    add_signal(caps, "on2_ms", "Relay 2 on-time per control period.", VT_UINT64, "ms");
+    add_signal(caps, "channel1_thermocouple", "The thermocouple (1 or 2) channel 1's closed loop follows.", VT_UINT64);
+    add_signal(caps, "channel2_thermocouple", "The thermocouple (1 or 2) channel 2's closed loop follows.", VT_UINT64);
     add_signal(caps, "relay1_on", "Relay 1 state derived from RLHT flags.", VT_BOOL);
     add_signal(caps, "relay2_on", "Relay 2 state derived from RLHT flags.", VT_BOOL);
     add_signal(caps, "estop", "Emergency stop state derived from RLHT flags.", VT_BOOL);
