@@ -279,6 +279,27 @@ TEST_F(RlhtAdapterTest, ReadSignals_OnTimesAndThermocoupleSelects_DecodedFromGet
     }
 }
 
+TEST_F(RlhtAdapterTest, ReadSignals_ThermocoupleSelectOutsideOneToTwo_RawValueWithFaultQuality) {
+    // 0x0C: channel 1's bits read 0, channel 2's read 3. Neither names a
+    // thermocouple, so each is reported as read with QUALITY_FAULT (as #109 does
+    // for the temperature sentinel); the in-range on-time is unaffected.
+    script_state_reply(
+        make_state_payload(RLHT_MODE_CLOSED_LOOP, 0x00, 2505, 2510, 2000, 2010, 700, 0, 5000, 6000, 0x0C));
+
+    const auto result = read_signals(session, device, {"on1_ms", "channel1_thermocouple", "channel2_thermocouple"});
+
+    ASSERT_TRUE(result.ok) << result.error_message;
+    ASSERT_EQ(result.values.size(), 3u);
+    EXPECT_EQ(result.values.at(0).signal_id(), "on1_ms");
+    EXPECT_EQ(result.values.at(0).quality(), anolis::deviceprovider::v1::SignalValue::QUALITY_OK);
+    EXPECT_EQ(result.values.at(1).signal_id(), "channel1_thermocouple");
+    EXPECT_EQ(result.values.at(1).value().uint64_value(), 0u);
+    EXPECT_EQ(result.values.at(1).quality(), anolis::deviceprovider::v1::SignalValue::QUALITY_FAULT);
+    EXPECT_EQ(result.values.at(2).signal_id(), "channel2_thermocouple");
+    EXPECT_EQ(result.values.at(2).value().uint64_value(), 3u);
+    EXPECT_EQ(result.values.at(2).quality(), anolis::deviceprovider::v1::SignalValue::QUALITY_FAULT);
+}
+
 TEST_F(RlhtAdapterTest, ReadSignals_OpenLoopState_ReturnsOpenLoopMode) {
     script_state_reply(make_state_payload(RLHT_MODE_OPEN_LOOP, RLHT_FLAG_ESTOP, 0, 0, 0, 0, 0, 0, 1000, 1000, 0x00));
 

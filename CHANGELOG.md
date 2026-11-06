@@ -14,20 +14,27 @@ commit messages only.
 ## [Unreleased]
 
 These changes need a minor release: `set_tc_select`'s arguments are renamed,
-so a caller using the old names is refused.
+so a caller using the old names is refused. `docs/versioning.md` counts an
+incompatible ADPP change as major; while the provider is 0.x, breaking changes
+take the minor bump, as in 0.8.0.
 
 ### Changed
 
-- **RLHT `set_tc_select` takes `channel1_thermocouple` and
+- **BREAKING: RLHT `set_tc_select` takes `channel1_thermocouple` and
   `channel2_thermocouple`, each 1 or 2** (#221). The arguments were `tc1_index`
   and `tc2_index`, declared 0 to 255, although each one chooses the
   thermocouple a heater channel's closed loop follows and Slice_RLHT refuses
-  anything but 1 or 2. A value outside 1 to 2 is now refused with
-  `CODE_OUT_OF_RANGE` before a frame is sent, and a call with the old names
-  gets `CODE_INVALID_ARGUMENT`. The descriptions say that Slice_RLHT refuses a
-  change while that channel's heater runs in closed loop with a setpoint, and
-  that two channels' heaters should not share one thermocouple. The wire frame
-  is unchanged.
+  anything but 1 or 2. A caller using the old names now gets
+  `CODE_INVALID_ARGUMENT`; rename the arguments. A value outside 1 to 2 is
+  refused with `CODE_OUT_OF_RANGE` before a frame is sent. The descriptions
+  say that Slice_RLHT refuses a change while that channel's heater runs in
+  closed loop with a setpoint, and that two channels' heaters should not share
+  one thermocouple. They also say that a refusal does not mean nothing changed:
+  when the slice refuses one channel's change, it still applies the other
+  channel's, and the call fails (`CODE_FAILED_PRECONDITION` for that
+  `WRONG_MODE` refusal). Read `channel1_thermocouple` and
+  `channel2_thermocouple` back to see what is in force. The wire frame is
+  unchanged.
 - CI conformance harness: anolis-protocol 1.8.0 -> 1.9.0, which gates
   `GetHealth`, fails a crash on `--config-schema` or `--check-host`, checks
   Hello/manifest level agreement at L1 and checks that `--check-config` rejects
@@ -42,7 +49,9 @@ so a caller using the old names is refused.
   dropped. They come from the same GET_STATE read as the other RLHT signals,
   so polling them adds no bus traffic, and they are not in the default signal
   set. Read them back after `set_tc_select`, or after a slice reboot, to check
-  which thermocouple each heater follows.
+  which thermocouple each heater follows. A thermocouple selection outside 1
+  to 2 (current Slice_RLHT firmware never reports one) is sent as read with
+  `QUALITY_FAULT`, as an open-thermocouple temperature is (#109).
 
 ## [0.10.0] - 2026-10-27
 

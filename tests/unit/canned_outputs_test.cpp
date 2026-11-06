@@ -156,6 +156,24 @@ TEST_F(CannedOutputsTest, AnRlhtReportsItsOnTimesAndTheThermocouplesItIsSent) {
     EXPECT_EQ(signal(after, "channel2_thermocouple").uint64_value(), 1u);
 }
 
+// A thermocouple change Slice_RLHT refuses because that heater is running from
+// its thermocouple surfaces as FAILED_PRECONDITION naming WRONG_MODE. (The
+// canned bus applies neither channel of a refused frame; the firmware still
+// applies the other channel, which the function description says.)
+TEST_F(CannedOutputsTest, ARefusedTcSelectIsFailedPreconditionNamingWrongMode) {
+    bus->refuse_next(kRlhtAddr, BREAD_REFUSE_WRONG_MODE);
+    ValueMap select;
+    select["channel1_thermocouple"] = make_uint64_val(2);
+    select["channel2_thermocouple"] = make_uint64_val(1);
+
+    const AdapterCallResult sent = rlht::call(*session, rlht, 5u, select);  // set_tc_select
+
+    EXPECT_FALSE(sent.ok);
+    EXPECT_EQ(sent.error_code, anolis::deviceprovider::v1::Status::CODE_FAILED_PRECONDITION);
+    EXPECT_NE(sent.error_message.find("WRONG_MODE"), std::string::npos) << sent.error_message;
+    EXPECT_EQ(bus->writes_of(kRlhtAddr, RLHT_OP_SET_TC_SELECT), 1);
+}
+
 TEST_F(CannedOutputsTest, ARefusedSetLeavesTheOutputsAsTheyWere) {
     bus->refuse_next(kDcmtAddr, BREAD_REFUSE_ESTOP);
     ValueMap args;

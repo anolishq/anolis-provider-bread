@@ -168,8 +168,18 @@ AdapterReadResult read_signals(crumbs::Session &session, const inventory::Invent
         vals.push_back(make_signal_value(kSigPeriod2, make_uint64_val(s.period2)));
     if (should_include(signal_ids, kSigOn1)) vals.push_back(make_signal_value(kSigOn1, make_uint64_val(s.on1)));
     if (should_include(signal_ids, kSigOn2)) vals.push_back(make_signal_value(kSigOn2, make_uint64_val(s.on2)));
-    if (should_include(signal_ids, kSigTc1)) vals.push_back(make_signal_value(kSigTc1, make_uint64_val(s.tc1)));
-    if (should_include(signal_ids, kSigTc2)) vals.push_back(make_signal_value(kSigTc2, make_uint64_val(s.tc2)));
+    // A selection is 1 or 2. Anything else is not a thermocouple (Slice_RLHT
+    // runs such a channel from thermocouple 1), so, as for the temperature
+    // sentinel above, it is sent as read but with QUALITY_FAULT.
+    const auto thermocouple_signal = [](const char *id, uint8_t select) {
+        if (select < kRlhtThermocoupleMin || select > kRlhtThermocoupleMax) {
+            return make_signal_value(id, make_uint64_val(select),
+                                     anolis::deviceprovider::v1::SignalValue::QUALITY_FAULT);
+        }
+        return make_signal_value(id, make_uint64_val(select));
+    };
+    if (should_include(signal_ids, kSigTc1)) vals.push_back(thermocouple_signal(kSigTc1, s.tc1));
+    if (should_include(signal_ids, kSigTc2)) vals.push_back(thermocouple_signal(kSigTc2, s.tc2));
     if (should_include(signal_ids, kSigRelay1))
         vals.push_back(make_signal_value(kSigRelay1, make_bool_val((s.flags & RLHT_FLAG_RELAY1_ON) != 0u)));
     if (should_include(signal_ids, kSigRelay2))

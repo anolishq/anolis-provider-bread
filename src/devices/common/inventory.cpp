@@ -128,7 +128,8 @@ constexpr const char *kDcmtClearTripDescription =
 
 constexpr const char *kTcSelectDescription =
     "Choose the thermocouple each heater channel's closed loop follows. Heaters on two channels should not "
-    "share one thermocouple.";
+    "share one thermocouple. If the slice refuses one channel's change it still applies the other's, so a "
+    "refused call may have changed one selection: read channel1_thermocouple and channel2_thermocouple back.";
 constexpr const char *kTcSelectChannel1Description =
     "The thermocouple (1 or 2) channel 1's closed loop follows. A change is refused while that channel's "
     "heater is running in closed loop with a setpoint.";
