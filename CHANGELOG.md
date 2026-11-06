@@ -50,8 +50,9 @@ take the minor bump, as in 0.8.0.
   so polling them adds no bus traffic, and they are not in the default signal
   set. Read them back after `set_tc_select`, or after a slice reboot, to check
   which thermocouple each heater follows. A thermocouple selection outside 1
-  to 2 (current Slice_RLHT firmware never reports one) is sent as read with
-  `QUALITY_FAULT`, as an open-thermocouple temperature is (#109).
+  to 2 (current Slice_RLHT firmware never reports one) carries
+  `QUALITY_FAULT`, as an open-thermocouple temperature does (#109), but keeps
+  its raw value, where the temperature is replaced with 0.0.
 
 ## [0.10.0] - 2026-10-27
 

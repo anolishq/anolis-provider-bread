@@ -169,8 +169,9 @@ AdapterReadResult read_signals(crumbs::Session &session, const inventory::Invent
     if (should_include(signal_ids, kSigOn1)) vals.push_back(make_signal_value(kSigOn1, make_uint64_val(s.on1)));
     if (should_include(signal_ids, kSigOn2)) vals.push_back(make_signal_value(kSigOn2, make_uint64_val(s.on2)));
     // A selection is 1 or 2. Anything else is not a thermocouple (Slice_RLHT
-    // runs such a channel from thermocouple 1), so, as for the temperature
-    // sentinel above, it is sent as read but with QUALITY_FAULT.
+    // runs such a channel from thermocouple 1), so it carries QUALITY_FAULT,
+    // as #109 does for the temperature sentinel above. Unlike that sentinel,
+    // which goes out as a placeholder 0.0, the selection goes out raw.
     const auto thermocouple_signal = [](const char *id, uint8_t select) {
         if (select < kRlhtThermocoupleMin || select > kRlhtThermocoupleMax) {
             return make_signal_value(id, make_uint64_val(select),

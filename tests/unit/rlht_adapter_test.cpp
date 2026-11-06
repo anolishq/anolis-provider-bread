@@ -281,8 +281,9 @@ TEST_F(RlhtAdapterTest, ReadSignals_OnTimesAndThermocoupleSelects_DecodedFromGet
 
 TEST_F(RlhtAdapterTest, ReadSignals_ThermocoupleSelectOutsideOneToTwo_RawValueWithFaultQuality) {
     // 0x0C: channel 1's bits read 0, channel 2's read 3. Neither names a
-    // thermocouple, so each is reported as read with QUALITY_FAULT (as #109 does
-    // for the temperature sentinel); the in-range on-time is unaffected.
+    // thermocouple, so each carries QUALITY_FAULT, as #109 marks the temperature
+    // sentinel, but keeps its raw value (the sentinel is replaced with 0.0). The
+    // in-range on-time is unaffected.
     script_state_reply(
         make_state_payload(RLHT_MODE_CLOSED_LOOP, 0x00, 2505, 2510, 2000, 2010, 700, 0, 5000, 6000, 0x0C));
 
