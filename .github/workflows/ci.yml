@@ -70,7 +70,7 @@ jobs:
     name: Docs
     needs: [changes]
     if: needs.changes.outputs.docs == 'true'
-    uses: anolishq/.github/.github/workflows/docs-check.yml@7a3a0624c056ea20fcb901968c482f9ed2ffb818 # v2
+    uses: anolishq/.github/.github/workflows/docs-check.yml@721e8a07128cd274efe6a17e0a51c0a9b1caf6b9 # v2
 
   no-hardware-linux:
     name: ${{ matrix.name }}
@@ -107,7 +107,7 @@ jobs:
           sudo apt-get install -y cmake ninja-build g++
 
       - name: Setup vcpkg
-        uses: anolishq/.github/.github/actions/setup-vcpkg@7a3a0624c056ea20fcb901968c482f9ed2ffb818 # v2.8
+        uses: anolishq/.github/.github/actions/setup-vcpkg@721e8a07128cd274efe6a17e0a51c0a9b1caf6b9 # v2.9
         with:
           triplet: ${{ matrix.triplet }}
 
@@ -167,7 +167,7 @@ jobs:
           path: anolis-provider-bread
 
       - name: Setup vcpkg
-        uses: anolishq/.github/.github/actions/setup-vcpkg@7a3a0624c056ea20fcb901968c482f9ed2ffb818 # v2.8
+        uses: anolishq/.github/.github/actions/setup-vcpkg@721e8a07128cd274efe6a17e0a51c0a9b1caf6b9 # v2.9
         with:
           triplet: x64-windows
 
@@ -204,7 +204,7 @@ jobs:
           sudo apt-get install -y cmake ninja-build g++
 
       - name: Setup vcpkg
-        uses: anolishq/.github/.github/actions/setup-vcpkg@7a3a0624c056ea20fcb901968c482f9ed2ffb818 # v2.8
+        uses: anolishq/.github/.github/actions/setup-vcpkg@721e8a07128cd274efe6a17e0a51c0a9b1caf6b9 # v2.9
         with:
           triplet: x64-linux-static
 
@@ -236,7 +236,7 @@ jobs:
   version-sync:
     needs: [changes]
     if: needs.changes.outputs.code == 'true'
-    uses: anolishq/.github/.github/workflows/version-sync.yml@7a3a0624c056ea20fcb901968c482f9ed2ffb818 # v2
+    uses: anolishq/.github/.github/workflows/version-sync.yml@721e8a07128cd274efe6a17e0a51c0a9b1caf6b9 # v2
     with:
       python-version: '3.12'
       working-directory: '.'
@@ -264,7 +264,7 @@ jobs:
     if: needs.changes.outputs.cpp == 'true'
     permissions:
       contents: read
-    uses: anolishq/.github/.github/workflows/clang-tidy-diff.yml@7a3a0624c056ea20fcb901968c482f9ed2ffb818 # clang-tidy-diff
+    uses: anolishq/.github/.github/workflows/clang-tidy-diff.yml@721e8a07128cd274efe6a17e0a51c0a9b1caf6b9 # clang-tidy-diff
     with:
       configure-preset: ci-linux-release
       blocking: true
