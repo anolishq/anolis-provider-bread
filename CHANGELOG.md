@@ -13,10 +13,19 @@ commit messages only.
 
 ## [Unreleased]
 
-These changes need a minor release: `set_tc_select`'s arguments are renamed,
-so a caller using the old names is refused. `docs/versioning.md` counts an
+## [0.11.0] - 2026-11-09
+
+0.11.0 is a minor release because `set_tc_select`'s arguments are renamed, so a
+caller using the old names is refused. `docs/versioning.md` counts an
 incompatible ADPP change as major; while the provider is 0.x, breaking changes
 take the minor bump, as in 0.8.0.
+
+Upgrade notes for operators:
+
+- **Call `set_tc_select` with `channel1_thermocouple` and
+  `channel2_thermocouple`.** `tc1_index` and `tc2_index` are refused with
+  `CODE_INVALID_ARGUMENT`. A behavior tree, mode-transition hook or script that
+  sends the old names has to change in the same upgrade.
 
 ### Changed
 
