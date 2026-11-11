@@ -13,6 +13,58 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-11
+
+0.12.0 is a minor release because calls bread used to accept can now be
+refused: the SDK it builds on, now 0.7.0, checks a call's arguments against the
+declared spec before bread's handler runs, and refuses a call whose deadline
+has passed. `docs/versioning.md` counts an incompatible ADPP change as major;
+while the provider is 0.x, breaking changes take the minor bump, as in 0.11.0.
+
+Upgrade notes for operators:
+
+- **Calls through the anolis runtime are unchanged.** The runtime checks every
+  call against the same spec before sending it, so it refuses the same calls
+  it did with 0.11.0.
+- **A client that talks ADPP to bread directly** gets `CODE_INVALID_ARGUMENT`
+  for an argument the function does not declare, which bread used to ignore,
+  and for a number or bool whose type tag and field disagree, which bread read
+  as zero and ran. It gets `CODE_DEADLINE_EXCEEDED` for a call past the
+  `CallRequest.deadline` it sent. A call with several bad arguments can get a
+  different code, because the SDK checks each argument in declared order.
+
+### Changed
+
+- anolis-provider-sdk 0.4.0 -> 0.7.0. What a client of bread sees:
+  - A call's arguments are checked against the function's declared spec
+    before bread's handler runs (semantics §8.3). An undeclared argument, a
+    missing or wrongly typed one, or a value outside `allowed_values` is
+    `CODE_INVALID_ARGUMENT`, and a value outside its bounds is
+    `CODE_OUT_OF_RANGE`. Bread used to ignore an undeclared argument. The
+    anolis runtime already checks calls against the same spec, so calls
+    through it are refused as before.
+  - Hello advertises `supports_deadlines` (semantics §8.4). A call whose
+    `CallRequest.deadline` has already passed is `CODE_DEADLINE_EXCEEDED`
+    before it reaches a device, and a malformed deadline is
+    `CODE_INVALID_ARGUMENT`. A call that succeeds after its deadline is also
+    answered `CODE_DEADLINE_EXCEEDED`, with `side_effects = possible` and no
+    results: the call completed, so the device may have acted. A call that
+    fails after its deadline keeps its own error. The anolis runtime sets no
+    deadline, so this reaches only a client that sends one.
+  - A reply over the 1 MiB frame cap is answered `CODE_RESOURCE_EXHAUSTED`,
+    and bread keeps serving instead of exiting. Exit code 4 (a reply that
+    failed to serialize) no longer occurs, and 5 means a failed write to
+    standard output.
+  - The SDK is now Apache-2.0. Bread stays AGPL-3.0.
+
+  Not taken up here: the I2C claim still uses `i2c::claim_key`, so two
+  spellings of one bus path are not yet caught. Bread does not yet meet two
+  rules the SDK's metrics contract now sets for the watchdog: the
+  `watchdog_*` health keys still come from a live read (#199), and
+  `clear_watchdog_trip` returns on the device's ack without reading the
+  status back, where the contract asks it to read back and fail if the trip
+  is still shown.
+
 ## [0.11.0] - 2026-11-09
 
 0.11.0 is a minor release because `set_tc_select`'s arguments are renamed, so a

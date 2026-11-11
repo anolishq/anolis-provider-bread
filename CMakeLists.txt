@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 option(ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS "Treat first-party compiler warnings as errors" OFF)
 
-project(anolis_provider_bread VERSION 0.11.0 LANGUAGES C CXX)
+project(anolis_provider_bread VERSION 0.12.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -63,8 +63,8 @@ include(FetchContent)
 # tarball); local dev overrides with -DFETCHCONTENT_SOURCE_DIR_ANOLIS_PROVIDER_SDK=<path>.
 FetchContent_Declare(
     anolis_provider_sdk
-    URL https://github.com/anolishq/anolis-provider-sdk/releases/download/v0.4.0/anolis-provider-sdk-0.4.0-source.tar.gz
-    URL_HASH SHA256=c4505cb5dd678c3fba51d7e3bdd1c35809a42edcad576b6a7bde873d034949cd
+    URL https://github.com/anolishq/anolis-provider-sdk/releases/download/v0.7.0/anolis-provider-sdk-0.7.0-source.tar.gz
+    URL_HASH SHA256=3129a38cb9f1a87c48c2450ec376eecdcf423c3c162954e6e629ed7673f01701
     DOWNLOAD_EXTRACT_TIMESTAMP FALSE
 )
 FetchContent_MakeAvailable(anolis_provider_sdk)
