@@ -13,6 +13,35 @@ commit messages only.
 
 ## [Unreleased]
 
+### Changed
+
+- anolis-provider-sdk 0.4.0 -> 0.7.0. What a client of bread sees:
+  - A call's arguments are checked against the function's declared spec
+    before bread's handler runs (semantics §8.3). An undeclared argument, a
+    missing or wrongly typed one, or a value outside `allowed_values` is
+    `CODE_INVALID_ARGUMENT`, and a value outside its bounds is
+    `CODE_OUT_OF_RANGE`. Bread used to ignore an undeclared argument. The
+    anolis runtime already checks calls against the same spec, so calls
+    through it are refused as before.
+  - Hello advertises `supports_deadlines` (semantics §8.4). A call whose
+    `CallRequest.deadline` has already passed is `CODE_DEADLINE_EXCEEDED`
+    before it reaches a device, and a malformed deadline is
+    `CODE_INVALID_ARGUMENT`. A call that finishes after its deadline is also
+    answered `CODE_DEADLINE_EXCEEDED`, with `side_effects = possible` and no
+    results: the device may already have acted. The anolis runtime sets no
+    deadline, so this reaches only a client that sends one.
+  - A reply over the 1 MiB frame cap is answered `CODE_RESOURCE_EXHAUSTED`,
+    and bread keeps serving instead of exiting.
+  - The SDK is now Apache-2.0. Bread stays AGPL-3.0.
+
+  Not taken up here: the I2C claim still uses `i2c::claim_key`, so two
+  spellings of one bus path are not yet caught. Bread does not yet meet two
+  rules the SDK's metrics contract now sets for the watchdog: the
+  `watchdog_*` health keys still come from a live read (#199), and
+  `clear_watchdog_trip` returns on the device's ack without reading the
+  status back, where the contract asks it to read back and fail if the trip
+  is still shown.
+
 ## [0.11.0] - 2026-11-09
 
 0.11.0 is a minor release because `set_tc_select`'s arguments are renamed, so a
