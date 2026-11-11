@@ -28,8 +28,8 @@ Upgrade notes for operators:
   it did with 0.11.0.
 - **A client that talks ADPP to bread directly** gets `CODE_INVALID_ARGUMENT`
   for an argument the function does not declare, which bread used to ignore,
-  and for a value whose type tag and field disagree, which bread read as zero
-  and ran. It gets `CODE_DEADLINE_EXCEEDED` for a call past the
+  and for a number or bool whose type tag and field disagree, which bread read
+  as zero and ran. It gets `CODE_DEADLINE_EXCEEDED` for a call past the
   `CallRequest.deadline` it sent. A call with several bad arguments can get a
   different code, because the SDK checks each argument in declared order.
 
@@ -48,8 +48,8 @@ Upgrade notes for operators:
     before it reaches a device, and a malformed deadline is
     `CODE_INVALID_ARGUMENT`. A call that succeeds after its deadline is also
     answered `CODE_DEADLINE_EXCEEDED`, with `side_effects = possible` and no
-    results: the device has acted. A call that fails after its deadline keeps
-    its own error. The anolis runtime sets no
+    results: the call completed, so the device may have acted. A call that
+    fails after its deadline keeps its own error. The anolis runtime sets no
     deadline, so this reaches only a client that sends one.
   - A reply over the 1 MiB frame cap is answered `CODE_RESOURCE_EXHAUSTED`,
     and bread keeps serving instead of exiting. Exit code 4 (a reply that
