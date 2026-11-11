@@ -13,6 +13,24 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-11
+
+0.12.0 is a minor release because calls bread used to accept can now be
+refused: the SDK it builds on, now 0.7.0, checks a call's arguments against the
+declared spec before bread's handler runs, and refuses a call whose deadline
+has passed. `docs/versioning.md` counts an incompatible ADPP change as major;
+while the provider is 0.x, breaking changes take the minor bump, as in 0.11.0.
+
+Upgrade notes for operators:
+
+- **Calls through the anolis runtime are unchanged.** The runtime checks every
+  call against the same spec before sending it, so it refuses the same calls
+  it did with 0.11.0.
+- **A client that talks ADPP to bread directly** gets `CODE_INVALID_ARGUMENT`
+  for an argument the function does not declare, which bread used to ignore,
+  and `CODE_DEADLINE_EXCEEDED` for a call past the `CallRequest.deadline` it
+  sent.
+
 ### Changed
 
 - anolis-provider-sdk 0.4.0 -> 0.7.0. What a client of bread sees:
