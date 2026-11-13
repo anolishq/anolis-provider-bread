@@ -31,8 +31,9 @@ Upgrade notes for operators:
   still reports the trip answers `CODE_FAILED_PRECONDITION`, "trip clear sent,
   but the device still reports its watchdog tripped". A clear moves nothing,
   so retrying is safe.
-- **Health no longer touches the bus.** A GetHealth on a dark bus answers at
-  once, with each armed device's last reading and its growing age.
+- **Health no longer touches the bus.** A GetHealth on a dark bus no longer
+  waits out a watchdog status query per armed device; it reports each one's
+  last reading and its growing age.
 
 ### Changed
 
