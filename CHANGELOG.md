@@ -13,6 +13,27 @@ commit messages only.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-13
+
+0.13.0 is a minor release because a call bread used to accept can now fail:
+`clear_watchdog_trip` reads the watchdog status back before it answers, and
+fails when that read fails or still shows the trip. While the provider is 0.x,
+that takes the minor bump, as in 0.12.0.
+
+Upgrade notes for operators:
+
+- **Upgrade the runtime and workbench first.** anolis 0.15.0 and
+  anolis-workbench 0.33.4 read `watchdog_status_age_ms`; older ones read the
+  now-cached `watchdog_armed` and `watchdog_tripped` as current.
+- **`clear_watchdog_trip` can fail after sending the clear.** A read-back that
+  fails answers `CODE_UNAVAILABLE`, "trip clear sent, but reading the watchdog
+  status back failed; the clear may have reached the device". A device that
+  still reports the trip answers `CODE_FAILED_PRECONDITION`, "trip clear sent,
+  but the device still reports its watchdog tripped". A clear moves nothing,
+  so retrying is safe.
+- **Health no longer touches the bus.** A GetHealth on a dark bus answers at
+  once, with each armed device's last reading and its growing age.
+
 ### Changed
 
 - **Health reports a cached watchdog reading and does no bus I/O** (#199).
