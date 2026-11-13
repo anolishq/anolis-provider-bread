@@ -61,7 +61,7 @@ bool handle_recovery(crumbs::Session* session, const inventory::InventoryDevice&
 constexpr std::chrono::seconds kWatchdogRefreshInterval{5};
 
 // Refresh the cached watchdog status on the I/O path, after a successful
-// operation on the device: when there is no reading, it is older than
+// read or call of the device: when there is no reading, it is older than
 // kWatchdogRefreshInterval, or `force` (the device has just recovered, so the
 // reading predates the outage). A failed read keeps the last reading, as
 // anolis-provider-sdk docs/metrics.md requires. A device that reports itself
@@ -364,9 +364,12 @@ sdk::AdapterCallResult BreadProviderRuntime::call(const std::string& device_id, 
     if (!br.ok) {
         return {br.ok, br.error_code, std::move(br.error_message)};
     }
-    handle_recovery(runtime::session(), *device, state.config);
+    const bool recovered = handle_recovery(runtime::session(), *device, state.config);
     if (is_clear_watchdog_trip(*device, function_id)) {
         return confirm_trip_cleared(*device);
+    }
+    if (crumbs::Session* session = runtime::session()) {
+        refresh_watchdog(*session, *device, state, recovered);
     }
     return {br.ok, br.error_code, std::move(br.error_message)};
 }

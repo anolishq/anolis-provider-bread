@@ -134,11 +134,14 @@ void apply_outputs_policy(crumbs::Session &session, const ProviderConfig &config
 // A first reading of each armed watchdog, taken right after arming, so health
 // has one before the runtime's first read: its startup check warns about a
 // disarmed watchdog on an actuating device (anolis#297). A device that does
-// not answer gets no reading; the keys stay absent until one succeeds.
+// not answer gets no reading; the keys stay absent until one succeeds. A device
+// whose last operation failed is skipped, so a bus that went dark during
+// startup costs no further blocked query (#166).
 void seed_watchdog_readings(crumbs::Session &session, const std::vector<inventory::InventoryDevice> &devices,
                             std::map<std::string, WatchdogReading> &readings) {
     for (const auto &device : devices) {
-        if (device.command_watchdog_ms <= 0 || !watchdog::capability_supported(device)) {
+        if (device.command_watchdog_ms <= 0 || !watchdog::capability_supported(device) ||
+            session.last_op_failed(static_cast<uint8_t>(device.address))) {
             continue;
         }
         watchdog::WatchdogStatus status;

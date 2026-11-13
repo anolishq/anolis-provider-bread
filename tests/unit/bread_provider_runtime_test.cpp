@@ -618,3 +618,168 @@ TEST(BreadProviderRuntimeTest, LeaveDoesNotTouchADeviceThatRecovers) {
     ASSERT_TRUE(after.ok) << after.error_message;
     EXPECT_EQ(find_signal(after, "motor1_value")->int64_value(), 80);
 }
+
+// ---- #199: when the cached watchdog reading is and is not refreshed ----
+
+namespace {
+
+// dcmt0 with a 5000 ms watchdog, on a mock bus whose ops `drop_after` onward
+// fail for `drop_for` ops (anolis-provider-sdk FaultInjectingI2cBus).
+void initialize_with_dropout(int drop_after, int drop_for) {
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 5000;
+    config.bus_path =
+        "mock://unit-test?drop_after=" + std::to_string(drop_after) + "&drop_for=" + std::to_string(drop_for);
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+}
+
+void initialize_with_dcmt_watchdog() {
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 5000;
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+}
+
+uint64_t ops_on(uint8_t address) {
+    const auto stats = anolis_provider_bread::runtime::session()->stats_for(address);
+    return stats.ok + stats.failed + stats.rejected;
+}
+
+}  // namespace
+
+TEST(BreadProviderRuntimeTest, AFailedReadAddsNoStatusQuery) {
+    // On a dark bus each status query blocks, so a read that failed must not be
+    // followed by one, whatever the reading's age. Find a dropout that leaves
+    // startup intact and covers the next two reads.
+    int chosen = -1;
+    for (int d = 0; d < 200 && chosen < 0; ++d) {
+        initialize_with_dropout(d, 12);
+        anolis_provider_bread::BreadProviderRuntime rt;
+        if (rt.device_health("dcmt0").metrics.count("watchdog_armed") != 0 && !rt.read("dcmt0", {}).ok) {
+            chosen = d;
+        }
+    }
+    ASSERT_GE(chosen, 0) << "no dropout window failed the first read";
+    initialize_with_dropout(chosen, 12);
+    anolis_provider_bread::BreadProviderRuntime rt;
+
+    // A fresh reading: a failed read makes no refresh either way. Its cost is the baseline.
+    auto before = ops_on(0x09);
+    ASSERT_FALSE(rt.read("dcmt0", {}).ok);
+    const auto baseline = ops_on(0x09) - before;
+
+    // A stale reading: a successful read would refresh it, a failed one must not.
+    age_watchdog_reading("dcmt0", std::chrono::seconds{6});
+    before = ops_on(0x09);
+    ASSERT_FALSE(rt.read("dcmt0", {}).ok);
+    EXPECT_EQ(ops_on(0x09) - before, baseline) << "a failed read was followed by a status query";
+    EXPECT_GE(status_age_ms(rt.device_health("dcmt0")), 6000) << "the last reading is kept";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, AReadThatRecoversTheDeviceRefreshesAFreshReading) {
+    // A device that recovered may have rebooted, so the reading predates the
+    // outage however young it is.
+    initialize_with_dcmt_watchdog();
+    auto rt = anolis_provider_bread::BreadProviderRuntime{};
+    run_the_motors_then_lose_contact(rt);
+    age_watchdog_reading("dcmt0", std::chrono::seconds{1});
+
+    ASSERT_TRUE(rt.read("dcmt0", {}).ok);  // the recovery
+    EXPECT_LT(status_age_ms(rt.device_health("dcmt0")), 1000) << "the recovery did not refresh the reading";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, ACallThatRecoversTheDeviceRefreshesAFreshReading) {
+    initialize_with_dcmt_watchdog();
+    auto rt = anolis_provider_bread::BreadProviderRuntime{};
+    run_the_motors_then_lose_contact(rt);
+    age_watchdog_reading("dcmt0", std::chrono::seconds{1});
+
+    anolis::provider_sdk::ValueMap args;
+    args["motor1_pwm"] = anolis_provider_bread::make_int64_val(0);
+    args["motor2_pwm"] = anolis_provider_bread::make_int64_val(0);
+    const auto stopped = rt.call("dcmt0", 1u, args);  // set_open_loop: the recovery
+    ASSERT_TRUE(stopped.ok) << stopped.error_message;
+    EXPECT_LT(status_age_ms(rt.device_health("dcmt0")), 1000) << "the recovery did not refresh the reading";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, ACallThatIsNotAClearLeavesAFreshReading) {
+    initialize_with_dcmt_watchdog();
+    auto rt = anolis_provider_bread::BreadProviderRuntime{};
+    age_watchdog_reading("dcmt0", std::chrono::seconds{1});
+
+    anolis::provider_sdk::ValueMap args;
+    args["motor1_pwm"] = anolis_provider_bread::make_int64_val(0);
+    args["motor2_pwm"] = anolis_provider_bread::make_int64_val(0);
+    ASSERT_TRUE(rt.call("dcmt0", 1u, args).ok);  // set_open_loop
+    EXPECT_GE(status_age_ms(rt.device_health("dcmt0")), 1000) << "a call that is not a clear read the status back";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, AFirstGoodReadFillsAReadingStartupCouldNotTake) {
+    // Find a dropout that fails the startup status read (and its retries) but
+    // nothing a later read needs.
+    int chosen = -1;
+    for (int d = 0; d < 200 && chosen < 0; ++d) {
+        initialize_with_dropout(d, 3);
+        const anolis_provider_bread::BreadProviderRuntime rt;
+        if (anolis_provider_bread::runtime::snapshot().devices.size() == 2 &&
+            rt.device_health("dcmt0").metrics.count("watchdog_armed") == 0) {
+            chosen = d;
+        }
+    }
+    ASSERT_GE(chosen, 0) << "no dropout window failed only the startup status read";
+    initialize_with_dropout(chosen, 3);
+    anolis_provider_bread::BreadProviderRuntime rt;
+    ASSERT_EQ(rt.device_health("dcmt0").metrics.count("watchdog_armed"), 0U);
+
+    bool read_ok = false;
+    for (int i = 0; i < 10 && !read_ok; ++i) {
+        read_ok = rt.read("dcmt0", {}).ok;
+    }
+    ASSERT_TRUE(read_ok);
+    EXPECT_EQ(rt.device_health("dcmt0").metrics.count("watchdog_armed"), 1U) << "no reading after a good read";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, AClearWhoseReadBackFailsFailsAndKeepsTheLastReading) {
+    // anolis-provider-sdk docs/metrics.md: "If the read-back fails, the call
+    // fails and the cache keeps its last reading." Find a dropout that lets the
+    // clear through and fails the read-back.
+    int chosen = -1;
+    for (int d = 0; d < 200 && chosen < 0; ++d) {
+        initialize_with_dropout(d, 12);
+        anolis_provider_bread::BreadProviderRuntime rt;
+        const auto clear = rt.resolve_function_id("dcmt0", "clear_watchdog_trip");
+        if (!clear || rt.device_health("dcmt0").metrics.count("watchdog_armed") == 0) {
+            continue;
+        }
+        const auto result = rt.call("dcmt0", *clear, {});
+        if (!result.ok && result.error_message.find("reading the watchdog status back failed") != std::string::npos) {
+            chosen = d;
+        }
+    }
+    ASSERT_GE(chosen, 0) << "no dropout window failed only the read-back";
+    initialize_with_dropout(chosen, 12);
+    anolis_provider_bread::BreadProviderRuntime rt;
+    age_watchdog_reading("dcmt0", std::chrono::seconds{60});
+    const auto clear = rt.resolve_function_id("dcmt0", "clear_watchdog_trip");
+    ASSERT_TRUE(clear.has_value());
+
+    const auto result = rt.call("dcmt0", *clear, {});
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code, adpp::Status::CODE_UNAVAILABLE);
+    const auto health = rt.device_health("dcmt0");
+    EXPECT_GE(status_age_ms(health), 60000) << "a failed read-back replaced the cached reading";
+    EXPECT_EQ(health.metrics.at("watchdog_armed"), "true");
+
+    anolis_provider_bread::runtime::reset();
+}

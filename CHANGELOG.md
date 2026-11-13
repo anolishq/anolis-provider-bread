@@ -22,9 +22,9 @@ commit messages only.
   poll overran the runtime's 5000 ms timeout and bread was restarted (#238).
   Now:
   - startup reads each armed watchdog once after arming;
-  - a successful read of a device refreshes its reading when it is more than
-    5 s old, or when the device has just recovered, and a failed read never
-    adds a status query;
+  - a successful read or call of a device refreshes its reading when there is
+    none, when it is more than 5 s old, or when the device has just recovered,
+    and a failed one never adds a status query;
   - health reports the last reading with its age in `watchdog_status_age_ms`,
     as anolis-provider-sdk 0.7.0's `docs/metrics.md` describes, and keeps
     it, with a growing age, after later reads fail;
