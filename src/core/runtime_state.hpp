@@ -14,6 +14,7 @@
 #include "anolis/provider_sdk/host_check.hpp"
 #include "config/provider_config.hpp"
 #include "devices/common/inventory.hpp"
+#include "devices/common/watchdog.hpp"
 
 // Forward declaration — callers that need the full Session type must include
 // crumbs/session.hpp themselves.
@@ -31,6 +32,12 @@ namespace anolis_provider_bread::runtime {
  * `session()`. This snapshot keeps the inventory and startup diagnostics that
  * handlers need without exposing session ownership details.
  */
+/** @brief A watchdog status reply and when it arrived, on a monotonic clock. */
+struct WatchdogReading {
+    watchdog::WatchdogStatus status;
+    std::chrono::steady_clock::time_point received;
+};
+
 struct RuntimeState {
     ProviderConfig config;
     std::vector<inventory::InventoryDevice> devices;
@@ -52,10 +59,21 @@ struct RuntimeState {
     // Per device id, the `safe_outputs` health metric (#195): "set", "not set:
     // <why>", or "left" under provider.outputs_on_startup: leave.
     std::map<std::string, std::string> safe_outputs;
+    // Per device id, the last successful command-watchdog status read on the
+    // I/O path, which health reports with its age (#199,
+    // anolis-provider-sdk docs/metrics.md). A failed read leaves it in place.
+    std::map<std::string, WatchdogReading> watchdog_readings;
 };
 
 /** @brief Record a device's `safe_outputs` metric after it was driven safe again. */
 void record_safe_outputs(const std::string &device_id, std::string metric);
+
+/**
+ * @brief Record a device's watchdog status, as read from its reply at
+ * `received` (now by default; tests pass an older time).
+ */
+void record_watchdog_reading(const std::string &device_id, const watchdog::WatchdogStatus &status,
+                             std::chrono::steady_clock::time_point received = std::chrono::steady_clock::now());
 
 /** @brief Reset runtime state and destroy any live session/transport pair. */
 void reset();

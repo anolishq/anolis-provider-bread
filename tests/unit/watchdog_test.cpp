@@ -159,6 +159,42 @@ TEST(WatchdogTest, CannedBusTripSurvivesRearmAndClearsOnOperatorCall) {
     EXPECT_EQ(status.trip_count, 1u);
 }
 
+TEST(WatchdogTest, ReadBackClearSaysWhatTheDeviceReports) {
+    // #199: a clear is confirmed by the status the device reports afterwards.
+    constexpr uint8_t kAddr = 0x14;
+    auto canned = std::make_unique<crumbs::CrumbsCannedBus>("mock://watchdog-test");
+    canned->add_device(kAddr, DCMT_TYPE_ID);
+    crumbs::CrumbsCannedBus *bus = canned.get();
+    crumbs::CrumbsTransport transport(std::move(canned));
+    crumbs::Session session(transport, crumbs::SessionOptions{"mock://watchdog-test", 0u, 50u, 0});
+    ASSERT_TRUE(session.open());
+    const inventory::InventoryDevice device =
+        make_dcmt_device(DCMT_CAP_CMD_WATCHDOG | DCMT_CAP_CLEAR_WATCHDOG_TRIP, 5000);
+    arm_if_configured(session, device, "startup");
+    bus->trip_watchdog(kAddr);
+
+    WatchdogStatus status;
+    EXPECT_EQ(read_back_clear(session, device, status), ClearReadback::StillTripped);
+    EXPECT_TRUE(status.tripped);
+
+    ASSERT_TRUE(call(adapter_for(device.type), &session, device, 6u, ValueMap{}).ok);
+    EXPECT_EQ(read_back_clear(session, device, status), ClearReadback::Cleared);
+    EXPECT_FALSE(status.tripped);
+    EXPECT_EQ(status.trip_count, 1u);
+}
+
+TEST(WatchdogTest, ReadBackClearReportsAFailedRead) {
+    FakeTransport transport;  // no read action queued: the read fails
+    crumbs::Session session(transport, crumbs::SessionOptions{"/dev/i2c-test", 0u, 50u, 0});
+    ASSERT_TRUE(session.open());
+    const inventory::InventoryDevice device = make_dcmt_device(DCMT_CAP_CMD_WATCHDOG, 5000);
+
+    WatchdogStatus status;
+    status.tripped = true;
+    EXPECT_EQ(read_back_clear(session, device, status), ClearReadback::ReadFailed);
+    EXPECT_TRUE(status.tripped) << "a failed read leaves `out` as it was";
+}
+
 TEST(WatchdogTest, CannedBusRejectsClearTripWithPayload) {
     // Firmware rejects a CLEAR_WATCHDOG_TRIP carrying a payload and leaves the
     // trip set; the canned bus must do the same.

@@ -131,6 +131,23 @@ void apply_outputs_policy(crumbs::Session &session, const ProviderConfig &config
     }
 }
 
+// A first reading of each armed watchdog, taken right after arming, so health
+// has one before the runtime's first read: its startup check warns about a
+// disarmed watchdog on an actuating device (anolis#297). A device that does
+// not answer gets no reading; the keys stay absent until one succeeds.
+void seed_watchdog_readings(crumbs::Session &session, const std::vector<inventory::InventoryDevice> &devices,
+                            std::map<std::string, WatchdogReading> &readings) {
+    for (const auto &device : devices) {
+        if (device.command_watchdog_ms <= 0 || !watchdog::capability_supported(device)) {
+            continue;
+        }
+        watchdog::WatchdogStatus status;
+        if (watchdog::query_status(session, device, status)) {
+            readings[device.descriptor.device_id()] = WatchdogReading{status, std::chrono::steady_clock::now()};
+        }
+    }
+}
+
 // `deadline` is read only on the Linux hardware path; other builds are mock-only.
 void initialize_until(const ProviderConfig &config,
                       [[maybe_unused]] std::optional<std::chrono::steady_clock::time_point> deadline) {
@@ -170,6 +187,7 @@ void initialize_until(const ProviderConfig &config,
         for (const auto &device : discovery.devices) {
             watchdog::arm_if_configured(*sess, device, "startup");
         }
+        seed_watchdog_readings(*sess, discovery.devices, state.watchdog_readings);
         auto keepalive = std::make_unique<watchdog::Keepalive>(*sess, discovery.devices);
 
         state.devices = std::move(discovery.devices);
@@ -245,6 +263,7 @@ void initialize_until(const ProviderConfig &config,
     for (const auto &device : state.devices) {
         watchdog::arm_if_configured(*sess, device, "startup");
     }
+    seed_watchdog_readings(*sess, state.devices, state.watchdog_readings);
     auto keepalive = std::make_unique<watchdog::Keepalive>(*sess, state.devices);
 
     std::unique_ptr<crumbs::Session> old_session;
@@ -285,6 +304,12 @@ void initialize(const ProviderConfig &config, std::chrono::milliseconds budget) 
 void record_safe_outputs(const std::string &device_id, std::string metric) {
     std::lock_guard<std::mutex> lock(g_mutex);
     g_state.safe_outputs[device_id] = std::move(metric);
+}
+
+void record_watchdog_reading(const std::string &device_id, const watchdog::WatchdogStatus &status,
+                             std::chrono::steady_clock::time_point received) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    g_state.watchdog_readings[device_id] = WatchdogReading{status, received};
 }
 
 RuntimeState snapshot() {

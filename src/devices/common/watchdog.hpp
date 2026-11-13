@@ -9,9 +9,10 @@
  * (DCMT_CAP_CMD_WATCHDOG / RLHT_CAP_CMD_WATCHDOG), so old firmware never sees
  * the opcode. Firmware boots disarmed, and a device reboot (e.g. an e-stop
  * that cuts backplane power) resets it — callers re-arm on the session's
- * address-recovery signal (#112), and when a health read finds the device
- * disarmed and not tripped (#148). A local WDOG=0 on the slice serial console
- * is undone the same way; `command_watchdog_ms: 0` keeps a device disarmed.
+ * address-recovery signal (#112), and when a status read on the I/O path finds
+ * the device disarmed and not tripped (#148). A local WDOG=0 on the slice
+ * serial console is undone the same way; `command_watchdog_ms: 0` keeps a
+ * device disarmed.
  *
  * Arming never clears a trip on its own behalf. On firmware advertising
  * *_CAP_CLEAR_WATCHDOG_TRIP the trip latches and SET_WATCHDOG re-arms without
@@ -49,7 +50,7 @@ bool capability_supported(const inventory::InventoryDevice &device);
 void arm_if_configured(crumbs::Session &session, const inventory::InventoryDevice &device, const char *context);
 
 /**
- * @brief Re-arm a device whose health read shows it disarmed.
+ * @brief Re-arm a device whose status read shows it disarmed.
  *
  * Firmware boots disarmed, so a device configured to arm that reports
  * `armed == false` has rebooted or was disarmed locally with WDOG=0 (#151);
@@ -69,5 +70,21 @@ bool rearm_if_rebooted(crumbs::Session &session, const inventory::InventoryDevic
 /** @brief Query the device's watchdog status over the bus. */
 crumbs::SessionStatus query_status(crumbs::Session &session, const inventory::InventoryDevice &device,
                                    WatchdogStatus &out);
+
+/** @brief What reading the status back after a trip clear found. */
+enum class ClearReadback {
+    Cleared,       ///< The device reports the watchdog not tripped.
+    StillTripped,  ///< The device answered and still reports the trip.
+    ReadFailed,    ///< The status could not be read.
+};
+
+/**
+ * @brief Read the status back after `clear_watchdog_trip` (anolis-provider-sdk
+ * docs/metrics.md, "Clearing a trip"): health reports a cached reading, so a
+ * clear is confirmed by what the device says, not by the clear succeeding.
+ *
+ * @param out the reading, set unless the read failed
+ */
+ClearReadback read_back_clear(crumbs::Session &session, const inventory::InventoryDevice &device, WatchdogStatus &out);
 
 }  // namespace anolis_provider_bread::watchdog

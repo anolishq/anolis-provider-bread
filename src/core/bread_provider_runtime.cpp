@@ -1,6 +1,8 @@
 #include "core/bread_provider_runtime.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -32,10 +34,11 @@ namespace sdk = anolis::provider_sdk;
 // and re-apply per-device session state that a device reboot resets — the
 // safe outputs, unless the config says leave (#195), and the firmware command
 // watchdog (#112). Covers e-stop wirings that power-cycle the backplane: the
-// board reboots disarmed and is re-armed on first contact.
-void handle_recovery(crumbs::Session* session, const inventory::InventoryDevice& device, const ProviderConfig& config) {
+// board reboots disarmed and is re-armed on first contact. Returns whether the
+// device had recovered.
+bool handle_recovery(crumbs::Session* session, const inventory::InventoryDevice& device, const ProviderConfig& config) {
     if (session == nullptr || !session->take_recovery(static_cast<uint8_t>(device.address))) {
-        return;
+        return false;
     }
     const std::string& id = device.descriptor.device_id();
     logging::info("device " + id + " (" + format_i2c_address(device.address) + ") recovered after I/O failures");
@@ -49,6 +52,77 @@ void handle_recovery(crumbs::Session* session, const inventory::InventoryDevice&
         runtime::record_safe_outputs(id, safe_outputs::to_metric(result));
     }
     watchdog::arm_if_configured(*session, device, "recovery");
+    return true;
+}
+
+// How old a device's cached watchdog reading may get before a successful read
+// of the device refreshes it. One extra bus round trip per device at most this
+// often, and none for a device whose read failed (#199).
+constexpr std::chrono::seconds kWatchdogRefreshInterval{5};
+
+// Refresh the cached watchdog status on the I/O path, after a successful
+// operation on the device: when there is no reading, it is older than
+// kWatchdogRefreshInterval, or `force` (the device has just recovered, so the
+// reading predates the outage). A failed read keeps the last reading, as
+// anolis-provider-sdk docs/metrics.md requires. A device that reports itself
+// disarmed and untripped is re-armed here (#148); the reading keeps what it
+// said, and the next refresh shows the re-arm.
+void refresh_watchdog(crumbs::Session& session, const inventory::InventoryDevice& device,
+                      const runtime::RuntimeState& state, bool force) {
+    if (device.command_watchdog_ms <= 0 || !watchdog::capability_supported(device)) {
+        return;
+    }
+    const std::string& id = device.descriptor.device_id();
+    const auto cached = state.watchdog_readings.find(id);
+    if (!force && cached != state.watchdog_readings.end() &&
+        std::chrono::steady_clock::now() - cached->second.received < kWatchdogRefreshInterval) {
+        return;
+    }
+    watchdog::WatchdogStatus status;
+    if (!watchdog::query_status(session, device, status)) {
+        return;
+    }
+    runtime::record_watchdog_reading(id, status);
+    watchdog::rearm_if_rebooted(session, device, status);
+}
+
+// Whether `function_id` is the device's clear_watchdog_trip function.
+bool is_clear_watchdog_trip(const inventory::InventoryDevice& device, uint32_t function_id) {
+    for (const auto& function : device.capabilities.functions()) {
+        if (function.function_id() == function_id) {
+            return function.name() == "clear_watchdog_trip";
+        }
+    }
+    return false;
+}
+
+// After a successful clear_watchdog_trip, read the status back and cache it
+// before answering: health reports the cached reading, so the clear is
+// confirmed by what the device says (anolis-provider-sdk docs/metrics.md,
+// "Clearing a trip"). A failed read-back fails the call and keeps the last
+// reading; a device that still reports the trip fails it and is cached so.
+// Only a configured watchdog is cached: health leaves the keys out otherwise.
+sdk::AdapterCallResult confirm_trip_cleared(const inventory::InventoryDevice& device) {
+    crumbs::Session* session = runtime::session();
+    if (session == nullptr) {
+        return {false, adpp::Status::CODE_UNAVAILABLE, "trip clear sent, but no session to read the status back"};
+    }
+    watchdog::WatchdogStatus status;
+    const watchdog::ClearReadback readback = watchdog::read_back_clear(*session, device, status);
+    if (readback != watchdog::ClearReadback::ReadFailed && device.command_watchdog_ms > 0) {
+        runtime::record_watchdog_reading(device.descriptor.device_id(), status);
+    }
+    switch (readback) {
+        case watchdog::ClearReadback::Cleared:
+            return {true, adpp::Status::CODE_OK, ""};
+        case watchdog::ClearReadback::StillTripped:
+            return {false, adpp::Status::CODE_FAILED_PRECONDITION,
+                    "trip clear sent, but the device still reports its watchdog tripped"};
+        case watchdog::ClearReadback::ReadFailed:
+            break;
+    }
+    return {false, adpp::Status::CODE_UNAVAILABLE,
+            "trip clear sent, but reading the watchdog status back failed; the clear may have reached the device"};
 }
 
 google::protobuf::Timestamp to_timestamp(const std::chrono::system_clock::time_point& time_point) {
@@ -172,29 +246,22 @@ sdk::DeviceHealthExtra BreadProviderRuntime::device_health(const std::string& de
             if (stats.has_success) {
                 extra.last_seen = to_timestamp(stats.last_success);
             }
-            // Watchdog status is a live bus query (there is no passive source
-            // for trip state); only devices configured to arm pay for it, and
-            // a failed query just omits the metrics rather than failing health.
-            // Health must not do blocking bus I/O on a device already known to
-            // be failing: on a held power cut each query blocks about 1 s, and
-            // a few of them in one request outlast the runtime's timeout
-            // (#166). The metrics are omitted as for a failed query; the next
-            // successful operation clears the flag and handle_recovery re-arms.
-            if (device->command_watchdog_ms > 0 && watchdog::capability_supported(*device) &&
-                !session->last_op_failed(static_cast<uint8_t>(device->address))) {
-                watchdog::WatchdogStatus wd;
-                if (watchdog::query_status(*session, *device, wd)) {
-                    extra.metrics["watchdog_armed"] = wd.armed ? "true" : "false";
-                    extra.metrics["watchdog_timeout_ms"] = std::to_string(wd.timeout_ms);
-                    extra.metrics["watchdog_tripped"] = wd.tripped ? "true" : "false";
-                    extra.metrics["watchdog_trip_count"] = std::to_string(wd.trip_count);
-                    // A reboot or a local WDOG=0 between polls fails no
-                    // operation, so handle_recovery never sees it; the
-                    // metrics above keep the value read, so the disarm stays
-                    // visible (#148, #151).
-                    watchdog::rearm_if_rebooted(*session, *device, wd);
-                }
-            }
+        }
+        // The cached watchdog reading and its age, with no bus I/O: the SDK
+        // calls this once per device inside one GetHealth, and on a dark bus
+        // each status query blocks about 1 s, enough of them to overrun the
+        // runtime's response timeout (#199, #238). The reading is refreshed on
+        // the I/O path (refresh_watchdog); a failed refresh keeps it, and the
+        // age keeps growing. No reading yet leaves the keys out.
+        if (const auto reading = state.watchdog_readings.find(device_id); reading != state.watchdog_readings.end()) {
+            const watchdog::WatchdogStatus& wd = reading->second.status;
+            const auto age = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() -
+                                                                                   reading->second.received);
+            extra.metrics["watchdog_armed"] = wd.armed ? "true" : "false";
+            extra.metrics["watchdog_timeout_ms"] = std::to_string(wd.timeout_ms);
+            extra.metrics["watchdog_tripped"] = wd.tripped ? "true" : "false";
+            extra.metrics["watchdog_trip_count"] = std::to_string(wd.trip_count);
+            extra.metrics["watchdog_status_age_ms"] = std::to_string(std::max<int64_t>(0, age.count()));
         }
         // No successful contact yet -> last_seen stays unset (never fabricated).
         return extra;
@@ -264,7 +331,8 @@ sdk::AdapterReadResult BreadProviderRuntime::read(const std::string& device_id,
     // adapter (should_include / is_default_signal), not here.
     AdapterReadResult br = adapter_for(device->type).read_signals(*session, *device, signal_ids);
     if (br.ok) {
-        handle_recovery(session, *device, state.config);
+        const bool recovered = handle_recovery(session, *device, state.config);
+        refresh_watchdog(*session, *device, state, recovered);
     }
     sdk::AdapterReadResult out;
     out.ok = br.ok;
@@ -293,8 +361,12 @@ sdk::AdapterCallResult BreadProviderRuntime::call(const std::string& device_id, 
     // bad args and CODE_UNAVAILABLE only on valid-but-no-hardware.
     AdapterCallResult br =
         anolis_provider_bread::call(adapter_for(device->type), runtime::session(), *device, function_id, args);
-    if (br.ok) {
-        handle_recovery(runtime::session(), *device, state.config);
+    if (!br.ok) {
+        return {br.ok, br.error_code, std::move(br.error_message)};
+    }
+    handle_recovery(runtime::session(), *device, state.config);
+    if (is_clear_watchdog_trip(*device, function_id)) {
+        return confirm_trip_cleared(*device);
     }
     return {br.ok, br.error_code, std::move(br.error_message)};
 }
