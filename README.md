@@ -8,6 +8,9 @@ Implements the Anolis Device Provider Protocol (ADPP) v1 over BREAD-over-CRUMBS,
 and DCMT devices to the Anolis runtime via framed stdio. Supports Linux hardware integration and a
 `mock://` bus path that runs without hardware for development and CI.
 
+Which device types have run on real hardware, and on which release:
+[Hardware support](https://anolishq.github.io/get-started/hardware).
+
 Repository documentation:
 
 - [docs/index.md](docs/index.md) — scope, design decisions, key rules
