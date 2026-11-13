@@ -2,3 +2,6 @@
 CMakeLists.txt:project\(.* VERSION ([0-9]+\.[0-9]+\.[0-9]+)
 vcpkg.json:"version": "([0-9]+\.[0-9]+\.[0-9]+)"
 
+docs/versioning.md:^\| Current version \| `([0-9]+\.[0-9]+\.[0-9]+)` \|
+docs/versioning.md:\(`([0-9]+\.[0-9]+\.[0-9]+)` in the current build\)
+
