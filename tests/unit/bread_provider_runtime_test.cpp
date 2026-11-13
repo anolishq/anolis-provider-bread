@@ -155,6 +155,9 @@ TEST(BreadProviderRuntimeTest, ClearWatchdogTripCallableOnlyWhereAdvertised) {
     ASSERT_TRUE(dcmt_id.has_value());
     const auto cleared = rt.call("dcmt0", *dcmt_id, {});
     EXPECT_TRUE(cleared.ok) << cleared.error_message;
+    // No watchdog configured on dcmt0 here: the clear's read-back is not
+    // cached, so health still leaves the watchdog keys out.
+    EXPECT_EQ(rt.device_health("dcmt0").metrics.count("watchdog_tripped"), 0U);
 
     // The seeded RLHT is baseline (no watchdog caps): not offered, and its id is
     // rejected rather than sent.
@@ -239,15 +242,144 @@ TEST(BreadProviderRuntimeTest, SeededHealthOmitsModuleVersion) {
     EXPECT_EQ(health.metrics.at("type_id"), "bread.rlht");
 }
 
-TEST(BreadProviderRuntimeTest, HealthReadRearmsDeviceThatRebootedDisarmed) {
-    // #148: a slice that reboots between polls comes back disarmed with no
-    // failed operation, so the session's recovery signal never fires. The
-    // health read sees armed=false and re-arms the device.
+namespace {
+
+// A device's cached watchdog reading, made `age` old: a stand-in for time
+// passing, so a test can reach the refresh interval without waiting it out.
+void age_watchdog_reading(const std::string& device_id, std::chrono::seconds age) {
+    const auto state = anolis_provider_bread::runtime::snapshot();
+    const auto reading = state.watchdog_readings.find(device_id);
+    ASSERT_NE(reading, state.watchdog_readings.end());
+    anolis_provider_bread::runtime::record_watchdog_reading(device_id, reading->second.status,
+                                                            std::chrono::steady_clock::now() - age);
+}
+
+int64_t status_age_ms(const anolis::provider_sdk::DeviceHealthExtra& health) {
+    return std::stoll(health.metrics.at("watchdog_status_age_ms"));
+}
+
+}  // namespace
+
+TEST(BreadProviderRuntimeTest, HealthReportsTheReadingTakenAtStartupWithItsAge) {
+    // #199: startup reads each armed watchdog once after arming, so health has
+    // a reading before the runtime's first read (its startup check needs one).
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 5000;  // dcmt0; rlht0 has none
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+    const anolis_provider_bread::BreadProviderRuntime rt;
+
+    const auto dcmt = rt.device_health("dcmt0");
+    EXPECT_EQ(dcmt.metrics.at("watchdog_armed"), "true");
+    EXPECT_EQ(dcmt.metrics.at("watchdog_timeout_ms"), "5000");
+    EXPECT_EQ(dcmt.metrics.at("watchdog_tripped"), "false");
+    EXPECT_EQ(dcmt.metrics.at("watchdog_trip_count"), "0");
+    EXPECT_GE(status_age_ms(dcmt), 0);
+    EXPECT_LT(status_age_ms(dcmt), 5000);
+
+    // No watchdog configured: no reading, so the five keys are absent together.
+    const auto rlht = rt.device_health("rlht0");
+    for (const char* key : {"watchdog_armed", "watchdog_timeout_ms", "watchdog_tripped", "watchdog_trip_count",
+                            "watchdog_status_age_ms"}) {
+        EXPECT_EQ(rlht.metrics.count(key), 0U) << key;
+    }
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, HealthDoesNoBusIoAndKeepsTheLastReadingWhileTheDeviceFails) {
+    // #199, #238: health reports the cached reading and touches no bus, so a
+    // GetHealth on a dark bus cannot wait out a status query per device.
     auto config = make_mock_config();
     config.devices[1].command_watchdog_ms = 5000;  // dcmt0
     anolis_provider_bread::runtime::reset();
     anolis_provider_bread::runtime::initialize(config);
     const anolis_provider_bread::BreadProviderRuntime rt;
+
+    anolis_provider_bread::crumbs::Session* session = anolis_provider_bread::runtime::session();
+    ASSERT_NE(session, nullptr);
+    const auto io_count = [&]() {
+        const auto stats = session->stats_for(0x09);
+        return stats.ok + stats.failed + stats.rejected;
+    };
+
+    const auto before = io_count();
+    const auto first = rt.device_health("dcmt0");
+    EXPECT_EQ(io_count(), before) << "health touched the bus";
+
+    // A query for a reply the canned device has none for fails, as a dead bus
+    // would.
+    anolis_provider_bread::crumbs::RawFrame frame;
+    ASSERT_FALSE(session->query_read(0x09, 0x7E, frame));
+    ASSERT_TRUE(session->last_op_failed(0x09));
+
+    std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    const auto failing_before = io_count();
+    const auto failing = rt.device_health("dcmt0");
+    EXPECT_EQ(io_count(), failing_before) << "health touched the bus";
+    EXPECT_EQ(failing.metrics.at("watchdog_armed"), "true") << "the last reading is kept";
+    EXPECT_GE(status_age_ms(failing), status_age_ms(first) + 20) << "and its age keeps growing";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, AReadRefreshesAStaleReadingAndLeavesAFreshOne) {
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 5000;  // dcmt0
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+    auto rt = anolis_provider_bread::BreadProviderRuntime{};
+    anolis_provider_bread::crumbs::Session* session = anolis_provider_bread::runtime::session();
+    ASSERT_NE(session, nullptr);
+
+    // A fresh reading: the read leaves it alone, so its age keeps growing.
+    std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    auto ok_before = session->stats_for(0x09).ok;
+    ASSERT_TRUE(rt.read("dcmt0", {}).ok);
+    const auto fresh_ops = session->stats_for(0x09).ok - ok_before;
+    EXPECT_GE(status_age_ms(rt.device_health("dcmt0")), 20) << "a fresh reading was refreshed";
+
+    // A reading past the refresh interval: the read refreshes it.
+    age_watchdog_reading("dcmt0", std::chrono::seconds{6});
+    EXPECT_GE(status_age_ms(rt.device_health("dcmt0")), 6000);
+    ok_before = session->stats_for(0x09).ok;
+    ASSERT_TRUE(rt.read("dcmt0", {}).ok);
+    EXPECT_EQ(session->stats_for(0x09).ok - ok_before, fresh_ops + 1) << "one status read added";
+    EXPECT_LT(status_age_ms(rt.device_health("dcmt0")), 5000);
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, AClearReadsTheStatusBackIntoTheCacheBeforeAnswering) {
+    // anolis-provider-sdk docs/metrics.md, "Clearing a trip": health reports
+    // the cached reading, so the clear updates it from the device's reply.
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 5000;  // dcmt0
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+    auto rt = anolis_provider_bread::BreadProviderRuntime{};
+    const auto clear = rt.resolve_function_id("dcmt0", "clear_watchdog_trip");
+    ASSERT_TRUE(clear.has_value());
+
+    age_watchdog_reading("dcmt0", std::chrono::seconds{60});
+    const auto cleared = rt.call("dcmt0", *clear, {});
+    ASSERT_TRUE(cleared.ok) << cleared.error_message;
+    const auto health = rt.device_health("dcmt0");
+    EXPECT_EQ(health.metrics.at("watchdog_tripped"), "false");
+    EXPECT_LT(status_age_ms(health), 5000) << "the clear did not refresh the cached reading";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, ARefreshRearmsADeviceThatRebootedDisarmed) {
+    // #148: a slice that reboots between polls comes back disarmed with no
+    // failed operation, so the session's recovery signal never fires. The
+    // status refresh on the read path sees armed=false and re-arms it.
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 5000;  // dcmt0
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+    auto rt = anolis_provider_bread::BreadProviderRuntime{};
 
     EXPECT_EQ(rt.device_health("dcmt0").metrics.at("watchdog_armed"), "true");
 
@@ -261,53 +393,16 @@ TEST(BreadProviderRuntimeTest, HealthReadRearmsDeviceThatRebootedDisarmed) {
     ASSERT_TRUE(session->send(0x09, disarm));
     EXPECT_FALSE(session->take_recovery(0x09));
 
-    // The read that saw the reboot reports what it read ...
+    // The refresh that saw the reboot caches what the device said ...
+    age_watchdog_reading("dcmt0", std::chrono::seconds{6});
+    ASSERT_TRUE(rt.read("dcmt0", {}).ok);
     EXPECT_EQ(rt.device_health("dcmt0").metrics.at("watchdog_armed"), "false");
-    // ... and the next one finds the device armed again.
+    // ... and re-armed it, which the next refresh shows.
+    age_watchdog_reading("dcmt0", std::chrono::seconds{6});
+    ASSERT_TRUE(rt.read("dcmt0", {}).ok);
     const auto after = rt.device_health("dcmt0");
     EXPECT_EQ(after.metrics.at("watchdog_armed"), "true");
     EXPECT_EQ(after.metrics.at("watchdog_timeout_ms"), "5000");
-
-    anolis_provider_bread::runtime::reset();
-}
-
-TEST(BreadProviderRuntimeTest, HealthSkipsWatchdogQueryWhileDeviceIsFailing) {
-    // #166: on a held power cut each watchdog query blocks about 1 s, so a
-    // health request must not query a device whose last operation failed.
-    auto config = make_mock_config();
-    config.devices[1].command_watchdog_ms = 5000;  // dcmt0
-    anolis_provider_bread::runtime::reset();
-    anolis_provider_bread::runtime::initialize(config);
-    auto rt = anolis_provider_bread::BreadProviderRuntime{};
-
-    anolis_provider_bread::crumbs::Session* session = anolis_provider_bread::runtime::session();
-    ASSERT_NE(session, nullptr);
-    const auto io_count = [&]() {
-        const auto stats = session->stats_for(0x09);
-        return stats.ok + stats.failed;
-    };
-
-    // A query for a reply the canned device has none for fails, as a dead bus
-    // would. (A bare read is no longer enough: the safe outputs' confirmation
-    // leaves a query pending, #195.)
-    anolis_provider_bread::crumbs::RawFrame frame;
-    ASSERT_FALSE(session->query_read(0x09, 0x7E, frame));
-    ASSERT_TRUE(session->last_op_failed(0x09));
-
-    const auto before = io_count();
-    const auto failing = rt.device_health("dcmt0");
-    EXPECT_EQ(io_count(), before) << "health queried a device whose last operation failed";
-    EXPECT_EQ(failing.metrics.count("watchdog_armed"), 0U);
-    EXPECT_EQ(failing.metrics.count("watchdog_tripped"), 0U);
-    EXPECT_EQ(failing.metrics.at("io_failed"), "1");
-
-    // A successful read clears the failure, and health queries again.
-    ASSERT_TRUE(rt.read("dcmt0", {}).ok);
-    EXPECT_FALSE(session->last_op_failed(0x09));
-    const auto recovered_before = io_count();
-    const auto recovered = rt.device_health("dcmt0");
-    EXPECT_GT(io_count(), recovered_before);
-    EXPECT_EQ(recovered.metrics.at("watchdog_armed"), "true");
 
     anolis_provider_bread::runtime::reset();
 }
@@ -522,4 +617,172 @@ TEST(BreadProviderRuntimeTest, LeaveDoesNotTouchADeviceThatRecovers) {
     const auto after = rt.read("dcmt0", {"motor1_value"});
     ASSERT_TRUE(after.ok) << after.error_message;
     EXPECT_EQ(find_signal(after, "motor1_value")->int64_value(), 80);
+}
+
+// ---- #199: when the cached watchdog reading is and is not refreshed ----
+
+namespace {
+
+// dcmt0 with a 5000 ms watchdog, on a mock bus whose ops `drop_after` onward
+// fail for `drop_for` ops (anolis-provider-sdk FaultInjectingI2cBus).
+void initialize_with_dropout(int drop_after, int drop_for) {
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 5000;
+    config.bus_path =
+        "mock://unit-test?drop_after=" + std::to_string(drop_after) + "&drop_for=" + std::to_string(drop_for);
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+}
+
+void initialize_with_dcmt_watchdog() {
+    auto config = make_mock_config();
+    config.devices[1].command_watchdog_ms = 5000;
+    anolis_provider_bread::runtime::reset();
+    anolis_provider_bread::runtime::initialize(config);
+}
+
+uint64_t ops_on(uint8_t address) {
+    const auto stats = anolis_provider_bread::runtime::session()->stats_for(address);
+    return stats.ok + stats.failed + stats.rejected;
+}
+
+}  // namespace
+
+TEST(BreadProviderRuntimeTest, AFailedReadAddsNoStatusQuery) {
+    // On a dark bus each status query blocks, so a read that failed must not be
+    // followed by one, whatever the reading's age. Find a dropout that leaves
+    // startup intact and covers the next two reads.
+    int chosen = -1;
+    for (int d = 0; d < 200 && chosen < 0; ++d) {
+        initialize_with_dropout(d, 12);
+        anolis_provider_bread::BreadProviderRuntime rt;
+        if (rt.device_health("dcmt0").metrics.count("watchdog_armed") != 0 && !rt.read("dcmt0", {}).ok) {
+            chosen = d;
+        }
+    }
+    ASSERT_GE(chosen, 0) << "no dropout window failed the first read";
+    initialize_with_dropout(chosen, 12);
+    anolis_provider_bread::BreadProviderRuntime rt;
+
+    // A fresh reading: a failed read makes no refresh either way. Its cost is the baseline.
+    auto before = ops_on(0x09);
+    ASSERT_FALSE(rt.read("dcmt0", {}).ok);
+    const auto baseline = ops_on(0x09) - before;
+
+    // A stale reading: a successful read would refresh it, a failed one must not.
+    age_watchdog_reading("dcmt0", std::chrono::seconds{6});
+    before = ops_on(0x09);
+    ASSERT_FALSE(rt.read("dcmt0", {}).ok);
+    EXPECT_EQ(ops_on(0x09) - before, baseline) << "a failed read was followed by a status query";
+    EXPECT_GE(status_age_ms(rt.device_health("dcmt0")), 6000) << "the last reading is kept";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, AReadThatRecoversTheDeviceRefreshesAFreshReading) {
+    // A device that recovered may have rebooted, so the reading predates the
+    // outage however young it is.
+    initialize_with_dcmt_watchdog();
+    auto rt = anolis_provider_bread::BreadProviderRuntime{};
+    run_the_motors_then_lose_contact(rt);
+    age_watchdog_reading("dcmt0", std::chrono::seconds{1});
+
+    ASSERT_TRUE(rt.read("dcmt0", {}).ok);  // the recovery
+    EXPECT_LT(status_age_ms(rt.device_health("dcmt0")), 1000) << "the recovery did not refresh the reading";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, ACallThatRecoversTheDeviceRefreshesAFreshReading) {
+    initialize_with_dcmt_watchdog();
+    auto rt = anolis_provider_bread::BreadProviderRuntime{};
+    run_the_motors_then_lose_contact(rt);
+    age_watchdog_reading("dcmt0", std::chrono::seconds{1});
+
+    anolis::provider_sdk::ValueMap args;
+    args["motor1_pwm"] = anolis_provider_bread::make_int64_val(0);
+    args["motor2_pwm"] = anolis_provider_bread::make_int64_val(0);
+    const auto stopped = rt.call("dcmt0", 1u, args);  // set_open_loop: the recovery
+    ASSERT_TRUE(stopped.ok) << stopped.error_message;
+    EXPECT_LT(status_age_ms(rt.device_health("dcmt0")), 1000) << "the recovery did not refresh the reading";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, ACallThatIsNotAClearLeavesAFreshReading) {
+    initialize_with_dcmt_watchdog();
+    auto rt = anolis_provider_bread::BreadProviderRuntime{};
+    age_watchdog_reading("dcmt0", std::chrono::seconds{1});
+
+    anolis::provider_sdk::ValueMap args;
+    args["motor1_pwm"] = anolis_provider_bread::make_int64_val(0);
+    args["motor2_pwm"] = anolis_provider_bread::make_int64_val(0);
+    ASSERT_TRUE(rt.call("dcmt0", 1u, args).ok);  // set_open_loop
+    EXPECT_GE(status_age_ms(rt.device_health("dcmt0")), 1000) << "a call that is not a clear read the status back";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, AFirstGoodReadFillsAReadingStartupCouldNotTake) {
+    // Find a dropout that leaves startup without a reading (it fails the arm, so
+    // the startup status read is skipped) but nothing a later read needs. A
+    // failed operation always leaves the device to recover, so the first good
+    // read refreshes as a recovery; the "no reading yet" condition alone is not
+    // reached this way.
+    int chosen = -1;
+    for (int d = 0; d < 200 && chosen < 0; ++d) {
+        initialize_with_dropout(d, 3);
+        const anolis_provider_bread::BreadProviderRuntime rt;
+        if (anolis_provider_bread::runtime::snapshot().devices.size() == 2 &&
+            rt.device_health("dcmt0").metrics.count("watchdog_armed") == 0) {
+            chosen = d;
+        }
+    }
+    ASSERT_GE(chosen, 0) << "no dropout window failed only the startup status read";
+    initialize_with_dropout(chosen, 3);
+    anolis_provider_bread::BreadProviderRuntime rt;
+    ASSERT_EQ(rt.device_health("dcmt0").metrics.count("watchdog_armed"), 0U);
+
+    bool read_ok = false;
+    for (int i = 0; i < 10 && !read_ok; ++i) {
+        read_ok = rt.read("dcmt0", {}).ok;
+    }
+    ASSERT_TRUE(read_ok);
+    EXPECT_EQ(rt.device_health("dcmt0").metrics.count("watchdog_armed"), 1U) << "no reading after a good read";
+
+    anolis_provider_bread::runtime::reset();
+}
+
+TEST(BreadProviderRuntimeTest, AClearWhoseReadBackFailsFailsAndKeepsTheLastReading) {
+    // anolis-provider-sdk docs/metrics.md: "If the read-back fails, the call
+    // fails and the cache keeps its last reading." Find a dropout that lets the
+    // clear through and fails the read-back.
+    int chosen = -1;
+    for (int d = 0; d < 200 && chosen < 0; ++d) {
+        initialize_with_dropout(d, 12);
+        anolis_provider_bread::BreadProviderRuntime rt;
+        const auto clear = rt.resolve_function_id("dcmt0", "clear_watchdog_trip");
+        if (!clear || rt.device_health("dcmt0").metrics.count("watchdog_armed") == 0) {
+            continue;
+        }
+        const auto result = rt.call("dcmt0", *clear, {});
+        if (!result.ok && result.error_message.find("reading the watchdog status back failed") != std::string::npos) {
+            chosen = d;
+        }
+    }
+    ASSERT_GE(chosen, 0) << "no dropout window failed only the read-back";
+    initialize_with_dropout(chosen, 12);
+    anolis_provider_bread::BreadProviderRuntime rt;
+    age_watchdog_reading("dcmt0", std::chrono::seconds{60});
+    const auto clear = rt.resolve_function_id("dcmt0", "clear_watchdog_trip");
+    ASSERT_TRUE(clear.has_value());
+
+    const auto result = rt.call("dcmt0", *clear, {});
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code, adpp::Status::CODE_UNAVAILABLE);
+    const auto health = rt.device_health("dcmt0");
+    EXPECT_GE(status_age_ms(health), 60000) << "a failed read-back replaced the cached reading";
+    EXPECT_EQ(health.metrics.at("watchdog_armed"), "true");
+
+    anolis_provider_bread::runtime::reset();
 }

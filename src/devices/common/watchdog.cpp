@@ -102,4 +102,13 @@ crumbs::SessionStatus query_status(crumbs::Session &session, const inventory::In
     return crumbs::SessionStatus::success();
 }
 
+ClearReadback read_back_clear(crumbs::Session &session, const inventory::InventoryDevice &device, WatchdogStatus &out) {
+    WatchdogStatus status;
+    if (!query_status(session, device, status)) {
+        return ClearReadback::ReadFailed;
+    }
+    out = status;
+    return status.tripped ? ClearReadback::StillTripped : ClearReadback::Cleared;
+}
+
 }  // namespace anolis_provider_bread::watchdog
