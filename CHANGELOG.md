@@ -21,9 +21,10 @@ commit messages only.
   blocks about 1 s, and on 2026-11-11 a GetHealth from the workbench's health
   poll overran the runtime's 5000 ms timeout and bread was restarted (#238).
   Now:
-  - startup reads each armed watchdog once after arming;
+  - startup reads each armed watchdog once after arming, unless the device's
+    last operation failed, so health has a reading before the first read;
   - a successful read or call of a device refreshes its reading when there is
-    none, when it is more than 5 s old, or when the device has just recovered,
+    none, when it is 5 s old or older, or when the device has just recovered,
     and a failed one never adds a status query;
   - health reports the last reading with its age in `watchdog_status_age_ms`,
     as anolis-provider-sdk 0.7.0's `docs/metrics.md` describes, and keeps
@@ -34,10 +35,9 @@ commit messages only.
     if the read-back fails or still reports the trip.
 
   Upgrade note: `watchdog_armed` and `watchdog_tripped` can now be an old
-  reading. The anolis runtime and anolis-workbench check
-  `watchdog_status_age_ms` from the releases that carry anolishq/anolis#803
-  and anolishq/anolis-workbench#853; older ones read these keys as current, so
-  upgrade them first.
+  reading. anolis 0.15.0 (anolishq/anolis#803) and anolis-workbench 0.33.4
+  (anolishq/anolis-workbench#853) check `watchdog_status_age_ms`; older ones
+  read these keys as current, so upgrade them first.
 
 ## [0.12.0] - 2026-11-11
 

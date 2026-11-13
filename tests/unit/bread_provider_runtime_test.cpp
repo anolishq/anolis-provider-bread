@@ -724,8 +724,11 @@ TEST(BreadProviderRuntimeTest, ACallThatIsNotAClearLeavesAFreshReading) {
 }
 
 TEST(BreadProviderRuntimeTest, AFirstGoodReadFillsAReadingStartupCouldNotTake) {
-    // Find a dropout that fails the startup status read (and its retries) but
-    // nothing a later read needs.
+    // Find a dropout that leaves startup without a reading (it fails the arm, so
+    // the startup status read is skipped) but nothing a later read needs. A
+    // failed operation always leaves the device to recover, so the first good
+    // read refreshes as a recovery; the "no reading yet" condition alone is not
+    // reached this way.
     int chosen = -1;
     for (int d = 0; d < 200 && chosen < 0; ++d) {
         initialize_with_dropout(d, 3);
