@@ -13,6 +13,14 @@ commit messages only.
 
 ## [Unreleased]
 
+### Fixed
+
+- The `discovery.mode` description in `--config-schema` now says discovery runs
+  once, when the provider starts, that the devices it finds are the provider's
+  device list, and that a device that comes up later is found at the next
+  provider restart. It said only what manual and scan do, so the workbench
+  showed no answer to when a scan happens (#180).
+
 ## [0.13.0] - 2026-11-13
 
 0.13.0 is a minor release because a call bread used to accept can now fail:
