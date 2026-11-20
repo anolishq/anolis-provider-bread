@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <filesystem>
+#include <fstream>
 #include <map>
 #include <string>
 #include <vector>
@@ -87,6 +89,50 @@ TEST(BreadInventoryTest, DiscoveryInventoryAssignsStableGeneratedIdsByTypeAndAdd
     EXPECT_EQ(result.supported_devices[0].descriptor.tags().count("hw.i2c_address"), 0U);
     EXPECT_EQ(result.supported_devices[0].descriptor.tags().count("bus_path"), 0U);
     EXPECT_EQ(result.supported_devices[0].descriptor.tags().count("i2c_address"), 0U);
+}
+
+// bread#225: the runtime compares claim keys as exact strings, so a bus named
+// through a symlink also publishes the key for the path it resolves to, and two
+// providers naming one adapter differently collide.
+std::string claim_of_one_rlht(const std::string &bus_path) {
+    ProviderConfig config = make_base_config();
+    config.bus_path = bus_path;
+    config.discovery_mode = DiscoveryMode::Scan;
+    const std::vector<ProbeRecord> probes = {ProbeRecord{0x08,
+                                                         RLHT_TYPE_ID,
+                                                         ProbeStatus::Supported,
+                                                         {CRUMBS_VERSION, 1, 0, 0},
+                                                         make_seeded_capability_profile(DeviceType::Rlht),
+                                                         "ok"}};
+    const InventoryBuildResult result = build_inventory_from_probes(config, probes, InventorySource::Discovered);
+    EXPECT_EQ(result.supported_devices.size(), 1U);
+    return result.supported_devices.empty() ? std::string{}
+                                            : result.supported_devices[0].descriptor.tags().at("anolis.claim");
+}
+
+TEST(BreadInventoryTest, ASymlinkedBusPublishesTheConfiguredAndTheResolvedClaim) {
+#ifdef _WIN32
+    GTEST_SKIP() << "symlinked I2C bus paths are a Linux case; Windows needs a privilege to make a symlink";
+#else
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() /
+                         ("bread-claim-" + std::to_string(::testing::UnitTest::GetInstance()->random_seed()));
+    fs::create_directories(dir);
+    const fs::path node = dir / "i2c-7";
+    std::ofstream(node).put('\0');
+    const fs::path link = dir / "bread-bus";
+    fs::remove(link);
+    fs::create_symlink(node, link);
+
+    const std::string claim = claim_of_one_rlht(link.string());
+    EXPECT_EQ(claim, "i2c:" + link.string() + ":0x08 i2c:" + fs::canonical(node).string() + ":0x08");
+
+    fs::remove_all(dir);
+#endif
+}
+
+TEST(BreadInventoryTest, AMockBusPublishesOneClaim) {
+    EXPECT_EQ(claim_of_one_rlht("mock://bench"), "i2c:mock://bench:0x08");
 }
 
 TEST(BreadInventoryTest, ManualInventoryPreservesConfiguredIdentityAndTracksMissingExpected) {

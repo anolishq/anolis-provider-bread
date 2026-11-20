@@ -15,6 +15,11 @@ commit messages only.
 
 ### Fixed
 
+- Each device now publishes every claim key the SDK gives for its address: the
+  key for `bus_path` as configured and, when it differs, the key for the path it
+  resolves to. A provider that names the same adapter through a symlink now
+  collides with bread at the runtime's claim check instead of sharing the
+  address (#225).
 - The `discovery.mode` description in `--config-schema` now says discovery runs
   once, when the provider starts, that the devices it finds are the provider's
   device list, and that a device that comes up later is found at the next
