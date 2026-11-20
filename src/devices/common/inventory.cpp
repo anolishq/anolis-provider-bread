@@ -428,11 +428,15 @@ InventoryDevice build_device(const ProviderConfig &config, const ProbeRecord &pr
     device.descriptor.set_type_id(provider_type_id(type));
     device.descriptor.set_type_version(
         std::to_string(device.version.module_major == 0 ? 1 : static_cast<int>(device.version.module_major)));
-    // The bus address this device owns, as an opaque claim the runtime checks
-    // for uniqueness across providers (anolis#318); the SDK spells the key so
-    // every provider on the bus agrees.
-    anolis::provider_sdk::add_claim(device.descriptor, anolis::provider_sdk::i2c::claim_key(
-                                                           config.bus_path, static_cast<unsigned int>(probe.address)));
+    // The bus address this device owns, as opaque claims the runtime checks
+    // for uniqueness across providers (anolis#318); the SDK spells the keys so
+    // every provider on the bus agrees. claim_keys adds the key for the
+    // resolved bus path when it differs, so two names for one adapter collide
+    // (bread#225).
+    for (const auto &key :
+         anolis::provider_sdk::i2c::claim_keys(config.bus_path, static_cast<unsigned int>(probe.address))) {
+        anolis::provider_sdk::add_claim(device.descriptor, key);
+    }
     device.descriptor.mutable_tags()->insert({"family", "bread"});
     device.descriptor.mutable_tags()->insert({"inventory", to_string(source)});
     device.descriptor.mutable_tags()->insert({"contract", bread_contract_name(type)});
