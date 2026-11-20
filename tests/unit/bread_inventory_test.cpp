@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <map>
 #include <string>
 #include <vector>
@@ -111,16 +111,15 @@ std::string claim_of_one_rlht(const std::string &bus_path) {
 }
 
 TEST(BreadInventoryTest, ASymlinkedBusPublishesTheConfiguredAndTheResolvedClaim) {
+#ifdef _WIN32
+    GTEST_SKIP() << "symlinked I2C bus paths are a Linux case; Windows needs a privilege to make a symlink";
+#else
     namespace fs = std::filesystem;
     const fs::path dir = fs::temp_directory_path() /
                          ("bread-claim-" + std::to_string(::testing::UnitTest::GetInstance()->random_seed()));
     fs::create_directories(dir);
     const fs::path node = dir / "i2c-7";
-    {
-        std::FILE *f = std::fopen(node.c_str(), "w");
-        ASSERT_NE(f, nullptr);
-        std::fclose(f);
-    }
+    std::ofstream(node).put('\0');
     const fs::path link = dir / "bread-bus";
     fs::remove(link);
     fs::create_symlink(node, link);
@@ -129,6 +128,7 @@ TEST(BreadInventoryTest, ASymlinkedBusPublishesTheConfiguredAndTheResolvedClaim)
     EXPECT_EQ(claim, "i2c:" + link.string() + ":0x08 i2c:" + fs::canonical(node).string() + ":0x08");
 
     fs::remove_all(dir);
+#endif
 }
 
 TEST(BreadInventoryTest, AMockBusPublishesOneClaim) {
