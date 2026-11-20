@@ -69,7 +69,10 @@ cfg::Schema build_schema() {
                         .enum_value("scan", "Scan the bus")
                         .enum_value("manual", "Manual address list")
                         .default_string("manual")
-                        .description("manual probes exactly the listed addresses; scan walks the bus."));
+                        .description("Discovery runs once, when the provider starts: manual probes exactly "
+                                     "the listed addresses; scan walks the bus. The devices it finds are the "
+                                     "provider's device list, which the runtime registers. A device that "
+                                     "comes up later is found at the next provider restart."));
     discovery.array("addresses",
                     cfg::Array::of_scalars(cfg::i2c_address_field("address"))
                         .min_items(1)
