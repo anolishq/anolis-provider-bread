@@ -211,15 +211,41 @@ jobs:
     runs-on: ubuntu-26.04
     needs: [release-linux-x86_64, release-linux-arm64]
     steps:
-      - name: Regenerate SHA256SUMS across all release tarballs
+      - name: Regenerate SHA256SUMS across every verified release asset
         env:
           GH_TOKEN: ${{ github.token }}
-        # Each build job uploads its own tarball; the x86_64 job's SHA256SUMS
-        # never covered the arm64 asset (#102). Rebuild the checksum file from
-        # everything actually attached to the release, then replace it.
+        # Each build job uploads its own assets; the x86_64 job's SHA256SUMS
+        # never covered the arm64 ones (#102). Rebuild the checksum file from
+        # everything a consumer verifies, as attached to the release, then
+        # replace it. The config schema and the manifests are covered too (#197);
+        # metrics.json is not, as in the runtime release.
         run: |
-          gh release download "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --pattern '*.tar.gz'
-          sha256sum *.tar.gz > SHA256SUMS
+          set -euo pipefail
+          gh release download "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" \
+            --pattern '*.tar.gz' \
+            --pattern '*-config-schema.json' \
+            --pattern '*-config-schema-manifest.json' \
+            --pattern 'manifest.json' \
+            --pattern 'manifest-linux-arm64.json'
+          version="${GITHUB_REF_NAME#v}"
+          required=(
+            "anolis-provider-bread-${version}-linux-x86_64.tar.gz"
+            "anolis-provider-bread-${version}-linux-arm64.tar.gz"
+            "anolis-provider-bread-${version}-source.tar.gz"
+            "anolis-provider-bread-${version}-config-schema.json"
+            "anolis-provider-bread-${version}-config-schema-manifest.json"
+            manifest.json
+            manifest-linux-arm64.json
+          )
+          missing=0
+          for f in "${required[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::release asset missing, so SHA256SUMS cannot cover it: $f"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ]
+          sha256sum *.tar.gz *-config-schema.json *-config-schema-manifest.json manifest.json manifest-linux-arm64.json > SHA256SUMS
           cat SHA256SUMS
           gh release upload "${GITHUB_REF_NAME}" SHA256SUMS --clobber --repo "${GITHUB_REPOSITORY}"
 
