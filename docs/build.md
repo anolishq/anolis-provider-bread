@@ -119,24 +119,24 @@ triplet. If you need an explicit override, pass `-DVCPKG_TARGET_TRIPLET=<triplet
 Validate config only:
 
 ```powershell
-.\build\dev-windows-debug\Debug\anolis-provider-bread.exe --check-config config\example.local.yaml
+.\build\dev-windows-debug\Debug\anolis-provider-bread.exe --check-config config\ci.test.yaml
 ```
 
 Start the provider for ADPP clients:
 
 ```powershell
-.\build\dev-windows-debug\Debug\anolis-provider-bread.exe --config config\example.local.yaml
+.\build\dev-windows-debug\Debug\anolis-provider-bread.exe --config config\ci.test.yaml
 ```
 
-The committed sample config declares one RLHT and one DCMT device on `/dev/i2c-1`. On Windows
-and macOS it seeds them without bus access, so `Hello`, `WaitReady`, `ListDevices`,
+`config/ci.test.yaml` sets `hardware.bus_path` to a `mock://...` value, so the provider seeds its
+devices from the config without bus access, and `Hello`, `WaitReady`, `ListDevices`,
 `DescribeDevice`, and `GetHealth` are testable without real hardware.
 
-To exercise the config-seeded inventory without hardware, set `hardware.bus_path` to a
-`mock://...` value (as in `config/ci.test.yaml`). On Linux, a real bus path that cannot be opened,
-or whose host requirements are unmet, does not fall back to a seeded inventory: the provider
-keeps serving ADPP but reports not ready, with every configured device listed as missing and
-the reason given.
+A real bus path never falls back to a seeded inventory. On Linux, one that cannot be opened, or
+whose host requirements are unmet, leaves the provider serving ADPP but not ready, with every
+configured device listed as missing and the reason given. Windows and macOS builds have no
+hardware bus, so any bus path other than `mock://...` does the same, with the reason
+`needs a Linux build`.
 
 ## Test Taxonomy
 

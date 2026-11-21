@@ -31,6 +31,12 @@ commit messages only.
 
 ### Fixed
 
+- A Windows or macOS build given a hardware `bus_path` now stays up and not
+  ready, with every configured device missing and the reason `needs a Linux
+  build`. It used to serve the config-seeded inventory and report ready, as
+  if the configured devices answered on that bus. `docs/build.md` runs the
+  Windows binary against `config/ci.test.yaml` (a `mock://` bus) instead of
+  `config/example.local.yaml` (#200).
 - Each device now publishes every claim key the SDK gives for its address: the
   key for `bus_path` as configured and, when it differs, the key for the path it
   resolves to. A provider that names the same adapter through a symlink now

@@ -151,7 +151,8 @@ void seed_watchdog_readings(crumbs::Session &session, const std::vector<inventor
     }
 }
 
-// `deadline` is read only on the Linux hardware path; other builds are mock-only.
+// `deadline` is read only on the Linux hardware path. Other builds serve only a
+// mock:// bus_path and refuse a hardware one (#200).
 void initialize_until(const ProviderConfig &config,
                       [[maybe_unused]] std::optional<std::chrono::steady_clock::time_point> deadline) {
     RuntimeState state;
@@ -224,6 +225,16 @@ void initialize_until(const ProviderConfig &config,
         }
         old_keepalive.reset();
         // Old session/transport destroyed here, outside the lock.
+        return;
+    }
+#else
+    if (!is_mock_mode(config)) {
+        // Only Linux builds have a hardware bus. Serving the config-seeded
+        // inventory here would answer for devices nobody is talking to, so a
+        // hardware bus_path leaves the provider up and not ready, as an
+        // unusable bus does on Linux (#200).
+        publish_not_ready(std::move(state), "hardware bus_path '" + config.bus_path +
+                                                "' needs a Linux build; this build serves only a mock:// bus_path");
         return;
     }
 #endif
