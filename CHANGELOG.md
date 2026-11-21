@@ -13,6 +13,14 @@ commit messages only.
 
 ## [Unreleased]
 
+### Changed
+
+- The declared CMake minimum is now 3.24, in `CMakeLists.txt` and
+  `CMakePresets.json`, matching `docs/build.md`. Every dependency fetch passes
+  `DOWNLOAD_EXTRACT_TIMESTAMP`, which CMake added in 3.24. On 3.20 to 3.23,
+  configure stopped with a misleading `URL_HASH` error instead of naming the
+  version (#200).
+
 ### Documentation
 
 - `docs/troubleshooting.md` documents the device I/O counters. One session

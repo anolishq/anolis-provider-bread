@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.24)
 
 option(ANOLIS_PROVIDER_BREAD_WARNINGS_AS_ERRORS "Treat first-party compiler warnings as errors" OFF)
 
