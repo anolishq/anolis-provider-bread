@@ -13,6 +13,14 @@ commit messages only.
 
 ## [Unreleased]
 
+### Documentation
+
+- `docs/troubleshooting.md` documents the device I/O counters. One session
+  operation counts once. `io_failed` covers bus errors, timeouts, truncated
+  frames and CRC mismatches. A reply with a valid CRC that the adapter cannot
+  use counts in `io_ok` and `io_rejected`, and moves `last_seen`. The provider
+  SDK's metrics contract had described that last case as `io_failed` (#240).
+
 ### Fixed
 
 - Each device now publishes every claim key the SDK gives for its address: the
