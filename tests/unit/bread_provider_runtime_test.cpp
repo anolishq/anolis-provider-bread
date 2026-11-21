@@ -467,6 +467,30 @@ TEST(BreadProviderRuntimeTest, MissingBusStaysUpNotReady) {
 
     anolis_provider_bread::runtime::reset();
 }
+#else
+// Off Linux there is no hardware bus: a hardware bus_path leaves the provider
+// up and not ready with the reason, not serving the config-seeded inventory
+// as if the configured devices answered (#200).
+TEST(BreadProviderRuntimeTest, AHardwareBusPathOffLinuxStaysUpNotReady) {
+    auto config = make_mock_config();
+    config.bus_path = "/dev/i2c-1";
+
+    anolis_provider_bread::runtime::reset();
+    ASSERT_NO_THROW(anolis_provider_bread::runtime::initialize(config));
+    const anolis_provider_bread::BreadProviderRuntime rt;
+
+    EXPECT_TRUE(rt.list_device_ids().empty());
+    EXPECT_EQ(anolis_provider_bread::runtime::session(), nullptr);
+
+    const auto r = rt.readiness();
+    EXPECT_FALSE(r.ready);
+    ASSERT_EQ(r.failed_devices.size(), 2U);
+    for (const auto& failed : r.failed_devices) {
+        EXPECT_NE(failed.reason.find("needs a Linux build"), std::string::npos) << failed.reason;
+    }
+
+    anolis_provider_bread::runtime::reset();
+}
 #endif
 
 // A start-up that throws (here the mock bus refuses to open) leaves the
