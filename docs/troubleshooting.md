@@ -317,6 +317,29 @@ provider.metrics["startup_failed_devices"]      — configured devices not in in
 device.metrics["safe_outputs"]                  — "set", "not set: <step: reason>" (the device is STATE_FAULT), or "left"
 ```
 
+### Device I/O counters
+
+Each device's health also carries cumulative I/O counters for its address,
+using the key vocabulary in the provider SDK's `docs/metrics.md`. One CRUMBS
+session operation counts once: a send, a read, or a query (the `SET_REPLY`
+send and the read that follows it). Retries inside an operation do not add to
+`io_ok` or `io_failed`.
+
+```text
+device.metrics["io_ok"]               — operations whose frame went out, or came back with a valid CRC
+device.metrics["io_failed"]           — operations that failed after retries: a bus error, a timeout, a truncated frame, or a CRC mismatch (decode_failed)
+device.metrics["io_retried_attempts"] — attempts beyond each operation's first, including those that then succeeded
+device.metrics["io_rejected"]         — replies with a valid CRC that the adapter could not use: the wrong type or opcode, or a payload it could not parse
+device.last_seen                      — the time of the last operation counted in io_ok
+```
+
+A rejected reply counts in `io_ok` and in `io_rejected`, and it moves
+`last_seen`: the bus answered, with the wrong frame. That differs from
+`io_failed`, where the bus did not answer usefully. A device whose
+`io_rejected` rises while `io_failed` stays flat is answering, but not with
+what the provider asked for. Suspect a firmware or contract mismatch before
+wiring.
+
 The `WaitReady` diagnostics carry these keys:
 
 ```text
