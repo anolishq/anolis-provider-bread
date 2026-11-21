@@ -41,6 +41,30 @@ gtest_discover_tests(provider_unit_tests
         TIMEOUT 30
 )
 
+# Linux only: replaces ioctl for the whole process to fault the real
+# LinuxI2cBus, so it cannot share the unit test executable (#198).
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(provider_bus_retry_tests
+        bus_retry_test.cpp
+    )
+    target_include_directories(provider_bus_retry_tests PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    target_link_libraries(provider_bus_retry_tests PRIVATE
+        anolis_provider_bread_crumbs
+        GTest::gtest_main
+        ${CMAKE_DL_LIBS}
+    )
+    anolis_provider_bread_apply_warnings(provider_bus_retry_tests)
+    gtest_discover_tests(provider_bus_retry_tests
+        TEST_PREFIX provider.unit.
+        DISCOVERY_TIMEOUT 30
+        PROPERTIES
+            LABELS "unit"
+            TIMEOUT 30
+    )
+endif()
+
 add_executable(provider_shell_tests
     shell_test.cpp
 )

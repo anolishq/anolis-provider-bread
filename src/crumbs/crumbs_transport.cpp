@@ -9,6 +9,10 @@
 #include <cstring>
 #include <utility>
 
+#if defined(__linux__)
+#include "anolis/provider_sdk/i2c/linux_i2c_bus.hpp"
+#endif
+
 namespace anolis_provider_bread::crumbs {
 namespace {
 
@@ -222,5 +226,11 @@ void CrumbsTransport::delay_us(uint32_t delay_us) {
         bus_->delay_us(delay_us);
     }
 }
+
+#if defined(__linux__)
+std::unique_ptr<CrumbsTransport> make_linux_transport(const std::string &bus_path) {
+    return std::make_unique<CrumbsTransport>(std::make_unique<sdk_i2c::LinuxI2cBus>(bus_path, 0));
+}
+#endif
 
 }  // namespace anolis_provider_bread::crumbs
