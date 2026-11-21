@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "crumbs/session.hpp"
+#include "devices/common/device_adapter.hpp"
 #include "devices/common/inventory.hpp"
 
 extern "C" {
@@ -456,6 +457,15 @@ TEST_F(RlhtAdapterTest, ReadSignals_MalformedPayload_IsCountedAsRejected) {
 // ---------------------------------------------------------------------------
 // call tests
 // ---------------------------------------------------------------------------
+
+// With no session the provider started not ready, and the message says so
+// instead of blaming the build (#200).
+TEST_F(RlhtAdapterTest, Call_WithNoSession_IsUnavailableBecauseTheProviderIsNotReady) {
+    const auto result = anolis_provider_bread::call(adapter_for(DeviceType::Rlht), nullptr, device, 7, {});
+    EXPECT_FALSE(result.ok);
+    EXPECT_EQ(result.error_code, anolis::deviceprovider::v1::Status::CODE_UNAVAILABLE);
+    EXPECT_NE(result.error_message.find("provider not ready"), std::string::npos) << result.error_message;
+}
 
 TEST_F(RlhtAdapterTest, Call_SetMode_ClosedLoop_SendsCorrectFrame) {
     const auto args = make_args({{"mode", make_string_val("closed_loop")}});
