@@ -30,10 +30,6 @@
 #include "devices/common/watchdog_keepalive.hpp"
 #include "logging/logger.hpp"
 
-#if defined(__linux__)
-#include "anolis/provider_sdk/i2c/linux_i2c_bus.hpp"
-#endif
-
 namespace anolis_provider_bread::runtime {
 namespace {
 
@@ -172,8 +168,7 @@ void initialize_until(const ProviderConfig &config,
             return;
         }
 
-        auto bus = std::make_unique<anolis::provider_sdk::i2c::LinuxI2cBus>(config.bus_path, config.retry_count);
-        auto transport = std::make_unique<crumbs::CrumbsTransport>(std::move(bus));
+        auto transport = crumbs::make_linux_transport(config.bus_path);
         auto sess = std::make_unique<crumbs::Session>(*transport, crumbs::make_session_options(config));
 
         const crumbs::SessionStatus open_status = sess->open();

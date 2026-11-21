@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "anolis/provider_sdk/i2c/i2c_bus.hpp"
@@ -52,5 +53,17 @@ private:
     uint32_t scan_timeout_us_ = 0u;
     bool open_ = false;
 };
+
+#if defined(__linux__)
+/**
+ * @brief Build the CRUMBS transport over the SDK's Linux I2C bus at `bus_path`.
+ *
+ * The bus is built with no retries of its own: `Session` owns the retry budget
+ * (`hardware.retry_count`) and counts every attempt in the io_* metrics.
+ * Retrying at both layers multiplied the writes per operation and hid the
+ * bus's retries from `io_retried_attempts` (anolis-provider-bread#198).
+ */
+std::unique_ptr<CrumbsTransport> make_linux_transport(const std::string &bus_path);
+#endif
 
 }  // namespace anolis_provider_bread::crumbs

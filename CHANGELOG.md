@@ -31,6 +31,12 @@ commit messages only.
 
 ### Fixed
 
+- `hardware.retry_count` is applied once per operation. It went to both the
+  SDK's Linux I2C bus and the CRUMBS session, so an `EAGAIN` or `EINTR`
+  retried at both layers. With the default of 2, one send could make 9 bus
+  writes, and retries the bus absorbed never reached `io_retried_attempts`.
+  The bus now has no retries of its own: an operation makes at most
+  `retry_count + 1` writes, and every one is counted (#198).
 - A Windows or macOS build given a hardware `bus_path` now stays up and not
   ready, with every configured device missing and the reason `needs a Linux
   build`. It used to serve the config-seeded inventory and report ready, as
