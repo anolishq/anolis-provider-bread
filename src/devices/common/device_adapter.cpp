@@ -51,7 +51,7 @@ AdapterCallResult call(const DeviceAdapter &adapter, crumbs::Session *session, c
         return result;
     }
     if (session == nullptr) {
-        return {false, Status::CODE_UNAVAILABLE, "no hardware session (provider not built with hardware support)"};
+        return {false, Status::CODE_UNAVAILABLE, "no CRUMBS session (provider not ready; see its readiness for why)"};
     }
     return adapter.transmit(*session, device, frame);
 }

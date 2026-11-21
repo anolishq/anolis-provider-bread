@@ -33,6 +33,10 @@ commit messages only.
   device list, and that a device that comes up later is found at the next
   provider restart. It said only what manual and scan do, so the workbench
   showed no answer to when a scan happens (#180).
+- A read or call with no CRUMBS session now fails with `no CRUMBS session
+  (provider not ready; see its readiness for why)`. It blamed a build without
+  hardware support, and no build lacks it: the session is missing only after a
+  not-ready start-up (#200).
 
 ## [0.13.0] - 2026-11-13
 

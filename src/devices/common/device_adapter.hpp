@@ -44,7 +44,7 @@ const DeviceAdapter &adapter_for(DeviceType type);
  * ADPP §8.3: `build_frame` validates and encodes the request WITHOUT touching
  * hardware, so argument errors surface (INVALID_ARGUMENT / OUT_OF_RANGE) even
  * when no session is available; `transmit` runs only once a session is present.
- * `session` may be null (provider built without hardware support). Composes the
+ * `session` is null only when the provider started not ready. Composes the
  * descriptor's two-stage primitives so the request handler stays device-agnostic.
  */
 AdapterCallResult call(const DeviceAdapter &adapter, crumbs::Session *session, const inventory::InventoryDevice &device,

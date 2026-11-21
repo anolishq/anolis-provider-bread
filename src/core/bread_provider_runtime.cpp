@@ -323,7 +323,7 @@ sdk::AdapterReadResult BreadProviderRuntime::read(const std::string& device_id,
     if (session == nullptr) {
         return {false,
                 adpp::Status::CODE_UNAVAILABLE,
-                "no hardware session (provider not built with hardware support)",
+                "no CRUMBS session (provider not ready; see its readiness for why)",
                 {}};
     }
 
