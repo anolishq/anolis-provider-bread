@@ -20,6 +20,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -32,7 +33,8 @@ bool g_intercept = false;
 int g_errno = EAGAIN;
 long g_fail_first = 0;
 long g_rdwr_calls = 0;
-long g_rdwr_writes = 0;  // I2C_RDWR calls whose messages carry no read
+long g_rdwr_writes = 0;           // I2C_RDWR calls whose messages carry no read
+bool g_fail_writes_only = false;  // g_fail_first counts writes, not every call
 
 }  // namespace
 
@@ -52,7 +54,17 @@ extern "C" int ioctl(int fd, unsigned long request, ...) {
             if (!reads) {
                 ++g_rdwr_writes;
             }
-            if (g_rdwr_calls <= g_fail_first) {
+            // A read gets 0xFF, what an idle bus reads, which is no CRUMBS
+            // frame: the scan then always sends its probe write. Left unset,
+            // the scan decided from whatever the buffer held, so a clean scan
+            // made 1 call in one build and 3 in another (#257).
+            for (__u32 i = 0; data != nullptr && i < data->nmsgs; ++i) {
+                if ((data->msgs[i].flags & I2C_M_RD) != 0) {
+                    std::memset(data->msgs[i].buf, 0xFF, data->msgs[i].len);
+                }
+            }
+            const long counted = g_fail_writes_only ? (reads ? 0 : g_rdwr_writes) : g_rdwr_calls;
+            if (counted > 0 && counted <= g_fail_first) {
                 errno = g_errno;
                 return -1;
             }
@@ -80,6 +92,7 @@ protected:
         ::close(fd);
         bus_path_ = templ;
         g_rdwr_calls = 0;
+        g_fail_writes_only = false;
         g_intercept = true;
     }
 
@@ -154,8 +167,11 @@ TEST_F(BusRetryTest, AScanProbeRetriesABusyWrite) {
     const long clean = scan_one_address(bus_path_);
     ASSERT_GT(clean, 0);
 
+    // The scan reads before it writes, so the first call is a read: fail the
+    // first write, the probe write this test is about (#257).
     g_errno = EAGAIN;
     g_fail_first = 1;
+    g_fail_writes_only = true;
     EXPECT_EQ(scan_one_address(bus_path_), clean + 1) << "one EAGAIN on the probe write is retried once";
 }
 
