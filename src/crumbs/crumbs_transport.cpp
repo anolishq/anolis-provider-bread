@@ -6,6 +6,7 @@
  * and scan via the controller helpers.
  */
 
+#include <cerrno>
 #include <cstring>
 #include <utility>
 
@@ -68,14 +69,33 @@ SessionStatus status_from_i2c(SessionErrorCode code, const std::string &context,
     return SessionStatus::failure(code, std::move(message), status.native_errno);
 }
 
-// CRUMBS controller-helper callbacks: user_ctx is the I2cBus.
+// What the scan's CRUMBS callbacks get as user_ctx.
+struct ScanBus {
+    sdk_i2c::I2cBus *bus;
+    int retries;  // extra tries for a probe write the bus refused as busy
+};
+
+// The bus has no retries of its own and the scan goes around Session, so a
+// probe write gets them here: an EAGAIN or EINTR is retried up to
+// hardware.retry_count times, as a Session operation would be. Without it one
+// busy moment during discovery left a board off the roster until a restart
+// (review of #254).
 int bus_write_fn(void *user_ctx, uint8_t addr, const uint8_t *data, size_t len) {
-    auto *bus = static_cast<sdk_i2c::I2cBus *>(user_ctx);
-    return bus->write(addr, data, len) ? 0 : -1;
+    auto *scan = static_cast<ScanBus *>(user_ctx);
+    for (int attempt = 0;; ++attempt) {
+        const sdk_i2c::I2cStatus status = scan->bus->write(addr, data, len);
+        if (status) {
+            return 0;
+        }
+        const bool transient = status.native_errno == EAGAIN || status.native_errno == EINTR;
+        if (!transient || attempt >= scan->retries) {
+            return -1;
+        }
+    }
 }
 
 int bus_read_fn(void *user_ctx, uint8_t addr, uint8_t *buffer, size_t len, uint32_t timeout_us) {
-    auto *bus = static_cast<sdk_i2c::I2cBus *>(user_ctx);
+    auto *bus = static_cast<ScanBus *>(user_ctx)->bus;
     size_t received = 0;
     if (!bus->read(addr, buffer, len, &received, timeout_us)) {
         return -1;
@@ -108,6 +128,7 @@ SessionStatus CrumbsTransport::open(const SessionOptions &options) {
     // hardware setup here — the bus owns the platform mechanics.
     crumbs_init(&ctx_, CRUMBS_ROLE_CONTROLLER, 0);
     scan_timeout_us_ = scan_probe_timeout_us(options);
+    scan_retries_ = options.retry_count > 0 ? options.retry_count : 0;
     open_ = true;
     return SessionStatus::success();
 }
@@ -135,9 +156,10 @@ SessionStatus CrumbsTransport::scan(const ScanOptions &options, std::vector<Scan
 
     // The CRUMBS controller scan drives probe writes + reads through the bus
     // callbacks and validates each responder via CRC decode, returning type IDs.
+    ScanBus scan_bus{bus_.get(), scan_retries_};
     const int rc = crumbs_controller_scan_for_crumbs_with_types(
-        &ctx_, options.start_address, options.end_address, options.strict ? 1 : 0, bus_write_fn, bus_read_fn,
-        bus_.get(), addresses.data(), types.data(), options.max_results, scan_timeout_us_);
+        &ctx_, options.start_address, options.end_address, options.strict ? 1 : 0, bus_write_fn, bus_read_fn, &scan_bus,
+        addresses.data(), types.data(), options.max_results, scan_timeout_us_);
     if (rc < 0) {
         return SessionStatus::failure(SessionErrorCode::ScanFailed, "failed to scan CRUMBS devices", rc);
     }
