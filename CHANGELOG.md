@@ -35,8 +35,15 @@ commit messages only.
   SDK's Linux I2C bus and the CRUMBS session, so an `EAGAIN` or `EINTR`
   retried at both layers. With the default of 2, one send could make 9 bus
   writes, and retries the bus absorbed never reached `io_retried_attempts`.
-  The bus now has no retries of its own: an operation makes at most
-  `retry_count + 1` writes, and every one is counted (#198).
+  The bus now has no retries of its own: a session operation makes at most
+  `retry_count + 1` writes, and every one is counted (#198). A confirmed
+  command is up to three session sends, so one ADPP call can still make up
+  to `3 × (retry_count + 1)` writes. With the default, a write that meets
+  three `EAGAIN`s in a row now fails, where it used to survive up to eight.
+- A discovery scan retries a probe write the bus refuses as busy (`EAGAIN`
+  or `EINTR`) up to `hardware.retry_count` times, as a session operation
+  does. Since the fix above left the bus with no retries, one busy moment
+  during discovery could leave a board off the roster until a restart.
 - A Windows or macOS build given a hardware `bus_path` now stays up and not
   ready, with every configured device missing and the reason `needs a Linux
   build`. It used to serve the config-seeded inventory and report ready, as

@@ -13,6 +13,7 @@
 #include <dlfcn.h>
 #include <gtest/gtest.h>
 #include <linux/i2c-dev.h>
+#include <linux/i2c.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -20,6 +21,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 #include "crumbs/crumbs_transport.hpp"
 #include "crumbs/session.hpp"
@@ -30,6 +32,7 @@ bool g_intercept = false;
 int g_errno = EAGAIN;
 long g_fail_first = 0;
 long g_rdwr_calls = 0;
+long g_rdwr_writes = 0;  // I2C_RDWR calls whose messages carry no read
 
 }  // namespace
 
@@ -41,6 +44,14 @@ extern "C" int ioctl(int fd, unsigned long request, ...) {
     if (g_intercept) {
         if (request == I2C_RDWR) {
             ++g_rdwr_calls;
+            const auto *data = static_cast<const i2c_rdwr_ioctl_data *>(arg);
+            bool reads = false;
+            for (__u32 i = 0; data != nullptr && i < data->nmsgs; ++i) {
+                reads = reads || (data->msgs[i].flags & I2C_M_RD) != 0;
+            }
+            if (!reads) {
+                ++g_rdwr_writes;
+            }
             if (g_rdwr_calls <= g_fail_first) {
                 errno = g_errno;
                 return -1;
@@ -116,6 +127,49 @@ TEST_F(BusRetryTest, EagainAbsorbedByRetriesStillCountsTheRetriedAttempts) {
     const AddressStats stats = session.stats_for(0x08);
     EXPECT_EQ(stats.ok, 1U);
     EXPECT_EQ(stats.retried_attempts, 2U) << "the bus's absorbed EAGAINs must show in io_retried_attempts";
+}
+
+// Review of #254: a scan's probe writes go around Session, so with the bus at
+// no retries a single EAGAIN dropped an address from discovery. They get
+// Session's budget back: one busy write costs one more bus call, and a
+// persistent one stops after retry_count + 1 writes.
+long scan_one_address(const std::string &bus_path) {
+    auto transport = make_linux_transport(bus_path);
+    Session session(*transport, SessionOptions{bus_path, 10000u, 100u, 2});
+    if (!session.open()) {
+        return -1;
+    }
+    g_rdwr_calls = 0;
+    g_rdwr_writes = 0;
+    ScanOptions options;
+    options.start_address = 0x08;
+    options.end_address = 0x08;
+    std::vector<ScanResult> found;
+    (void)session.scan(options, found);
+    return g_rdwr_calls;
+}
+
+TEST_F(BusRetryTest, AScanProbeRetriesABusyWrite) {
+    g_fail_first = 0;
+    const long clean = scan_one_address(bus_path_);
+    ASSERT_GT(clean, 0);
+
+    g_errno = EAGAIN;
+    g_fail_first = 1;
+    EXPECT_EQ(scan_one_address(bus_path_), clean + 1) << "one EAGAIN on the probe write is retried once";
+}
+
+TEST_F(BusRetryTest, AScanProbeRetriesABusyWriteUpToTheBudgetAndAHardErrorNotAtAll) {
+    g_fail_first = 1000;
+    g_errno = EIO;
+    ASSERT_GE(scan_one_address(bus_path_), 0);
+    const long hard_writes = g_rdwr_writes;
+    ASSERT_GT(hard_writes, 0);
+
+    g_errno = EAGAIN;
+    ASSERT_GE(scan_one_address(bus_path_), 0);
+    EXPECT_EQ(g_rdwr_writes, 3 * hard_writes)
+        << "retry_count 2: each probe write is tried 3 times when busy, once on EIO (" << hard_writes << ")";
 }
 
 }  // namespace

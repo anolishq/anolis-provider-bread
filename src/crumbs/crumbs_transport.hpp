@@ -51,6 +51,7 @@ private:
     std::unique_ptr<anolis::provider_sdk::i2c::I2cBus> bus_;
     crumbs_context_t ctx_{};
     uint32_t scan_timeout_us_ = 0u;
+    int scan_retries_ = 0;
     bool open_ = false;
 };
 
